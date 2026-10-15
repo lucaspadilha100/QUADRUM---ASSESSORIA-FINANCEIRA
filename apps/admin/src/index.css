@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Identidade Quadrum (docs/marca/paleta-quadrum.png).
+   As variáveis são TRIPLETOS HSL, para o Tailwind montar `hsl(var(--x) / a)`.
+   ⚠️ Por isso `background: var(--x)` cru é cor INVÁLIDA, descartada calada:
+   fora do Tailwind, use sempre `hsl(var(--x))`.
+
+     Preto Onix    #0B0B0B   0 0% 4%
+     Dourado       #D4AF37   46 65% 52%
+     Cinza Grafite #2E2E2E   0 0% 18%
+     Off White     #F5F5F5   0 0% 96%
+     Azul Petróleo #0E4A5A   193 73% 20%
+
+   ⚠️ Texto BRANCO sobre dourado não tem contraste: botão dourado leva texto
+   Preto Onix (`primary-foreground`). O dourado é destaque, nunca fundo de
+   texto corrido.
+   ───────────────────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    --q-onix: 0 0% 4%;
+    --q-gold: 46 65% 52%;
+    --q-graphite: 0 0% 18%;
+    --q-offwhite: 0 0% 96%;
+    --q-petrol: 193 73% 20%;
+
+    --background: var(--q-offwhite);
+    --foreground: var(--q-onix);
+    --card: 0 0% 100%;
+    --card-foreground: var(--q-onix);
+    --popover: 0 0% 100%;
+    --popover-foreground: var(--q-onix);
+
+    --primary: var(--q-gold);
+    --primary-foreground: var(--q-onix);
+    --secondary: var(--q-petrol);
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 38%;
+    /* Hover de item de menu/lista: dourado bem claro (≈ o "gold soft" da marca). */
+    --accent: 46 65% 94%;
+    --accent-foreground: var(--q-onix);
+
+    /* Vermelho só para erro/alerta — uso semântico, nunca decorativo. */
+    --destructive: 355 68% 49%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 152 55% 32%;
+    --success-foreground: 0 0% 100%;
+    --warning: 36 90% 45%;
+    --warning-foreground: var(--q-onix);
+
+    --border: 0 0% 86%;
+    --input: 0 0% 84%;
+    /* Foco de campo em Azul Petróleo (manual: links, ícones informativos, foco). */
+    --ring: var(--q-petrol);
+    --radius: 0.625rem;
+  }
+
+  /* Escopo ESCURO (menu lateral, login): mesmas variáveis, outros valores.
+     Componentes que leem `bg-card`/`text-muted-foreground` ficam escuros
+     dentro dele sem saber disso. */
+  .q-escuro {
+    --background: var(--q-onix);
+    --foreground: var(--q-offwhite);
+    --card: var(--q-onix);
+    --card-foreground: var(--q-offwhite);
+    --popover: var(--q-graphite);
+    --popover-foreground: var(--q-offwhite);
+    --muted: var(--q-graphite);
+    --muted-foreground: 0 0% 66%;
+    --accent: var(--q-graphite);
+    --accent-foreground: var(--q-offwhite);
+    --border: var(--q-graphite);
+    --input: 0 0% 26%;
+    --ring: var(--q-gold);
+    color: hsl(var(--foreground));
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  h1, h2, h3 { @apply font-titulo; }
+}
+
+@layer components {
+  /* Link de texto em Azul Petróleo. Classe, e não regra global em `a`:
+     botão renderizado como link (`asChild`) herdaria a cor e o texto do botão
+     dourado ficaria azul. */
+  .q-link {
+    @apply font-medium underline-offset-4 hover:underline;
+    color: hsl(var(--q-petrol));
+  }
+
+  /* Título no estilo do manual: caixa alta, espaçamento largo entre letras. */
+  .q-titulo-marca {
+    @apply font-titulo uppercase tracking-[0.18em];
+  }
+}
