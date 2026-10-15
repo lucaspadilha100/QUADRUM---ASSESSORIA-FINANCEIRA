@@ -38,7 +38,6 @@ export default function Departamentos() {
     <div>
       <PageHeader
         titulo="Departamentos e setores"
-        descricao="Quem lança histórico no contrato e quem recebe o chat do Portal do Cliente."
         acoes={isGestor ? <Button onClick={() => setEditando("novo")}><Plus className="mr-1.5 h-4 w-4" /> Novo departamento</Button> : undefined}
       />
 
@@ -87,7 +86,6 @@ export default function Departamentos() {
             </table>
           </div>
         )}
-        {!isGestor && <p className="mt-3 text-xs text-muted-foreground">Só um gestor altera os departamentos.</p>}
       </div>
 
       <EditarDepartamento alvo={editando} total={lista.length} onFechar={() => setEditando(null)} />
@@ -127,7 +125,7 @@ function EditarDepartamento({ alvo, total, onFechar }: { alvo: Departamento | "n
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{novo ? "Novo departamento" : "Editar departamento"}</DialogTitle>
-          <DialogDescription>As marcas "atende no chat" e "urgente" mudam direto na lista.</DialogDescription>
+          <DialogDescription className="sr-only">As marcas "atende no chat" e "urgente" mudam direto na lista.</DialogDescription>
         </DialogHeader>
         <form onSubmit={enviar} className="space-y-3">
           <div className="space-y-1.5">
@@ -137,7 +135,6 @@ function EditarDepartamento({ alvo, total, onFechar }: { alvo: Departamento | "n
           <div className="space-y-1.5">
             <Label htmlFor="dep-ordem">Ordem na lista</Label>
             <Input id="dep-ordem" type="number" value={ordem} onChange={(e) => setOrdem(e.target.value)} />
-            <p className="text-[11px] text-muted-foreground">Menor aparece primeiro, inclusive no robô do portal.</p>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onFechar}>Cancelar</Button>

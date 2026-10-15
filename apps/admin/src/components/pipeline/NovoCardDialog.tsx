@@ -98,7 +98,7 @@ export function NovoCardDialog({ aberto, etapaInicial, onFechar }: {
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Novo contrato</DialogTitle>
-          <DialogDescription>O cliente só vê o contrato no portal quando ele chega à etapa de aceite.</DialogDescription>
+          <DialogDescription className="sr-only">O cliente só vê o contrato no portal quando ele chega à etapa de aceite.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={salvar} className="space-y-5">

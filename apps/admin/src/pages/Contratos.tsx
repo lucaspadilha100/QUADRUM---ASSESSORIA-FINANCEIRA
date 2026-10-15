@@ -53,7 +53,6 @@ export default function Contratos() {
     <div>
       <PageHeader
         titulo="Contratos"
-        descricao={isGestor ? "Todos os contratos da Quadrum." : "Os contratos da sua carteira."}
         acoes={<Button onClick={() => setNovo(true)}><Plus className="mr-1.5 h-4 w-4" /> Novo contrato</Button>}
       />
 
@@ -97,7 +96,7 @@ export default function Contratos() {
         ) : error ? (
           <Falha erro={error as Error} />
         ) : lista.length === 0 ? (
-          <Vazio texto={cont.todos === 0 && !termo && etapa === TODAS && consultor === TODAS ? "Nenhum contrato ainda. Crie o primeiro pelo botão Novo contrato." : "Nenhum contrato com esse filtro."} />
+          <Vazio texto={cont.todos === 0 && !termo && etapa === TODAS && consultor === TODAS ? "Nenhum contrato ainda." : "Nenhum contrato com esse filtro."} />
         ) : (
           <>
             <div className="overflow-hidden rounded-xl border border-border bg-card">

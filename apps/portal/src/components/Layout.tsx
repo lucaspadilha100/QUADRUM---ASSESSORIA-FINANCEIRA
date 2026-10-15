@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
-import { FileText, Loader2, LogOut, Menu, MessageCircle, X } from "lucide-react";
+import { FileText, KeyRound, Loader2, LogOut, Menu, MessageCircle, X } from "lucide-react";
+import { TrocarSenha } from "@/components/TrocarSenha";
 import { useSessao } from "@/contexts/Sessao";
 import { formatarDocumento } from "@/lib/formato";
 import { useAvisos } from "@/lib/portal";
@@ -11,7 +12,7 @@ import simboloQ from "@/assets/simbolo-q.png";
 // barra com hambúrguer que abre em tela cheia.
 
 export function Layout() {
-  const { user, cliente, carregando, sair } = useSessao();
+  const { user, cliente, carregando, sair, senhaProvisoria, senhaCriada } = useSessao();
   const [aberto, setAberto] = useState(false);
   const { pathname } = useLocation();
   useEffect(() => setAberto(false), [pathname]);
@@ -27,6 +28,22 @@ export function Layout() {
         <h1 className="text-xl font-semibold">Esta conta não é de cliente</h1>
         <p className="max-w-sm text-sm text-muted-foreground">O Portal do Cliente é para quem tem contrato com a Quadrum. A equipe usa o sistema administrativo.</p>
         <button onClick={sair} className="rounded-md border border-border px-4 py-2 text-sm">Sair</button>
+      </div>
+    );
+  }
+
+  if (senhaProvisoria) {
+    return (
+      <div className="q-escuro flex min-h-screen items-center justify-center bg-background px-4 py-10">
+        <div className="w-full max-w-sm">
+          <img src={simboloQ} alt="" className="mx-auto mb-6 h-14 w-auto" />
+          <div className="rounded-xl border border-border bg-[hsl(var(--q-graphite))] p-6 shadow-2xl">
+            <h1 className="q-titulo-marca text-sm font-semibold text-foreground">Crie a sua senha</h1>
+            <p className="mb-5 mt-1 text-sm text-muted-foreground">Olá, {cliente.nome.split(" ")[0]}. Troque a senha que você recebeu.</p>
+            <TrocarSenha provisoria rotulo="Criar senha e entrar" className="[&_button[type=submit]]:w-full" onPronto={senhaCriada} />
+          </div>
+          <button type="button" onClick={sair} className="mx-auto mt-4 block text-xs text-muted-foreground hover:text-foreground">Sair</button>
+        </div>
       </div>
     );
   }
@@ -83,6 +100,7 @@ function Menu_({ nome, documento, onSair }: { nome: string; documento: string; o
           <MessageCircle className="h-5 w-5" /> Atendimento via Chat
           {avisos?.chat_nao_lido && <span className="ml-auto h-2.5 w-2.5 rounded-full bg-q-gold" aria-label="Novas mensagens" />}
         </NavLink>
+        <NavLink to="/senha" className={item}><KeyRound className="h-5 w-5" /> Alterar senha</NavLink>
         <button onClick={onSair} className={item({ isActive: false }) + " w-full"}><LogOut className="h-5 w-5" /> Sair</button>
       </nav>
       <p className="px-6 pb-6 text-xs text-muted-foreground">Juntos pelo seu recomeço.</p>

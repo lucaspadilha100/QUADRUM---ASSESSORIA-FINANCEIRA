@@ -5,12 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { confirmar } from "@/shell";
 import { gerarSenha, useDefinirSenhaPortal } from "@/hooks/usePipeline";
+import { useSenhasProvisorias } from "@/hooks/useUsuarios";
 import { formatarDocumento } from "@/lib/formato";
 
 // Gera (ou redefine) a senha do Portal do Cliente. A senha aparece UMA vez,
 // para a equipe passar ao cliente — o banco guarda só o hash.
 export function AcessoPortal({ cliente }: { cliente: { id: string; documento: string; user_id: string | null } }) {
   const definir = useDefinirSenhaPortal();
+  const { data: provisorias } = useSenhasProvisorias();
+  const provisoria = !!cliente.user_id && !!provisorias?.has(cliente.user_id);
   const [senha, setSenha] = useState<string | null>(null);
   // O portal sai no MESMO deploy, em /portal. VITE_PORTAL_URL só para domínio próprio.
   const portalUrl = (import.meta.env.VITE_PORTAL_URL as string | undefined) || `${window.location.origin}/portal`;
@@ -38,7 +41,7 @@ export function AcessoPortal({ cliente }: { cliente: { id: string; documento: st
     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
       <KeyRound className="h-4 w-4 text-q-petrol" />
       <span className="text-xs text-muted-foreground">
-        {cliente.user_id ? "Tem acesso ao Portal do Cliente." : "Ainda sem acesso ao Portal do Cliente."}
+        {!cliente.user_id ? "Sem acesso ao portal." : provisoria ? "Acesso gerado · o cliente ainda não criou a senha dele." : "Tem acesso ao portal."}
       </span>
       <Button type="button" size="sm" variant="outline" className="ml-auto h-8" onClick={gerar} disabled={definir.isPending}>
         {definir.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
@@ -49,7 +52,7 @@ export function AcessoPortal({ cliente }: { cliente: { id: string; documento: st
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Acesso ao Portal do Cliente</DialogTitle>
-            <DialogDescription>Passe estes dados ao cliente. A senha aparece só agora — depois, só gerando outra.</DialogDescription>
+            <DialogDescription>A senha aparece só agora.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-4 text-sm">
             {portalUrl && <p><span className="text-muted-foreground">Endereço:</span> <a className="q-link" href={portalUrl} target="_blank" rel="noreferrer">{portalUrl}</a></p>}

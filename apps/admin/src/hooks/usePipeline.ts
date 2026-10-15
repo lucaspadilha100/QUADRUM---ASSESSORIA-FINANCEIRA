@@ -372,7 +372,7 @@ export function useDefinirSenhaPortal() {
       const { error } = await supabase.rpc("q_portal_definir_senha", { p_cliente: clienteId, p_senha: senha });
       if (error) throw erro(error);
     },
-    onSuccess: () => invalidarCarteira(qc),
+    onSuccess: () => { invalidarCarteira(qc); qc.invalidateQueries({ queryKey: ["senhas-provisorias"] }); },
   });
 }
 

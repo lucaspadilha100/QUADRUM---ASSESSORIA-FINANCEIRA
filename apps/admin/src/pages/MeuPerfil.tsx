@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TrocarSenha } from "@/components/TrocarSenha";
 
 /**
  * O perfil de quem está logado. Cada um edita nome, telefone e cargo.
@@ -68,7 +69,7 @@ export default function MeuPerfil() {
 
   return (
     <div>
-      <PageHeader titulo="Meu perfil" descricao="Seus dados na equipe Quadrum." />
+      <PageHeader titulo="Meu perfil" />
       <div className="px-4 py-6 sm:px-8">
         <form onSubmit={salvar} className="max-w-xl space-y-6 rounded-xl border border-border bg-card p-6">
           <div className="flex items-center gap-4">
@@ -99,10 +100,6 @@ export default function MeuPerfil() {
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Nível de acesso e e-mail são alterados por um gestor, na tela de Usuários.
-          </p>
-
           <div className="flex justify-end">
             <Button type="submit" disabled={!mudou || salvando}>
               {salvando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -110,6 +107,11 @@ export default function MeuPerfil() {
             </Button>
           </div>
         </form>
+
+        <section className="mt-6 max-w-xl rounded-xl border border-border bg-card p-6">
+          <h2 className="mb-4 font-semibold text-foreground">Trocar senha</h2>
+          <TrocarSenha provisoria={false} onPronto={() => toast.success("Senha trocada.")} />
+        </section>
       </div>
     </div>
   );

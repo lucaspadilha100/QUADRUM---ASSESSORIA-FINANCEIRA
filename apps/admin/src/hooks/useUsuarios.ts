@@ -32,10 +32,23 @@ export function useUsuarios() {
   });
 }
 
+/** Quem ainda está com a senha que recebeu (equipe e clientes que eu vejo). */
+export function useSenhasProvisorias() {
+  return useQuery({
+    queryKey: ["senhas-provisorias"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("senha_provisoria").select("user_id");
+      if (error) throw new Error(error.message);
+      return new Set((data ?? []).map((r) => r.user_id as string));
+    },
+  });
+}
+
 const erro = (e: { code?: string; message: string; details?: string | null }) => new Error(mensagemDeErro(e));
 
 function invalidar(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["usuarios"] });
+  qc.invalidateQueries({ queryKey: ["senhas-provisorias"] });
   qc.invalidateQueries({ queryKey: ["cadastro", "equipe"] });
 }
 

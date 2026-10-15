@@ -14,7 +14,7 @@ import { Carregando, Falha, Vazio } from "@/components/Estados";
 import { confirmar } from "@/shell";
 import { useAuth, PAPEL_LABEL } from "@/contexts/AuthContext";
 import { gerarSenha } from "@/hooks/usePipeline";
-import { useAtualizarUsuario, useCriarUsuario, useRedefinirSenhaUsuario, useUsuarios, type Usuario } from "@/hooks/useUsuarios";
+import { useAtualizarUsuario, useCriarUsuario, useRedefinirSenhaUsuario, useSenhasProvisorias, useUsuarios, type Usuario } from "@/hooks/useUsuarios";
 import { useParamUrl } from "@/shell";
 import { iniciais } from "@/lib/formato";
 
@@ -30,6 +30,7 @@ const semAcento = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLow
 export default function Usuarios() {
   const { isGestor, perfil } = useAuth();
   const { data: usuarios = [], isLoading, error } = useUsuarios();
+  const { data: provisorias } = useSenhasProvisorias();
   const [filtro, setFiltro] = useParamUrl("situacao", "ativos");
   const [busca, setBusca] = useParamUrl("busca", "", { replace: true });
   const [editando, setEditando] = useState<Usuario | null>(null);
@@ -49,7 +50,6 @@ export default function Usuarios() {
     <div>
       <PageHeader
         titulo="Usuários"
-        descricao="A equipe Quadrum. Gestor vê e opera tudo; colaborador vê só a própria carteira."
         acoes={isGestor ? <Button onClick={() => setNovo(true)}><Plus className="mr-1.5 h-4 w-4" /> Novo usuário</Button> : undefined}
       />
 
@@ -79,6 +79,9 @@ export default function Usuarios() {
                     </p>
                     <p className="truncate text-xs text-muted-foreground">{[u.email, u.cargo, u.telefone].filter(Boolean).join(" · ")}</p>
                   </div>
+                  {provisorias?.has(u.id) && (
+                    <span className="rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning">Senha provisória</span>
+                  )}
                   <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${u.papel === "gestor" ? "bg-q-onix text-q-gold" : "bg-muted text-muted-foreground"}`}>
                     {PAPEL_LABEL[u.papel]}
                   </span>
@@ -130,7 +133,7 @@ function NovoUsuario({ aberto, onFechar, onCriado }: {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Novo usuário</DialogTitle>
-          <DialogDescription>Cria o login e o perfil. A senha é gerada e aparece uma vez, para você passar à pessoa.</DialogDescription>
+          <DialogDescription className="sr-only">Cria o login e o perfil. A senha é gerada e aparece uma vez, para você passar à pessoa.</DialogDescription>
         </DialogHeader>
         <form onSubmit={enviar} className="space-y-3">
           <div className="space-y-1.5"><Label htmlFor="u-nome">Nome</Label><Input id="u-nome" value={nome} onChange={(e) => setNome(e.target.value)} required autoFocus /></div>
@@ -173,7 +176,7 @@ function EditarUsuario({ usuario, euId, onFechar, onSenha }: {
     if (!usuario) return;
     if (!ativo && usuario.ativo && !(await confirmar({
       titulo: `Desativar ${usuario.nome}?`,
-      mensagem: "A pessoa perde o acesso ao admin na hora. Nada é apagado: contratos, histórico e mensagens continuam com o nome dela. Dá para reativar depois.",
+      mensagem: "A pessoa perde o acesso na hora. Dá para reativar depois.",
       confirmar: "Desativar", perigo: true,
     }))) return;
     try {
@@ -216,7 +219,7 @@ function EditarUsuario({ usuario, euId, onFechar, onSenha }: {
           <div className="flex items-center justify-between rounded-lg border border-border p-3">
             <div>
               <p className="text-sm font-medium">Ativo</p>
-              <p className="text-[11px] text-muted-foreground">{souEu ? "Você não pode se desativar." : "Desativado não entra no admin. Nada é apagado."}</p>
+              {souEu && <p className="text-[11px] text-muted-foreground">Você não pode se desativar.</p>}
             </div>
             <Switch checked={ativo} onCheckedChange={setAtivo} disabled={souEu} aria-label="Ativo" />
           </div>
@@ -244,7 +247,7 @@ function NivelSelect({ valor, onChange }: { valor: Usuario["papel"]; onChange: (
       <Select value={valor} onValueChange={(v) => onChange(v as Usuario["papel"])}>
         <SelectTrigger><SelectValue /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="colaborador">Colaborador — vê só a própria carteira</SelectItem>
+          <SelectItem value="colaborador">Colaborador</SelectItem>
           <SelectItem value="gestor">Gestor — vê e opera tudo</SelectItem>
         </SelectContent>
       </Select>
@@ -263,7 +266,7 @@ function Credencial({ dados, onFechar }: { dados: { email: string; senha: string
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{dados?.titulo}</DialogTitle>
-          <DialogDescription>Passe estes dados à pessoa. A senha aparece só agora — depois, só redefinindo.</DialogDescription>
+          <DialogDescription>A senha aparece só agora.</DialogDescription>
         </DialogHeader>
         <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-4 text-sm">
           <p><span className="text-muted-foreground">Endereço:</span> {endereco}</p>

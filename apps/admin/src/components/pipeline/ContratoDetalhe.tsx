@@ -90,14 +90,14 @@ function Conteudo({ c }: { c: ContratoPipeline }) {
         <p className="font-titulo text-xs font-semibold text-muted-foreground">CONTRATO #{c.numero}</p>
         <SheetTitle className="text-xl">{c.cliente?.nome ?? "Cliente de outra carteira"}</SheetTitle>
         <SheetDescription>
-          {c.cliente ? formatarDocumento(c.cliente.documento) : "Você é consultor deste contrato, mas o cliente é de outra carteira."}
+          {c.cliente ? formatarDocumento(c.cliente.documento) : ""}
           {c.cliente?.telefone ? ` · ${c.cliente.telefone}` : ""}
         </SheetDescription>
         {/* O estado que liga ao portal, sempre à vista. */}
         <div className="pt-1">
           {c.cancelado_em ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
-              <XCircle className="h-3.5 w-3.5" /> Perdido em {dataBR(c.cancelado_em)} — no portal aparece como CONTRATO CANCELADO
+              <XCircle className="h-3.5 w-3.5" /> Perdido em {dataBR(c.cancelado_em)}
             </span>
           ) : c.data_aceite ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-q-onix px-2.5 py-1 text-xs font-medium text-q-gold">
@@ -105,8 +105,7 @@ function Conteudo({ c }: { c: ContratoPipeline }) {
             </span>
           ) : (
             <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
-              <Eye className="h-3.5 w-3.5" /> O cliente ainda não vê este contrato
-              {etapaAceite ? ` (aparece ao chegar em "${etapaAceite.nome}")` : ""}
+              <Eye className="h-3.5 w-3.5" /> Fora do portal
             </span>
           )}
         </div>
@@ -123,7 +122,6 @@ function Conteudo({ c }: { c: ContratoPipeline }) {
         <TabsContent value="dados"><AbaDados c={c} onEditarCliente={() => setAba("cliente")} /></TabsContent>
         {c.cliente && (
           <TabsContent value="cliente" className="pt-2">
-            <p className="mb-3 text-[11px] text-muted-foreground">Os dados do cliente valem para todos os contratos dele.</p>
             <EdicaoCliente clienteId={c.cliente.id} />
           </TabsContent>
         )}
@@ -244,7 +242,7 @@ function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente
           </p>
           <AcessoPortal cliente={c.cliente} />
           <button type="button" onClick={onEditarCliente} className="q-link mt-2 inline-flex items-center gap-1 text-xs font-medium">
-            <UserPen className="h-3.5 w-3.5" /> Editar os dados do cliente (RG, endereço…)
+            <UserPen className="h-3.5 w-3.5" /> Editar dados do cliente
           </button>
         </div>
       )}
@@ -278,7 +276,7 @@ function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente
         <Campo rotulo="Banco">
           <SelectBanco valor={bancoId} onChange={setBancoId} manterId={c.banco_id} />
         </Campo>
-        <Campo rotulo="Unidade (o cliente vê no portal)">
+        <Campo rotulo="Unidade">
           <Select value={unidadeId} onValueChange={setUnidadeId}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -310,7 +308,7 @@ function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente
         </div>
       )}
 
-      <Campo rotulo="Observações internas (o cliente NÃO vê)">
+      <Campo rotulo="Observações internas">
         <Textarea rows={3} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
       </Campo>
 
@@ -379,12 +377,6 @@ function AbaHistorico({ contratoId }: { contratoId: string }) {
             Lançar
           </Button>
         </div>
-        {/* Diz ANTES do clique o que o cliente vai ver. */}
-        <p className="text-[11px] text-muted-foreground">
-          {dep?.urgente
-            ? "Departamento urgente: o texto NÃO aparece na lista do cliente — ele recebe o aviso \"Você tem uma mensagem urgente\" até ler."
-            : "O cliente lê isto na aba Histórico do portal, com o seu nome, a data e a hora."}
-        </p>
       </div>
 
       {isLoading ? (
@@ -399,7 +391,7 @@ function AbaHistorico({ contratoId }: { contratoId: string }) {
             <li key={o.id} className={`rounded-lg border p-3 ${o.departamento?.urgente ? "border-warning/50 bg-warning/5" : "border-border bg-accent/40"}`}>
               {o.departamento?.urgente && (
                 <p className="mb-1 inline-flex items-center gap-1 text-[11px] font-semibold text-warning">
-                  <Bell className="h-3 w-3" /> Urgente — o cliente vê só o aviso
+                  <Bell className="h-3 w-3" /> Urgente
                 </p>
               )}
               <p className="whitespace-pre-wrap text-sm text-foreground">{o.texto}</p>
@@ -459,9 +451,6 @@ function AbaAtendimentos({ contratoId }: { contratoId: string }) {
           ))}
         </ul>
       )}
-      <p className="text-[11px] text-muted-foreground">
-        O cliente abre o atendimento pelo chat do portal. Clique para ver a conversa e responder.
-      </p>
     </div>
   );
 }

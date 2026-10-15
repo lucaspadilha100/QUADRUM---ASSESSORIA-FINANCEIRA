@@ -62,7 +62,6 @@ export default function Painel() {
     <div>
       <PageHeader
         titulo={primeiroNome ? `Olá, ${primeiroNome}` : "Painel"}
-        descricao={isGestor ? "A Quadrum hoje: tudo o que o cliente vê no Portal nasce aqui." : "A sua carteira hoje."}
       />
 
       <div className="space-y-6 px-4 py-6 sm:px-8">
@@ -91,7 +90,7 @@ export default function Painel() {
                     <Link to={`/contratos?etapa=${e.id}`} className="group block">
                       <div className="mb-1 flex items-baseline justify-between gap-2 text-sm">
                         <span className="truncate text-foreground group-hover:underline">
-                          {e.nome}{e.aceita && <span className="ml-1.5 text-[11px] text-muted-foreground">(cliente vê no portal)</span>}
+                          {e.nome}
                         </span>
                         <span className="font-semibold tabular-nums text-foreground">{n(e.qtd)}</span>
                       </div>

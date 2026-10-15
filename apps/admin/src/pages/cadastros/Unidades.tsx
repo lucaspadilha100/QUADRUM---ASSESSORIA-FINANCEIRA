@@ -9,7 +9,6 @@ export default function Unidades() {
   return (
     <CadastroSimples<Unidade>
       titulo="Unidades" singular="unidade"
-      descricao="Unidades e parceiros. O Portal do Cliente mostra a unidade do contrato como &quot;cidade, UF&quot;."
       linhas={data} carregando={isLoading} erro={error} salvando={salvar.isPending}
       onSalvar={(id, campos) => salvar.mutateAsync({ id, campos })}
       campos={[

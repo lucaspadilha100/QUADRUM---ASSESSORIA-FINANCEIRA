@@ -59,7 +59,6 @@ export default function Atendimentos() {
     <div className="flex h-full flex-col">
       <PageHeader
         titulo="Atendimentos"
-        descricao={isGestor ? "O chat do Portal do Cliente, de todos os setores." : "O chat do Portal do Cliente — os atendimentos da sua carteira."}
       />
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 px-4 py-4 sm:px-8 md:flex-row">
@@ -99,7 +98,7 @@ export default function Atendimentos() {
             ) : lista.length === 0 ? (
               <p className="p-8 text-center text-sm text-muted-foreground">
                 {cont.abertos + cont.arquivados === 0 && !termo
-                  ? "Nenhum atendimento ainda. Eles nascem quando o cliente abre o chat no portal."
+                  ? "Nenhum atendimento ainda."
                   : aba === "nao_lidas" ? "Nada por ler. 🎉" : "Nenhum atendimento com esse filtro."}
               </p>
             ) : (

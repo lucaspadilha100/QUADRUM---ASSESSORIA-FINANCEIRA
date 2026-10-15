@@ -53,7 +53,6 @@ export default function Login() {
         >
           <div>
             <h1 className="q-titulo-marca text-sm font-semibold text-foreground">Área da equipe</h1>
-            <p className="mt-1 text-xs text-muted-foreground">Acesso restrito à equipe Quadrum.</p>
           </div>
 
           {!supabaseConfigurado && (

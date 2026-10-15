@@ -27,7 +27,8 @@ await sql(`
     instance_id uuid, id uuid primary key, aud text, role text, email text unique,
     encrypted_password text, email_confirmed_at timestamptz, banned_until timestamptz,
     raw_app_meta_data jsonb, raw_user_meta_data jsonb, created_at timestamptz, updated_at timestamptz,
-    confirmation_token text, recovery_token text, email_change_token_new text, email_change text
+    confirmation_token text, recovery_token text, email_change_token_new text, email_change text,
+    last_sign_in_at timestamptz
   );
   create table auth.identities (
     id uuid primary key, user_id uuid references auth.users(id), provider_id text, identity_data jsonb,
@@ -313,11 +314,28 @@ await espera("assinar com a senha ERRADA não assina e registra a tentativa", as
 }, false, (r) => Number(r.rows[0].n) === 1 && r.rows[0].a === null);
 await espera("sem marcar o aceite não assina", () => comoCliente(`select portal_assinar_documento('${docProc}', 'novasenha9', 'Cliente do A', false)`), true);
 await espera("nome diferente do cadastro não assina", () => comoCliente(`select portal_assinar_documento('${docProc}', 'novasenha9', 'Fulano', true)`), true);
-await espera("ASSINA: senha certa, nome (sem acento/maiúscula) e aceite", () => comoCliente(`select portal_assinar_documento('${docProc}', 'novasenha9', '  cliente  do a ', true) as r`), false, (r) => r.rows[0].r.ok === true && r.rows[0].r.documento.assinatura.ip === "200.1.2.3");
+// ── senha provisória: a que a equipe gerou não assina; o cliente cria a dele
+await espera("senha gerada pela equipe é PROVISÓRIA", () => comoCliente("select q_senha_provisoria() as p"), false, (r) => r.rows[0].p === true);
+await espera("com senha provisória o documento NÃO se assina (nem com a senha certa)", () => comoCliente(`select portal_assinar_documento('${docProc}', 'novasenha9', 'Cliente do A', true)`), true);
+await espera("senha fraca é recusada (ok:false, com o motivo)", () => comoCliente("select q_trocar_minha_senha(null, 'abcdefgh') as r"), false, (r) => r.rows[0].r.ok === false && /letras e números/.test(r.rows[0].r.erro));
+await espera("senha com o próprio CPF é recusada", () => comoCliente("select q_trocar_minha_senha(null, 'x12345678901') as r"), false, (r) => r.rows[0].r.ok === false && /CPF/.test(r.rows[0].r.erro));
+await espera("a nova não pode ser a provisória", () => comoCliente("select q_trocar_minha_senha(null, 'novasenha9') as r"), false, (r) => r.rows[0].r.ok === false && /provisória/.test(r.rows[0].r.erro));
+await espera("o cliente cria a própria senha (sem pedir a provisória de novo)", () => comoCliente("select q_trocar_minha_senha(null, 'MinhaSenha2026') as r"), false, (r) => r.rows[0].r.ok === true);
+await espera("…e ela deixa de ser provisória, e é a que vale", async () => {
+  const a = await comoCliente("select q_senha_provisoria() as p");
+  const b = await db.query(`select encrypted_password = extensions.crypt('MinhaSenha2026', encrypted_password) as ok from auth.users where email like '12345678901@%'`);
+  return { rows: [a.rows[0].p, b.rows[0].ok] };
+}, false, (r) => r.rows[0] === false && r.rows[1] === true);
+await espera("depois disso, trocar de novo PEDE a senha atual", () => comoCliente("select q_trocar_minha_senha('errada', 'OutraSenha2027') as r"), false, (r) => r.rows[0].r.ok === false && /atual/.test(r.rows[0].r.erro));
+await espera("o login (update sem mudar a senha) não muda a marca", async () => {
+  await db.query(`update auth.users set last_sign_in_at = now() where email like '12345678901@%'`);
+  return comoCliente("select q_senha_provisoria() as p");
+}, false, (r) => r.rows[0].p === false);
+await espera("ASSINA: senha certa, nome (sem acento/maiúscula) e aceite", () => comoCliente(`select portal_assinar_documento('${docProc}', 'MinhaSenha2026', '  cliente  do a ', true) as r`), false, (r) => r.rows[0].r.ok === true && r.rows[0].r.documento.assinatura.ip === "200.1.2.3");
 await espera("a prova fica gravada: IP, navegador, hash do texto, aceite, código", () => db.query(`select a.ip, a.user_agent, a.hash_sha256 = d.conteudo_hash as hash_ok, a.aceite_texto like 'Declaro que li%' as aceite, a.codigo_verificacao ~ '^[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$' as cod, a.visualizado_em is not null as viu, a.assinado_em = d.assinado_em as mesma_hora, a.signatario_documento from documento_assinaturas a join contrato_documentos d on d.id = a.documento_id where d.id = '${docProc}'`), false, (r) => {
   const a = r.rows[0]; return a.ip === "200.1.2.3" && a.user_agent === "NavegadorTeste/1.0" && a.hash_ok && a.aceite && a.cod && a.viu && a.mesma_hora && a.signatario_documento === "12345678901";
 });
-await espera("não assina duas vezes", () => comoCliente(`select portal_assinar_documento('${docProc}', 'novasenha9', 'Cliente do A', true)`), true);
+await espera("não assina duas vezes", () => comoCliente(`select portal_assinar_documento('${docProc}', 'MinhaSenha2026', 'Cliente do A', true)`), true);
 await espera("a assinatura não se desfaz (nem o gestor)", () => como("authenticated", G, `update contrato_documentos set assinado_em = null where id = '${docProc}'`), true);
 await espera("documento assinado não se cancela", () => como("authenticated", G, `update contrato_documentos set cancelado_em = now() where id = '${docProc}'`), true);
 await espera("ninguém escreve evento ou assinatura por fora", async () => {
@@ -337,14 +355,14 @@ let docTermo;
 await espera("5 senhas erradas travam por 15 minutos (nem a certa passa)", async () => {
   docTermo = (await como("authenticated", M, `select q_documento_gerar('${contrato1}', '${modTermo}') as id`)).rows[0].id;
   for (let i = 0; i < 5; i++) await comoCliente(`select portal_assinar_documento('${docTermo}', 'errada${i}', 'Cliente do A', true)`);
-  return comoCliente(`select portal_assinar_documento('${docTermo}', 'novasenha9', 'Cliente do A', true) as r`);
+  return comoCliente(`select portal_assinar_documento('${docTermo}', 'MinhaSenha2026', 'Cliente do A', true) as r`);
 }, false, (r) => r.rows[0].r.ok === false && /tentativas/.test(r.rows[0].r.erro));
 await espera("cancelar a pendência: vira evento e sai do portal", async () => {
   await como("authenticated", M, `update contrato_documentos set cancelado_em = now(), cancelado_por = '${M}', motivo_cancelamento = 'gerado errado' where id = '${docTermo}'`);
   return como("authenticated", P, "select portal_contratos() as c");
 }, false, (r) => !r.rows[0].c[0].pendencias.some((p) => p.id === docTermo));
 await espera("cancelado não volta", () => como("authenticated", M, `update contrato_documentos set cancelado_em = null where id = '${docTermo}'`), true);
-await espera("cancelado não se assina", () => comoCliente(`select portal_assinar_documento('${docTermo}', 'novasenha9', 'Cliente do A', true)`), true);
+await espera("cancelado não se assina", () => comoCliente(`select portal_assinar_documento('${docTermo}', 'MinhaSenha2026', 'Cliente do A', true)`), true);
 await espera("documento de LINK continua marcável à mão (e vira evento)", async () => {
   const id = (await como("authenticated", M, `insert into contrato_documentos (contrato_id, tipo, link_assinatura) values ('${contrato1}', 'declaracao', 'https://x') returning id`)).rows[0].id;
   await como("authenticated", M, `update contrato_documentos set assinado_em = now() where id = '${id}'`);
@@ -365,6 +383,27 @@ await espera("as tabelas do useAoVivo são as da publicação", async () => {
   const bloco = fonte.slice(fonte.indexOf("const AFETA"), fonte.indexOf("export const TABELAS_AO_VIVO"));
   return { rows: [...bloco.matchAll(/^\s{2}(\w+):/gm)].map((m) => m[1]).sort() };
 }, false, (r) => JSON.stringify(r.rows) === JSON.stringify(AO_VIVO));
+
+// ── senha provisória da EQUIPE
+let novoEq;
+await espera("usuário criado pelo gestor nasce com senha provisória", async () => {
+  novoEq = (await como("authenticated", G, "select q_equipe_criar_usuario('novo@quadrum.com.br', 'Novo da Equipe', 'colaborador', 'Gerada!2026x') as id")).rows[0].id;
+  return como("authenticated", novoEq, "select q_senha_provisoria() as p");
+}, false, (r) => r.rows[0].p === true);
+await espera("o gestor vê quem está com senha provisória (a equipe e os clientes)", () => como("authenticated", G, "select count(*) as n from senha_provisoria"), false, (r) => Number(r.rows[0].n) >= 1);
+await espera("o colaborador B não vê a marca do cliente do A nem da equipe", () => como("authenticated", B, "select count(*) as n from senha_provisoria"), false, (r) => Number(r.rows[0].n) === 0);
+await espera("o cliente do portal não lê a tabela", () => como("authenticated", P, "select count(*) as n from senha_provisoria"), false, (r) => Number(r.rows[0].n) === 0);
+await espera("ninguém escreve na marca pelo PostgREST", () => como("authenticated", G, `delete from senha_provisoria where user_id = '${novoEq}'`), true);
+await espera("a pessoa cria a senha dela e a marca sai", async () => {
+  const r = await como("authenticated", novoEq, "select q_trocar_minha_senha(null, 'Forte2026abc') as r");
+  if (!r.rows[0].r.ok) throw new Error(r.rows[0].r.erro);
+  return como("authenticated", novoEq, "select q_senha_provisoria() as p");
+}, false, (r) => r.rows[0].p === false);
+await espera("o gestor redefine a senha → volta a ser provisória", async () => {
+  await como("authenticated", G, `select q_equipe_definir_senha('${novoEq}', 'Redefinida99')`);
+  return como("authenticated", novoEq, "select q_senha_provisoria() as p");
+}, false, (r) => r.rows[0].p === true);
+await espera("anon não troca senha", () => como("anon", null, "select q_trocar_minha_senha(null, 'Qualquer123')"), true);
 
 console.log(`\n${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);

@@ -47,7 +47,7 @@ export function GerarDocumento({ contrato, onGerado, onCompletar }: {
     if (!modelo) return;
     try {
       const id = await gerar.mutateAsync({ contratoId: contrato.id, modeloId: modelo.id });
-      toast.success(contrato.data_aceite ? "Documento gerado — já aparece para o cliente assinar no portal." : "Documento gerado. O cliente vê quando o contrato for aceito.");
+      toast.success(contrato.data_aceite ? "Documento gerado." : "Documento gerado.");
       setModeloId("");
       onGerado?.(id);
     } catch (e) {
@@ -58,8 +58,7 @@ export function GerarDocumento({ contrato, onGerado, onCompletar }: {
   if (!isLoading && ativos.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
-        Nenhum modelo ativo. Um gestor revisa e ativa os modelos em{" "}
-        <Link to="/cadastros/modelos" className="q-link">Cadastros → Modelos de documento</Link>.
+        Nenhum modelo ativo. <Link to="/cadastros/modelos" className="q-link">Modelos de documento</Link>
       </p>
     );
   }
@@ -111,14 +110,14 @@ export function GerarDocumento({ contrato, onGerado, onCompletar }: {
               )}
               <div className="max-h-80 overflow-y-auto rounded-lg border border-border bg-background p-4">
                 <p className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  <FileText className="h-3.5 w-3.5" /> Prévia — é isto que o cliente vai ler e assinar
+                  <FileText className="h-3.5 w-3.5" /> Prévia
                 </p>
                 <TextoDocumento texto={previa.texto} />
               </div>
             </>
           )}
           <div className="flex items-center justify-end gap-2">
-            {!contrato.data_aceite && <p className="mr-auto text-[11px] text-warning">Contrato ainda não aceito: o cliente só vê depois do aceite.</p>}
+            {!contrato.data_aceite && <p className="mr-auto text-[11px] text-warning">Contrato ainda não aceito.</p>}
             <Button type="button" onClick={enviar} disabled={!pode || gerar.isPending}>
               {gerar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Gerar e enviar ao portal
             </Button>

@@ -41,7 +41,6 @@ export default function Modelos() {
     <div>
       <PageHeader
         titulo="Modelos de documento"
-        descricao="O texto base de cada documento. Os campos entre {{ }} são preenchidos com os dados do cliente e do contrato ao gerar."
         acoes={isGestor ? <Button onClick={() => setAbertoId(NOVO)}><Plus className="mr-1.5 h-4 w-4" /> Novo modelo</Button> : undefined}
       />
       <div className="grid gap-4 px-4 py-4 sm:px-8 lg:grid-cols-[280px_1fr]">
@@ -161,7 +160,7 @@ function Editor({ modelo, somenteLeitura, onCriado }: { modelo: Modelo | null; s
         <div className="space-y-2">
           <div className="flex items-baseline justify-between">
             <Label htmlFor="mod-corpo">Texto do modelo</Label>
-            <span className="text-[11px] text-muted-foreground">{modelo ? `versão ${modelo.versao}` : "novo"} · “# ” título · **negrito** · linha vazia = parágrafo</span>
+            <span className="text-[11px] text-muted-foreground">{modelo ? `versão ${modelo.versao}` : "novo"}</span>
           </div>
           <Textarea id="mod-corpo" ref={texto} value={corpo} onChange={(e) => setCorpo(e.target.value)} readOnly={somenteLeitura}
             rows={22} className="font-mono text-[13px] leading-relaxed" />
@@ -193,7 +192,6 @@ function Editor({ modelo, somenteLeitura, onCriado }: { modelo: Modelo | null; s
             {isFetching && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           </div>
           <BuscaContrato valor={contrato} onChange={setContrato} placeholder="Preencher com os dados de um contrato…" />
-          {!contrato && <p className="text-[11px] text-muted-foreground">Sem contrato, os campos aparecem como [nome do campo].</p>}
           {error && <p className="text-sm text-destructive">{(error as Error).message}</p>}
           {previa && previa.desconhecidas.length > 0 && (
             <p className="flex items-start gap-1.5 rounded-lg border border-destructive/40 bg-destructive/5 p-2 text-xs text-destructive">

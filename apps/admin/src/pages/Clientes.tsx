@@ -48,7 +48,6 @@ export default function Clientes() {
     <div>
       <PageHeader
         titulo="Clientes"
-        descricao={isGestor ? "Todos os clientes da Quadrum." : "Os clientes da sua carteira."}
         acoes={<Button onClick={() => setNovo(true)}><Plus className="mr-1.5 h-4 w-4" /> Novo cliente</Button>}
       />
 
@@ -158,7 +157,7 @@ function NovoCliente({ aberto, onFechar, onCriado }: { aberto: boolean; onFechar
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Novo cliente</DialogTitle>
-          <DialogDescription>O contrato do cliente se cria na Pipeline. O acesso ao portal, na ficha dele.</DialogDescription>
+          <DialogDescription className="sr-only">O contrato do cliente se cria na Pipeline. O acesso ao portal, na ficha dele.</DialogDescription>
         </DialogHeader>
         <ClienteForm
           rotuloSalvar="Cadastrar cliente"

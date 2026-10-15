@@ -23,7 +23,7 @@ export default function DocumentoImprimir() {
   return (
     <div className="min-h-screen bg-white">
       <div className="q-nao-imprimir sticky top-0 flex items-center justify-end gap-2 border-b border-border bg-card px-4 py-2">
-        <p className="mr-auto text-xs text-muted-foreground">Para PDF: escolha "Salvar como PDF" no destino da impressão.</p>
+        
         <Button size="sm" onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" /> Imprimir / salvar PDF</Button>
       </div>
       <main className="mx-auto max-w-[800px] px-6 py-10 text-black">

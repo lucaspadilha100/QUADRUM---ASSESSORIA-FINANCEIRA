@@ -130,7 +130,6 @@ export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorIn
               ))}
             </SelectContent>
           </Select>
-          <p className="text-[11px] text-muted-foreground">O colaborador só enxerga os clientes de que é consultor.</p>
         </div>
       )}
 
@@ -143,9 +142,6 @@ export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorIn
           </span>
         </summary>
         <div className="space-y-3 border-t border-border p-3">
-          <p className="text-[11px] text-muted-foreground">
-            É o que preenche a procuração, o contrato e os demais modelos. Documento só é gerado com o que ele usa preenchido.
-          </p>
           {tipoPessoa === "PJ" ? (
             <div className="grid gap-3 sm:grid-cols-2">
               {campo("representante_nome", "Representante legal")}
@@ -197,7 +193,7 @@ export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorIn
       </details>
 
       <div className="space-y-1.5">
-        <Label htmlFor="cli-obs">Observações internas (o cliente NÃO vê)</Label>
+        <Label htmlFor="cli-obs">Observações internas</Label>
         <Textarea id="cli-obs" rows={3} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
       </div>
       <div className="flex justify-end">

@@ -48,7 +48,6 @@ export default function Documentos() {
     <div>
       <PageHeader
         titulo="Documentos para assinatura"
-        descricao="Gerados dos modelos e assinados pelo cliente no portal — ou registrados por link, quando assinados fora."
         acoes={<Button onClick={() => setNovo(true)}><Plus className="mr-1.5 h-4 w-4" /> Novo documento</Button>}
       />
 
@@ -106,7 +105,7 @@ function Linha({ d, onAbrirContrato }: { d: DocumentoLista; onAbrirContrato: (id
   const marcar = async () => {
     try {
       await salvar.mutateAsync({ contratoId: d.contrato_id, id: d.id, campos: { assinado_em: d.assinado_em ? null : new Date().toISOString() } });
-      toast.success(d.assinado_em ? "Voltou a ficar pendente." : "Marcado como assinado — sai das pendências do cliente.");
+      toast.success(d.assinado_em ? "Voltou a ficar pendente." : "Marcado como assinado.");
     } catch (e) {
       toast.error("Não foi possível atualizar.", { description: (e as Error).message });
     }
@@ -158,7 +157,7 @@ function Linha({ d, onAbrirContrato }: { d: DocumentoLista; onAbrirContrato: (id
         ) : d.link_assinatura ? (
           <a href={d.link_assinatura} target="_blank" rel="noreferrer" className="q-link inline-flex items-center gap-1 text-xs">Link <ExternalLink className="h-3 w-3" /></a>
         ) : (
-          <span className="text-xs text-muted-foreground" title="Sem link, o cliente vê o aviso de que o consultor vai enviar">sem link</span>
+          <span className="text-xs text-muted-foreground">sem link</span>
         )}
         {!d.no_sistema && !d.cancelado_em && (
           <Button size="sm" variant="outline" onClick={marcar} disabled={salvar.isPending}>{d.assinado_em ? "Desfazer" : "Marcar assinado"}</Button>
@@ -183,7 +182,7 @@ function NovoDocumento({ aberto, onFechar, onCompletar }: {
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Novo documento para assinatura</DialogTitle>
-          <DialogDescription>Aparece para o cliente em "Pendências do contrato" no portal.</DialogDescription>
+          <DialogDescription className="sr-only">Aparece para o cliente em "Pendências do contrato" no portal.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1.5">

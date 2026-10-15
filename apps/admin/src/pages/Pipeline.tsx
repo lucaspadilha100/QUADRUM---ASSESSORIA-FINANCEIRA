@@ -47,7 +47,7 @@ export default function Pipeline() {
       {
         onSuccess: () => {
           if (destino?.aceita && !c.data_aceite) {
-            toast.success("Contrato aceito — o cliente já vê no portal.");
+            toast.success("Contrato aceito.");
           }
         },
         onError: (e) => toast.error("Não foi possível mover. O card voltou.", { description: (e as Error).message }),
@@ -61,7 +61,6 @@ export default function Pipeline() {
     <div>
       <PageHeader
         titulo="Pipeline"
-        descricao={isGestor ? "Todos os contratos da Quadrum." : "Os contratos da sua carteira."}
         acoes={
           <Button onClick={() => { setNovoEm(null); setNovoAberto(true); }}>
             <Plus className="mr-1.5 h-4 w-4" /> Novo contrato

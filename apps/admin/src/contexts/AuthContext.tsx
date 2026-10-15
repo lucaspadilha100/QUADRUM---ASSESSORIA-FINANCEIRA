@@ -34,6 +34,9 @@ interface AuthContextType {
    */
   perfil: Perfil | null;
   isGestor: boolean;
+  /** A senha foi gerada por outra pessoa: só entra depois de criar a própria. */
+  senhaProvisoria: boolean;
+  senhaCriada: () => void;
   /** Relê o perfil depois de uma edição (ex.: Meu perfil). */
   recarregarPerfil: () => Promise<void>;
   isLoading: boolean;
@@ -47,6 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [senhaProvisoria, setSenhaProvisoria] = useState(false);
   const [isLoading, setLoading] = useState(true);
 
   const carregarPerfil = async (userId: string) => {
@@ -58,6 +62,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Falha de consulta NÃO vira "não é da equipe" calado: aparece no console.
     if (error) console.error("[auth] falha ao ler o perfil:", error.message);
     setPerfil((data as Perfil | null) ?? null);
+    const prov = await supabase.rpc("q_senha_provisoria");
+    if (prov.error) console.error("[auth] falha ao ler a senha provisória:", prov.error.message);
+    setSenhaProvisoria(prov.data === true);
   };
 
   useEffect(() => {
@@ -99,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setPerfil(null);
+    setSenhaProvisoria(false);
   };
 
   return (
@@ -108,6 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         perfil,
         isGestor: perfil?.papel === "gestor",
+        senhaProvisoria,
+        senhaCriada: () => setSenhaProvisoria(false),
         recarregarPerfil: async () => { if (user) await carregarPerfil(user.id); },
         isLoading,
         signIn,

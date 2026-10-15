@@ -130,7 +130,7 @@ escrita         portal_abrir_atendimento · portal_enviar_mensagem
 dois): `src/components/documento/DocumentoImpresso.tsx` (o documento e o
 manifesto de assinatura), `src/index.css` (tokens da marca), `src/lib/formato.ts`,
 `src/lib/utils.ts`, `src/integrations/supabase/client.ts`, `.env`,
-`tailwind.config.ts`, os `components/ui/*` em comum e os PNG da marca. Copiar
+`tailwind.config.ts`, `src/components/TrocarSenha.tsx`, os `components/ui/*` em comum e os PNG da marca. Copiar
 foi escolha (cada app builda sozinho no Vercel); o custo é esta lista.
 
 ## Supabase
@@ -201,6 +201,12 @@ Dentro de `apps/admin`: `npm run typecheck` (`tsc -b --force` — o `tsc
 esbuild não checa tipos).
 
 ## Tela nova
+⚠️ **Sem texto explicando a tela, o campo ou o botão** (pedido do dono do
+processo, 15/10/2026: "polui demais o sistema"). Nada de descrição sob o
+título, dica sob o campo, rótulo com parêntese "(o cliente vê…)" nem
+parágrafo dizendo o que acontece ao clicar. Fica o que é DADO ou ESTADO:
+valores, contagens, vazio, erro, confirmação de ação destrutiva. Descrição de
+diálogo que o Radix exige vai `sr-only`.
 Entra no `src/lib/menu.ts` (o título da guia sai de lá) e no `App.tsx`.
 Navegação é `<Link>`, nunca `onClick={() => navigate()}`.
 Filtro, aba, busca e item aberto moram na URL (`useParamUrl`): F5 e link
@@ -304,6 +310,28 @@ publicação `supabase_realtime`) + `hooks/useAoVivo.tsx`, montado no `Layout`.
 - ⚠️ Formulário que copia o dado para o estado local reinicia pelos VALORES,
   nunca pelo objeto: a releitura sozinha traz objeto novo e apagaria o que a
   pessoa está digitando (`ContratoDetalhe`).
+
+## Senha provisória — no 1º login a pessoa cria a dela (15/10/2026)
+Migração `20261018010000_senha_provisoria.sql`. Senha gerada por OUTRA
+pessoa (gestor para a equipe, equipe para o cliente do portal) é provisória:
+admin (`ProtectedRoute`) e portal (`Layout`) só abrem depois de
+`q_trocar_minha_senha`. Trocar depois: Meu perfil (admin) e Alterar senha
+(portal, `/senha`).
+
+- Quem marca é um gatilho em `auth.users`: `auth.uid()` ≠ dono da conta →
+  provisória; a própria pessoa (ou o Auth, ou o SQL Editor, sem usuário) →
+  não. Qualquer caminho novo de gerar senha já nasce coberto.
+- ⚠️ O gatilho NUNCA derruba o Auth (erro vira `warning`): falhar ali seria
+  ninguém conseguir entrar. E só dispara quando a senha MUDA de fato.
+- ⚠️ **Documento não se assina com senha provisória** (gatilho em
+  `documento_assinaturas`): senha que a equipe conhece não prova que foi o
+  cliente.
+- Senha fraca quem recusa é o banco (`q_senha_fraca`); a tela só mostra a
+  lista enquanto digita. Com senha provisória não pede a atual; fora disso, pede.
+- Usuários e o acesso ao portal mostram quem ainda está com a provisória
+  (`senha_provisoria`, leitura para a equipe pela mesma regra de carteira).
+- Conta criada pelo SQL Editor NÃO fica provisória (sem usuário na sessão) —
+  é assim que nasce o login de teste.
 
 ## Documentos: MODELO → gerar → o cliente assina no portal (15/10/2026)
 Pedido do dono do processo: contrato, termo, declaração e procuração como

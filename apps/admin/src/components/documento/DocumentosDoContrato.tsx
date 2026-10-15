@@ -52,7 +52,7 @@ export function DocumentosDoContrato({ contrato, onCompletar }: { contrato: Cont
 export function SituacaoDocumento({ assinado_em, cancelado_em, no_sistema }: { assinado_em: string | null; cancelado_em: string | null; no_sistema: boolean }) {
   if (cancelado_em) return <>Cancelado em {dataHoraBR(cancelado_em)}</>;
   if (assinado_em) return <>Assinado em {dataHoraBR(assinado_em)}{no_sistema ? " · pelo portal" : " · fora do sistema"}</>;
-  return <>{no_sistema ? "Aguardando a assinatura do cliente no portal" : "Pendente (assinatura por link)"}</>;
+  return <>{no_sistema ? "Aguardando assinatura" : "Pendente (link)"}</>;
 }
 
 function ItemDocumento({ d, contratoId }: { d: DocumentoPendente; contratoId: string }) {
@@ -146,9 +146,6 @@ export function NovoLink({ contratoId, onCriado }: { contratoId: string; onCriad
           {salvar.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="mr-1 h-4 w-4" />} Adicionar
         </Button>
       </div>
-      <p className="text-[11px] text-muted-foreground">
-        Para documento assinado em outro sistema. Aparece ao cliente com o botão do link, até ser marcado como assinado.
-      </p>
     </div>
   );
 }

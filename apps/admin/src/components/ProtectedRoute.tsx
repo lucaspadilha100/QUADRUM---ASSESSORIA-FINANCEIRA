@@ -3,9 +3,11 @@ import { Navigate } from "react-router-dom";
 import { Loader2, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { TrocarSenha } from "@/components/TrocarSenha";
+import simboloQ from "@/assets/simbolo-q.png";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { user, perfil, isLoading, signOut } = useAuth();
+  const { user, perfil, isLoading, signOut, senhaProvisoria, senhaCriada } = useAuth();
 
   if (isLoading) {
     return (
@@ -33,6 +35,22 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
           </p>
         </div>
         <Button variant="outline" onClick={signOut}>Sair</Button>
+      </div>
+    );
+  }
+
+  if (senhaProvisoria) {
+    return (
+      <div className="q-escuro flex min-h-screen items-center justify-center bg-background px-4 py-10">
+        <div className="w-full max-w-sm">
+          <img src={simboloQ} alt="" className="mx-auto mb-6 h-14 w-auto" />
+          <div className="rounded-xl border border-border bg-[hsl(var(--q-graphite))] p-6 shadow-2xl">
+            <h1 className="q-titulo-marca text-sm font-semibold text-foreground">Crie a sua senha</h1>
+            <p className="mb-5 mt-1 text-sm text-muted-foreground">Olá, {perfil.nome.split(" ")[0]}. Troque a senha que você recebeu.</p>
+            <TrocarSenha provisoria rotulo="Criar senha e entrar" className="[&_button[type=submit]]:w-full" onPronto={senhaCriada} />
+          </div>
+          <button type="button" onClick={signOut} className="mx-auto mt-4 block text-xs text-muted-foreground hover:text-foreground">Sair</button>
+        </div>
       </div>
     );
   }

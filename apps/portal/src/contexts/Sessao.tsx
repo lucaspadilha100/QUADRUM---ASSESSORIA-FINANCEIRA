@@ -9,6 +9,9 @@ interface SessaoCtx {
   /** `null` com `user` = logado mas NÃO é cliente (ex.: alguém da equipe). */
   cliente: ClienteSessao | null;
   carregando: boolean;
+  /** Senha gerada pela equipe: só entra depois de criar a própria. */
+  senhaProvisoria: boolean;
+  senhaCriada: () => void;
   entrar: (documento: string, senha: string) => Promise<string | null>;
   sair: () => Promise<void>;
 }
@@ -19,6 +22,7 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [cliente, setCliente] = useState<ClienteSessao | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [senhaProvisoria, setSenhaProvisoria] = useState(false);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
@@ -29,6 +33,9 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
         const { data, error } = await supabase.rpc("portal_eu");
         if (error) console.error("[portal] falha ao ler o cliente:", error.message);
         setCliente((data as ClienteSessao | null) ?? null);
+        const prov = await supabase.rpc("q_senha_provisoria");
+        if (prov.error) console.error("[portal] falha ao ler a senha provisória:", prov.error.message);
+        setSenhaProvisoria(prov.data === true);
         setCarregando(false);
       }, 0);
     });
@@ -49,9 +56,10 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setCliente(null);
+    setSenhaProvisoria(false);
   };
 
-  return <Ctx.Provider value={{ user, cliente, carregando, entrar, sair }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, cliente, carregando, entrar, sair, senhaProvisoria, senhaCriada: () => setSenhaProvisoria(false) }}>{children}</Ctx.Provider>;
 }
 
 export function useSessao() {

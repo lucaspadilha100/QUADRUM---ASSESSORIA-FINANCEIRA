@@ -9,12 +9,11 @@ export default function Bancos() {
   return (
     <CadastroSimples<Banco>
       titulo="Bancos" singular="banco"
-      descricao="Os bancos credores. Aparecem no contrato, no Portal do Cliente e nos documentos."
       linhas={data} carregando={isLoading} erro={error} salvando={salvar.isPending}
       onSalvar={(id, campos) => salvar.mutateAsync({ id, campos })}
       campos={[
         { chave: "nome", rotulo: "Nome", obrigatorio: true, placeholder: "Ex.: Banco Pan" },
-        { chave: "codigo", rotulo: "Código (COMPE)", placeholder: "Ex.: 623", maxLength: 3, ajuda: "Opcional: o número de 3 dígitos do banco." },
+        { chave: "codigo", rotulo: "Código (COMPE)", placeholder: "Ex.: 623", maxLength: 3 },
       ]}
     />
   );

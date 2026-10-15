@@ -34,7 +34,7 @@ export function CadastroSimples<T extends { id: string; nome: string; ativo: boo
   titulo, descricao, singular, linhas, carregando, erro, campos, onSalvar, salvando, explicacao,
 }: {
   titulo: string;
-  descricao: string;
+  descricao?: string;
   singular: string;
   linhas: T[];
   carregando: boolean;
@@ -111,9 +111,6 @@ export function CadastroSimples<T extends { id: string; nome: string; ativo: boo
             </table>
           </div>
         )}
-        <p className="mt-3 text-xs text-muted-foreground">
-          {isGestor ? "Desativar tira da lista de escolha sem apagar: contratos antigos continuam com o que tinham." : `Só um gestor altera ${titulo.toLowerCase()}.`}
-        </p>
       </div>
       <Editar alvo={editando} campos={campos} singular={singular} onSalvar={onSalvar} salvando={salvando} onFechar={() => setEditando(null)} />
     </div>
@@ -163,7 +160,7 @@ function Editar<T extends { id: string; nome: string; ativo: boolean }>({ alvo, 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{novo ? `Novo ${singular}` : `Editar ${singular}`}</DialogTitle>
-          <DialogDescription>Ativar e desativar muda direto na lista.</DialogDescription>
+          <DialogDescription className="sr-only">{singular}</DialogDescription>
         </DialogHeader>
         <form onSubmit={enviar} className="space-y-3">
           {campos.map((c) => c.tipo === "interruptor" ? (
