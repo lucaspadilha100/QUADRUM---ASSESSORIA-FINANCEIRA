@@ -274,7 +274,10 @@ export function useSalvarDocumento() {
         : await supabase.from("contrato_documentos").insert({ contrato_id: v.contratoId, ...v.campos });
       if (error) throw erro(error);
     },
-    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["pipeline", "documentos", v.contratoId] }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["pipeline", "documentos", v.contratoId] });
+      qc.invalidateQueries({ queryKey: ["documentos"] });
+    },
   });
 }
 
@@ -295,7 +298,10 @@ export function useDefinirSenhaPortal() {
       const { error } = await supabase.rpc("q_portal_definir_senha", { p_cliente: clienteId, p_senha: senha });
       if (error) throw erro(error);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: CHAVE }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: CHAVE });
+      qc.invalidateQueries({ queryKey: ["clientes"] });
+    },
   });
 }
 
@@ -311,6 +317,7 @@ export interface Mensagem {
 }
 
 export function useMensagens(atendimentoId: string | null) {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: ["pipeline", "mensagens", atendimentoId],
     enabled: !!atendimentoId,
@@ -328,6 +335,8 @@ export function useMensagens(atendimentoId: string | null) {
       const naoLidas = (data ?? []).filter((m) => m.autor_tipo === "cliente" && !m.lida_em).map((m) => m.id);
       if (naoLidas.length) {
         await supabase.from("atendimento_mensagens").update({ lida_em: new Date().toISOString() }).in("id", naoLidas);
+        // A caixa mostra o contador de não lidas: lido aqui, some lá.
+        qc.invalidateQueries({ queryKey: ["caixa"] });
       }
       return (data ?? []) as Mensagem[];
     },
@@ -343,7 +352,10 @@ export function useResponder() {
       });
       if (error) throw erro(error);
     },
-    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["pipeline", "mensagens", v.atendimentoId] }),
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["pipeline", "mensagens", v.atendimentoId] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
+    },
   });
 }
 
@@ -356,6 +368,9 @@ export function useArquivarAtendimento() {
         .eq("id", v.atendimentoId);
       if (error) throw erro(error);
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "atendimentos"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pipeline", "atendimentos"] });
+      qc.invalidateQueries({ queryKey: ["caixa"] });
+    },
   });
 }

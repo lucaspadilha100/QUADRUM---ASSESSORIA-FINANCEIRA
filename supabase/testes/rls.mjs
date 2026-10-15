@@ -208,6 +208,37 @@ await espera("arquivado: o cliente lê, mas não escreve", async () => {
 await espera("anon não chama função do portal", () => como("anon", null, "select portal_contratos()"), true);
 await espera("ninguém chama a função interna do chat", () => como("authenticated", P, `select q_portal_chat_json('${atd}')`), true);
 
+// ── usuários da equipe: só o gestor cria e redefine; sempre sobra um gestor
+await espera("colaborador NÃO cria usuário", () => como("authenticated", M, "select q_equipe_criar_usuario('novo@q.com', 'Novo', 'colaborador', 'senha1234')"), true);
+await espera("gestor cria usuário (login + perfil)", () => como("authenticated", G, "select q_equipe_criar_usuario('Novo@Q.com ', 'Novo Colega', 'colaborador', 'senha1234', 'Consultor') as id"), false, (r) => !!r.rows[0].id);
+await espera("o perfil nasce com e-mail minúsculo, cargo e nível", () => db.query("select p.email, p.cargo, p.papel, u.encrypted_password = extensions.crypt('senha1234', u.encrypted_password) as ok, u.confirmation_token = '' as tk from perfis p join auth.users u on u.id = p.id where p.email = 'novo@q.com'"), false, (r) => r.rows[0]?.cargo === "Consultor" && r.rows[0].papel === "colaborador" && r.rows[0].ok && r.rows[0].tk);
+await espera("e-mail repetido é recusado", () => como("authenticated", G, "select q_equipe_criar_usuario('novo@q.com', 'Outro', 'colaborador', 'senha1234')"), true);
+await espera("e-mail de CLIENTE do portal é recusado", () => como("authenticated", G, "select q_equipe_criar_usuario('12345678901@portal.quadrum.example', 'X', 'colaborador', 'senha1234')"), true);
+await espera("e-mail inválido é recusado", () => como("authenticated", G, "select q_equipe_criar_usuario('sem-arroba', 'X', 'colaborador', 'senha1234')"), true);
+const novo = (await db.query("select id from perfis where email = 'novo@q.com'")).rows[0].id;
+await espera("gestor redefine a senha", async () => {
+  await como("authenticated", G, `select q_equipe_definir_senha('${novo}', 'outra5678')`);
+  return db.query(`select encrypted_password = extensions.crypt('outra5678', encrypted_password) as ok from auth.users where id = '${novo}'`);
+}, false, (r) => r.rows[0].ok);
+await espera("colaborador NÃO redefine senha de ninguém", () => como("authenticated", M, `select q_equipe_definir_senha('${novo}', 'hackeado1')`), true);
+await sql(`update perfis set papel = 'colaborador' where id <> '${G}'`);
+await espera("o ÚLTIMO gestor não se rebaixa", () => como("authenticated", G, `update perfis set papel = 'colaborador' where id = '${G}'`), true);
+await espera("o ÚLTIMO gestor não se desativa", () => como("authenticated", G, `update perfis set ativo = false where id = '${G}'`), true);
+await espera("com outro gestor ativo, rebaixar pode", async () => {
+  await como("authenticated", G, `update perfis set papel = 'gestor' where id = '${novo}'`);
+  await como("authenticated", G, `update perfis set papel = 'colaborador' where id = '${G}'`);
+  return db.query(`select papel from perfis where id = '${G}'`);
+}, false, (r) => r.rows[0].papel === "colaborador");
+await sql(`select set_config('request.jwt.claim.sub', '', false); update perfis set papel = 'gestor' where id = '${G}'`);
+
+// ── caixa de atendimentos: última mensagem, não lidas e a MESMA regra de quem vê
+await espera("gestor vê a caixa: última mensagem e as 4 do cliente sem leitura", () => como("authenticated", G, `select * from atendimentos_caixa where id = '${atd}'`), false, (r) => r.rows[0]?.ultima_corpo === "Já pedimos ao banco." && r.rows[0].nao_lidas === 4 && r.rows[0].contrato_numero === 1);
+await espera("atendimento sem mensagem aparece com última = nula (não some)", () => como("authenticated", G, "select count(*) as n from atendimentos_caixa where ultima_em is null"), false, (r) => Number(r.rows[0].n) >= 1);
+await espera("a caixa respeita a carteira: B só vê o atendimento de que é responsável", () => como("authenticated", B, `select * from atendimentos_caixa where responsavel_id is distinct from '${B}'`), false, n(0));
+await espera("responsável por cliente de OUTRA carteira vê o atendimento (sem os dados do cliente)", () => como("authenticated", B, `select * from atendimentos_caixa where responsavel_id = '${B}'`), false, (r) => r.rows.length >= 1 && r.rows.every((x) => x.cliente_nome === "Cliente de outra carteira" && x.cliente_documento === ""));
+await espera("cliente do portal não lê a caixa", () => como("authenticated", P, "select * from atendimentos_caixa"), false, n(0));
+await espera("anon não lê a caixa", () => como("anon", null, "select * from atendimentos_caixa"), true);
+
 await espera("updated_at anda no update", () => db.query("select updated_at >= created_at as andou from atendimentos limit 1"), false);
 
 console.log(`\n${ok} ok, ${falhas} falha(s)`);

@@ -138,6 +138,10 @@ Aplicadas (conferidas pelo retorno de cada bloco, 15/10/2026):
 `20261015000000` (estrutura inicial) e `20261015010000` (gestor/colaborador e
 perfis), `20261015020000` (pipeline), `20261015030000` (portal do cliente). Primeiro gestor: cadastrado à mão pelo bloco de bootstrap (não é
 migração — depende do usuário criado em Authentication).
+`20261016000000` (criar usuário da equipe, sobra um gestor, caixa de
+atendimentos) — aplicada e conferida em 15/10/2026 (3 funções, 1 gatilho,
+caixa com `security_invoker=true`). Sem ela, Usuários e Atendimentos abrem
+com erro.
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
@@ -187,3 +191,25 @@ esbuild não checa tipos).
 ## Tela nova
 Entra no `src/lib/menu.ts` (o título da guia sai de lá) e no `App.tsx`.
 Navegação é `<Link>`, nunca `onClick={() => navigate()}`.
+Filtro, aba, busca e item aberto moram na URL (`useParamUrl`): F5 e link
+copiado reabrem a mesma coisa. O Painel linka cada número para a lista já
+filtrada (`/contratos?situacao=portal`, `/atendimentos?aba=nao_lidas`).
+
+## Telas do admin (15/10/2026)
+Painel · Pipeline · Atendimentos · Clientes · Contratos · Documentos p/ assinar ·
+Departamentos e setores · Usuários. **Bancos, Linhas de crédito e Unidades
+ficam PARADAS** (placeholder) por decisão do dono do processo: faltam os dados.
+- O painel do contrato (`ContratoDetalhe`) é UM só: abre na Pipeline e em
+  Contratos. A conversa (`components/atendimento/Conversa.tsx`) é a mesma no
+  card e na caixa de Atendimentos; o acesso ao portal (`AcessoPortal.tsx`), o
+  mesmo no card e em Clientes.
+- ⚠️ A caixa lê a view `atendimentos_caixa` (`security_invoker`): a RLS das
+  tabelas vale nela. Republicar SEMPRE com `with (security_invoker = true)`,
+  senão ela roda como dono e o colaborador vê a caixa inteira. O cliente é
+  `left join`: o responsável por atendimento de OUTRA carteira vê a conversa
+  sem os dados do cliente (medido no teste).
+- Usuário da equipe nasce pela tela (`q_equipe_criar_usuario`, e-mail real já
+  confirmado, senha gerada e mostrada UMA vez). Ninguém some: desativar é
+  `ativo = false`. ⚠️ `trg_perfil_sobra_um_gestor` recusa rebaixar ou
+  desativar o ÚLTIMO gestor ativo — sem ele, só o SQL Editor devolveria a gestão.
+- A mesma conta não é equipe e cliente: a função recusa e-mail de cliente.
