@@ -7,6 +7,7 @@ import { Sidebar, usePaginaAtual } from "@/shell";
 import { Link } from "react-router-dom";
 import { useAuth, PAPEL_LABEL } from "@/contexts/AuthContext";
 import { MENU } from "@/lib/menu";
+import { useAoVivo } from "@/hooks/useAoVivo";
 import simboloQ from "@/assets/simbolo-q.png";
 
 const CHAVE_RECOLHIDO = "quadrum:sidebar:recolhido";
@@ -26,6 +27,7 @@ export function Layout() {
 
   const mainRef = useRef<HTMLElement>(null);
   usePaginaAtual({ appName: "Quadrum Admin", sections: MENU, mainRef });
+  useAoVivo();
 
   const rodape = (
     <div className={collapsed ? "flex justify-center" : "flex items-center gap-2"}>

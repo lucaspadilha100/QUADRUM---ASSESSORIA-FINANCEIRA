@@ -57,8 +57,11 @@ async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
   return data as T;
 }
 
+// O cliente não escuta o banco (não tem policy em tabela nenhuma, então o
+// Realtime não teria o que entregar): relê sozinho. Aba escondida não relê.
+// Documento gerado pela equipe aparece em até 20 s, sem F5.
 export const useContratos = () =>
-  useQuery({ queryKey: ["portal", "contratos"], queryFn: () => rpc<ContratoPortal[]>("portal_contratos") });
+  useQuery({ queryKey: ["portal", "contratos"], queryFn: () => rpc<ContratoPortal[]>("portal_contratos"), refetchInterval: 20_000 });
 
 export const useAvisos = () =>
   useQuery({
@@ -72,12 +75,14 @@ export const marcarHistoricoLido = () => rpc<void>("portal_marcar_historico_lido
 export const useSetores = () =>
   useQuery({ queryKey: ["portal", "setores"], queryFn: () => rpc<{ id: string; nome: string }[]>("portal_setores") });
 
-// O chat não tem tempo real: relê a cada 15 s, como o portal antigo.
+// O chat ABERTO relê a cada 5 s (a resposta da equipe chega quase na hora); só
+// roda com a conversa na tela — aba escondida ou outra página não consultam.
+const CHAT_RELE = 5_000;
 export const useChatAtivo = () =>
-  useQuery({ queryKey: ["portal", "chat", "ativo"], queryFn: () => rpc<ChatPortal | null>("portal_chat_ativo"), refetchInterval: 15_000 });
+  useQuery({ queryKey: ["portal", "chat", "ativo"], queryFn: () => rpc<ChatPortal | null>("portal_chat_ativo"), refetchInterval: CHAT_RELE });
 
 export const useChat = (id: string | undefined) =>
-  useQuery({ queryKey: ["portal", "chat", id], enabled: !!id, queryFn: () => rpc<ChatPortal | null>("portal_chat", { p_atendimento: id }) });
+  useQuery({ queryKey: ["portal", "chat", id], enabled: !!id, queryFn: () => rpc<ChatPortal | null>("portal_chat", { p_atendimento: id }), refetchInterval: CHAT_RELE });
 
 export const marcarChatLido = (id: string) => rpc<void>("portal_marcar_chat_lido", { p_atendimento: id });
 

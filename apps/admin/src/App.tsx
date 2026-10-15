@@ -28,7 +28,9 @@ const DocumentoImprimir = lazy(() => import("@/pages/DocumentoImprimir"));
 // carrega o app inteiro. O <Suspense> mora no Layout, em volta do <Outlet>,
 // para o menu continuar na tela enquanto a página chega.
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
+  // Voltar à aba relê o que estiver velho: o "ao vivo" (useAoVivo) não
+  // reentrega o que mudou enquanto a aba dormia.
+  defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: true } },
 });
 
 
@@ -60,8 +62,9 @@ export default function App() {
                 <Route path="*" element={<PaginaNaoEncontrada />} />
               </Route>
             </Routes>
+            {/* Dentro do roteador: o aviso "ao vivo" leva um <Link> para o documento/conversa. */}
+            <Toaster />
           </BrowserRouter>
-          <Toaster />
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>

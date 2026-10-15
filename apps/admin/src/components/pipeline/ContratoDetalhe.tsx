@@ -171,7 +171,9 @@ function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente
     setEtapaId(c.etapa_id); setBancoId(c.banco_id ?? NENHUM); setLinhaId(c.linha_credito_id ?? NENHUM);
     setVeiculo(c.veiculo ?? ""); setAnoModelo(c.ano_modelo ?? ""); setPlaca(c.placa ?? "");
     setConsultorId(c.consultor_id ?? NENHUM); setObservacoes(c.observacoes ?? "");
-  }, [c]);
+    // ⚠️ Pelos VALORES, não pelo objeto: a tela relê sozinha (ao vivo) e um
+    // objeto novo com os mesmos dados apagaria o que a pessoa está digitando.
+  }, [c.id, c.etapa_id, c.banco_id, c.linha_credito_id, c.veiculo, c.ano_modelo, c.placa, c.consultor_id, c.observacoes]);
 
   const linha = linhas.find((l) => l.id === linhaId);
   const vazio = (s: string) => s.trim() || null;

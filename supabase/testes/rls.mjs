@@ -36,6 +36,8 @@ await sql(`
   create function auth.uid() returns uuid language sql stable as $$
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant execute on function auth.uid() to anon, authenticated, service_role;
+  -- O Supabase já nasce com a publicação do Realtime (vazia).
+  create publication supabase_realtime;
 `);
 
 const pasta = new URL("../migrations/", import.meta.url).pathname;
@@ -353,6 +355,16 @@ await espera("q_painel conta no banco (gestor)", () => como("authenticated", G, 
 await espera("q_painel do colaborador B é vazio", () => como("authenticated", B, "select q_painel() as p"), false, (r) => r.rows[0].p.andamento === 0 && r.rows[0].p.portal === 0);
 await espera("anon não chama o painel", () => como("anon", null, "select q_painel()"), true);
 await espera("cliente do portal não gera documento", () => como("authenticated", P, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
+
+// ── ao vivo: as tabelas que o admin escuta estão na publicação do Realtime
+const AO_VIVO = ["atendimento_mensagens", "atendimentos", "clientes", "contrato_documentos", "contrato_historico", "contratos", "documento_assinaturas", "documento_eventos"];
+await espera("as 8 tabelas do ao vivo estão na publicação supabase_realtime", () => db.query("select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1"), false, (r) => JSON.stringify(r.rows.map((x) => x.tablename)) === JSON.stringify(AO_VIVO));
+await espera("a migração do ao vivo roda de novo sem erro (idempotente)", () => sql(readFileSync(join(pasta, "20261018000000_ao_vivo.sql"), "utf8")), false);
+await espera("as tabelas do useAoVivo são as da publicação", async () => {
+  const fonte = readFileSync(new URL("../../apps/admin/src/hooks/useAoVivo.tsx", import.meta.url), "utf8");
+  const bloco = fonte.slice(fonte.indexOf("const AFETA"), fonte.indexOf("export const TABELAS_AO_VIVO"));
+  return { rows: [...bloco.matchAll(/^\s{2}(\w+):/gm)].map((m) => m[1]).sort() };
+}, false, (r) => JSON.stringify(r.rows) === JSON.stringify(AO_VIVO));
 
 console.log(`\n${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);

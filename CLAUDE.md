@@ -122,7 +122,9 @@ escrita         portal_abrir_atendimento · portal_enviar_mensagem
   schema"), longe de onde o erro nasceu.
 - O atendimento nasce com o CONSULTOR do contrato como responsável — é assim
   que o colaborador vê o chat do cliente dele.
-- Sem tempo real: chat e avisos releem a cada 15 s (portal e admin).
+- O PORTAL não tem tempo real (o cliente não tem policy em tabela, o Realtime
+  não teria o que lhe entregar): Meus Contratos relê a cada 20 s, o chat aberto
+  a cada 5 s. O ADMIN é ao vivo (ver "Ao vivo").
 
 ⚠️ **Arquivos COPIADOS entre `admin` e `portal`** (mesmo conteúdo, mude nos
 dois): `src/components/documento/DocumentoImpresso.tsx` (o documento e o
@@ -149,6 +151,8 @@ com erro.
 aplicadas e conferidas em 15/10/2026 (7 + 7 funções, 4 modelos inativos, as 4
 views com `security_invoker=true`, nenhum cliente sem `busca`). Sem elas,
 Painel, Pipeline, Clientes, Contratos, Documentos e Atendimentos abrem com erro.
+`20261018000000` (ao vivo) — sem ela o admin funciona, mas só atualiza com F5
+ou ao voltar à aba.
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
@@ -277,6 +281,28 @@ contratos_lista · clientes_lista · documentos_lista · atendimentos_caixa   (v
 - Cada tela é baixada quando é aberta (`lazy` no `App.tsx`, `Suspense` no
   `Layout`), e as bibliotecas saem num arquivo próprio (`manualChunks`), que o
   navegador guarda entre deploys.
+
+## Ao vivo — o admin se atualiza sozinho (15/10/2026)
+Pedido do dono do processo: "só apareceu assinado quando dei F5… assinou já
+altera tudo". Migração `20261018000000_ao_vivo.sql` (as tabelas entram na
+publicação `supabase_realtime`) + `hooks/useAoVivo.tsx`, montado no `Layout`.
+
+- O aviso do banco NÃO carrega o dado: só diz qual consulta ficou velha
+  (`AFETA`), e a tela relê pelo caminho de sempre (RLS, página, contagem).
+  Vários avisos juntos viram UMA releitura (250 ms).
+- O Realtime confere a RLS de quem escuta: o colaborador só é avisado da
+  própria carteira. Um canal POR TABELA: tabela fora da publicação derruba só
+  o canal dela (`CHANNEL_ERROR` no console).
+- ⚠️ Tabela nova que a equipe precisa ver mudar entra na migração **e** no
+  `AFETA` (o teste confere que as listas batem).
+- Aviso na tela: documento assinado pelo cliente e mensagem do cliente (com
+  link), menos para quem já está com aquela conversa aberta.
+- Realtime não reentrega o que passou: reconectou, relê; voltar à aba relê
+  (`refetchOnWindowFocus`). O `<Toaster>` mora DENTRO do `BrowserRouter`
+  (o aviso leva `<Link>`).
+- ⚠️ Formulário que copia o dado para o estado local reinicia pelos VALORES,
+  nunca pelo objeto: a releitura sozinha traz objeto novo e apagaria o que a
+  pessoa está digitando (`ContratoDetalhe`).
 
 ## Documentos: MODELO → gerar → o cliente assina no portal (15/10/2026)
 Pedido do dono do processo: contrato, termo, declaração e procuração como
