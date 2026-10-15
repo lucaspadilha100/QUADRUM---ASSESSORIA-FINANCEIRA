@@ -17,7 +17,7 @@ import { dataHoraBR } from "@/lib/formato";
 // ou registrar um assinado FORA (link). O que está pendente aparece para o
 // cliente em "Pendências do contrato".
 
-export function DocumentosDoContrato({ contrato }: { contrato: ContratoPipeline }) {
+export function DocumentosDoContrato({ contrato, onCompletar }: { contrato: ContratoPipeline; onCompletar?: (onde: "cliente" | "dados") => void }) {
   const { data: docs = [], isLoading, error } = useDocumentos(contrato.id);
   return (
     <div className="space-y-4 pt-2">
@@ -28,7 +28,7 @@ export function DocumentosDoContrato({ contrato }: { contrato: ContratoPipeline 
             <TabsTrigger value="link">Assinado fora (link)</TabsTrigger>
           </TabsList>
           <TabsContent value="modelo" className="pt-2">
-            <GerarDocumento contrato={{ id: contrato.id, numero: contrato.numero, cliente_id: contrato.cliente?.id, data_aceite: contrato.data_aceite }} />
+            <GerarDocumento contrato={{ id: contrato.id, numero: contrato.numero, cliente_id: contrato.cliente?.id, data_aceite: contrato.data_aceite }} onCompletar={onCompletar} />
           </TabsContent>
           <TabsContent value="link" className="pt-2"><NovoLink contratoId={contrato.id} /></TabsContent>
         </Tabs>

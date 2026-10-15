@@ -201,13 +201,30 @@ Navegação é `<Link>`, nunca `onClick={() => navigate()}`.
 Filtro, aba, busca e item aberto moram na URL (`useParamUrl`): F5 e link
 copiado reabrem a mesma coisa. O Painel linka cada número para a lista já
 filtrada (`/contratos?situacao=portal`, `/atendimentos?aba=nao_lidas`).
+⚠️ **Data é `components/CampoData.tsx`, nunca `<input type="date">`**: o
+calendário do navegador muda de ano clicando mês a mês (pedido do dono do
+processo, 15/10/2026). O nosso aceita digitar DD/MM/AAAA e tem mês e ano em
+lista; o valor é o mesmo "AAAA-MM-DD".
 
 ## Telas do admin (15/10/2026)
 Painel · Pipeline · Atendimentos · Clientes · Contratos · Documentos p/ assinar ·
 Departamentos e setores · Usuários. **Bancos, Linhas de crédito e Unidades
 ficam PARADAS** (placeholder) por decisão do dono do processo: faltam os dados.
-- O painel do contrato (`ContratoDetalhe`) é UM só: abre na Pipeline e em
-  Contratos. A conversa (`components/atendimento/Conversa.tsx`) é a mesma no
+- O painel do contrato (`ContratoDetalhe`/`ContratoPainel`) é UM só: abre na
+  Pipeline, em Contratos, em Documentos e DENTRO da ficha do cliente (com
+  "← Voltar para o cliente"). Abas: Contrato · Cliente · Histórico ·
+  Pendências · Chat. ⚠️ **Nada dentro do painel manda para outra tela**
+  (pedido do dono do processo, 15/10/2026: "abre outra barra lateral e não
+  tem como voltar"): o "falta RG / falta banco" troca de ABA; os dados do
+  cliente se editam na aba Cliente (`EdicaoCliente`, a mesma da ficha).
+- ⚠️ **Navegar DENTRO do painel não grava no histórico** (aba, cliente →
+  contrato são estado do painel). Uma entrada nova por cima apaga a marca do
+  "Voltar fecha o diálogo" (`shell/voltarFecha.ts`), e confirmar qualquer coisa
+  no painel passava a FECHAR o painel inteiro (medido no teste).
+  `?painel=cliente` só ABRE o painel numa aba.
+- Banco no contrato: `SelectBanco`, com "+ Cadastrar banco…" para o gestor
+  (a tela de Bancos está parada). O aviso de geração separa o que falta no
+  CLIENTE do que falta no CONTRATO. A conversa (`components/atendimento/Conversa.tsx`) é a mesma no
   card e na caixa de Atendimentos; o acesso ao portal (`AcessoPortal.tsx`), o
   mesmo no card e em Clientes.
 - ⚠️ A caixa lê a view `atendimentos_caixa` (`security_invoker`): a RLS das

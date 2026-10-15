@@ -16,9 +16,11 @@ import { useGerarDocumento, useModelos, usePrevia } from "@/hooks/useModelos";
 // — com o link para completar a ficha do cliente.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function GerarDocumento({ contrato, onGerado }: {
+export function GerarDocumento({ contrato, onGerado, onCompletar }: {
   contrato: { id: string; numero: number; cliente_id?: string | null; data_aceite?: string | null };
   onGerado?: (id: string) => void;
+  /** Leva para onde se completa o que falta — SEM sair da tela (aba do card, ou o card por cima). */
+  onCompletar?: (onde: "cliente" | "dados") => void;
 }) {
   const { data: modelos = [], isLoading } = useModelos();
   const ativos = modelos.filter((m) => m.ativo);
@@ -28,6 +30,11 @@ export function GerarDocumento({ contrato, onGerado }: {
   const gerar = useGerarDocumento();
 
   const faltando = previa?.faltando ?? [];
+  // Cada campo que falta mora num lugar: o do CONTRATO (banco, placa…) na aba
+  // Dados do contrato; o resto (cliente, representante) na ficha do cliente.
+  const doContrato = faltando.filter((f) => f.chave.startsWith("contrato."));
+  const doCliente = faltando.filter((f) => !f.chave.startsWith("contrato."));
+  const nomes = (l: typeof faltando) => l.map((f) => f.rotulo ?? f.chave).join(", ");
   const desconhecidas = previa?.desconhecidas ?? [];
   const pode = !!modelo && !!previa && faltando.length === 0 && desconhecidas.length === 0;
 
@@ -75,10 +82,20 @@ export function GerarDocumento({ contrato, onGerado }: {
               {(faltando.length > 0 || desconhecidas.length > 0) && (
                 <div className="rounded-lg border border-warning/50 bg-warning/5 p-3 text-sm">
                   <p className="flex items-center gap-1.5 font-medium text-foreground"><AlertTriangle className="h-4 w-4 text-warning" /> Ainda não dá para gerar</p>
-                  {faltando.length > 0 && (
+                  {doCliente.length > 0 && (
                     <p className="mt-1 text-muted-foreground">
-                      Faltam: <strong className="text-foreground">{faltando.map((f) => f.rotulo ?? f.chave).join(", ")}</strong>.{" "}
-                      {contrato.cliente_id && <Link to={`/clientes?cliente=${contrato.cliente_id}`} className="q-link">Completar a ficha do cliente</Link>}
+                      Falta nos <strong className="text-foreground">dados do cliente</strong>: <strong className="text-foreground">{nomes(doCliente)}</strong>.{" "}
+                      {onCompletar
+                        ? <button type="button" onClick={() => onCompletar("cliente")} className="q-link font-medium">Completar os dados do cliente</button>
+                        : contrato.cliente_id && <Link to={`/clientes?cliente=${contrato.cliente_id}`} className="q-link">Completar os dados do cliente</Link>}
+                    </p>
+                  )}
+                  {doContrato.length > 0 && (
+                    <p className="mt-1 text-muted-foreground">
+                      Falta no <strong className="text-foreground">contrato</strong>: <strong className="text-foreground">{nomes(doContrato)}</strong>.{" "}
+                      {onCompletar
+                        ? <button type="button" onClick={() => onCompletar("dados")} className="q-link font-medium">Preencher no contrato</button>
+                        : <Link to={`/contratos?contrato=${contrato.id}`} className="q-link">Preencher no contrato</Link>}
                     </p>
                   )}
                   {desconhecidas.length > 0 && (

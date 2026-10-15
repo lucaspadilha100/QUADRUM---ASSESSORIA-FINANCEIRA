@@ -1,27 +1,25 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { CheckCircle2, Globe, KeyRound, Loader2, Plus, Search } from "lucide-react";
+import { Globe, Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClienteForm } from "@/components/clientes/ClienteForm";
-import { AcessoPortal } from "@/components/AcessoPortal";
+import { ClientePainel } from "@/components/clientes/ClientePainel";
+import { ContratoPainel } from "@/components/pipeline/ContratoDetalhe";
 import { Chips } from "@/components/Chips";
 import { Carregando, Falha, Vazio } from "@/components/Estados";
 import { Paginacao, usePaginacaoUrl } from "@/components/Paginacao";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEquipe, useEtapas } from "@/hooks/useCadastros";
-import {
-  clientePorDocumento, useAtualizarCliente, useCliente, useClientesPagina, useCriarCliente,
-} from "@/hooks/useClientes";
+import { useEquipe } from "@/hooks/useCadastros";
+import { clientePorDocumento, useClientesPagina, useCriarCliente } from "@/hooks/useClientes";
 import { useAtrasado } from "@/hooks/usePagina";
 import { useParamUrl } from "@/shell";
-import { dataBR, documentoValido, formatarDocumento, mascararDocumento, soDigitos } from "@/lib/formato";
+import { documentoValido, formatarDocumento, mascararDocumento, soDigitos } from "@/lib/formato";
 
 const TODOS = "todos";
 
@@ -195,80 +193,22 @@ function NovoCliente({ aberto, onFechar, onCriado }: { aberto: boolean; onFechar
   );
 }
 
+// Uma barra lateral só: o cliente, e — clicando num contrato dele — o
+// contrato NA MESMA barra, com "← Voltar para o cliente". Nada de abrir outra
+// tela de onde não se volta. ⚠️ O contrato aberto aqui é estado do PAINEL, não
+// da URL (ver ContratoDetalhe: entrada no histórico quebra o "Voltar fecha").
 function ClienteDetalhe({ clienteId, onFechar }: { clienteId: string | null; onFechar: () => void }) {
-  const { data: cliente, isLoading, error } = useCliente(clienteId);
-  const atualizar = useAtualizarCliente();
-  const { data: etapas = [] } = useEtapas();
-  const etapaNome = (id: string) => etapas.find((e) => e.id === id)?.nome ?? "—";
-
+  const [contratoId, setContratoId] = useState<string | null>(null);
+  useEffect(() => setContratoId(null), [clienteId]);
   return (
     <Sheet open={!!clienteId} onOpenChange={(o) => !o && onFechar()}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
-        {isLoading ? (
-          <Carregando />
-        ) : error ? (
-          <Falha erro={error as Error} />
-        ) : !cliente ? (
-          <p className="pt-10 text-sm text-muted-foreground">Cliente não encontrado — ou é de outra carteira.</p>
+        {clienteId && (contratoId ? (
+          <ContratoPainel contratoId={contratoId}
+            voltar={{ rotulo: "Voltar para o cliente", onClick: () => setContratoId(null) }} />
         ) : (
-          <>
-            <SheetHeader className="pr-8 text-left">
-              <p className="font-titulo text-xs font-semibold text-muted-foreground">CLIENTE · {cliente.tipo_pessoa}</p>
-              <SheetTitle className="text-xl">{cliente.nome}</SheetTitle>
-              <SheetDescription>{formatarDocumento(cliente.documento)} · cadastrado em {dataBR(cliente.created_at)}</SheetDescription>
-            </SheetHeader>
-
-            <section className="mt-5 rounded-lg border border-border bg-muted/40 p-3">
-              <p className="flex items-center gap-1.5 text-sm font-semibold"><KeyRound className="h-4 w-4 text-q-petrol" /> Portal do Cliente</p>
-              <AcessoPortal cliente={cliente} />
-            </section>
-
-            <section className="mt-5">
-              <h3 className="mb-2 text-sm font-semibold">Contratos</h3>
-              {cliente.contratos.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
-                  Nenhum contrato. Crie na <Link to="/pipeline" className="q-link">Pipeline</Link> com o CPF/CNPJ deste cliente.
-                </p>
-              ) : (
-                <ul className="divide-y divide-border rounded-lg border border-border">
-                  {[...cliente.contratos].sort((a, b) => b.numero - a.numero).map((k) => (
-                    <li key={k.id}>
-                      <Link to={`/contratos?contrato=${k.id}`} className="flex items-center gap-3 p-3 text-sm text-foreground no-underline hover:bg-accent/50">
-                        <span className="font-titulo font-semibold">#{k.numero}</span>
-                        <span className="min-w-0 flex-1 truncate text-muted-foreground">{etapaNome(k.etapa_id)}</span>
-                        {k.cancelado_em ? (
-                          <span className="text-xs text-destructive">Perdido</span>
-                        ) : k.data_aceite ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-q-petrol"><CheckCircle2 className="h-3.5 w-3.5" /> No portal</span>
-                        ) : null}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section className="mt-5 border-t border-border pt-4">
-              <h3 className="mb-2 text-sm font-semibold">Dados</h3>
-              <ClienteForm
-                inicial={{ nome: cliente.nome, telefone: cliente.telefone ?? "", email: cliente.email ?? "", observacoes: cliente.observacoes ?? "" }}
-                inicialDocumento={cliente}
-                tipoPessoa={cliente.tipo_pessoa}
-                consultorInicial={cliente.consultor_id}
-                rotuloSalvar="Salvar"
-                salvando={atualizar.isPending}
-                onSalvar={async (d) => {
-                  try {
-                    await atualizar.mutateAsync({ id: cliente.id, ...d });
-                    toast.success("Cliente salvo.");
-                  } catch (e) {
-                    toast.error("Não foi possível salvar.", { description: (e as Error).message });
-                  }
-                }}
-              />
-            </section>
-          </>
-        )}
+          <ClientePainel clienteId={clienteId} onAbrirContrato={(id) => setContratoId(id)} />
+        ))}
       </SheetContent>
     </Sheet>
   );

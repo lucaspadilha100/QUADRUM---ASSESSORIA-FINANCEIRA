@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
-import { useBancos, useEquipe, useEtapas, useLinhasCredito } from "@/hooks/useCadastros";
+import { useEquipe, useEtapas, useLinhasCredito } from "@/hooks/useCadastros";
 import { buscarClientePorDocumento, useCriarCard } from "@/hooks/usePipeline";
+import { SelectBanco } from "@/components/SelectBanco";
 import { documentoValido, mascararDocumento, soDigitos } from "@/lib/formato";
 
 // Radix Select não aceita item de valor vazio: "nenhum" é a ausência.
@@ -23,7 +24,6 @@ export function NovoCardDialog({ aberto, etapaInicial, onFechar }: {
 }) {
   const { perfil, isGestor } = useAuth();
   const { data: etapas = [] } = useEtapas();
-  const { data: bancos = [] } = useBancos();
   const { data: linhas = [] } = useLinhasCredito();
   const { data: equipe = [] } = useEquipe();
   const criar = useCriarCard();
@@ -162,16 +162,7 @@ export function NovoCardDialog({ aberto, etapaInicial, onFechar }: {
               </div>
               <div className="space-y-1.5">
                 <Label>Banco</Label>
-                <Select value={bancoId} onValueChange={setBancoId}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NENHUM}>Não informado</SelectItem>
-                    {ativos(bancos).map((b) => <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                {ativos(bancos).length === 0 && (
-                  <p className="text-[11px] text-muted-foreground">Nenhum banco cadastrado ainda.</p>
-                )}
+                <SelectBanco valor={bancoId} onChange={setBancoId} />
               </div>
               <div className="space-y-1.5">
                 <Label>Linha de crédito</Label>

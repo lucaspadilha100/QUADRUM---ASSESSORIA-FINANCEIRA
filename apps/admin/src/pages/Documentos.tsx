@@ -14,6 +14,7 @@ import { Paginacao, usePaginacaoUrl } from "@/components/Paginacao";
 import { BuscaContrato, type ContratoEscolhido } from "@/components/busca/BuscaContrato";
 import { GerarDocumento } from "@/components/documento/GerarDocumento";
 import { NovoLink, SituacaoDocumento } from "@/components/documento/DocumentosDoContrato";
+import { ContratoDetalhe } from "@/components/pipeline/ContratoDetalhe";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDocumentosPagina, type DocumentoLista } from "@/hooks/useDocumentosTodos";
 import { useAtrasado } from "@/hooks/usePagina";
@@ -30,6 +31,10 @@ export default function Documentos() {
   const [busca, setBusca] = useParamUrl("busca", "", { replace: true });
   const pag = usePaginacaoUrl();
   const [novo, setNovo] = useState(false);
+  // O contrato abre AQUI, por cima da lista (o "completar dados" e o nº do contrato).
+  const [contratoAberto, setContratoAberto] = useParamUrl("contrato", "");
+  const [, setPainel] = useParamUrl("painel", "dados");
+  const abrirContrato = (id: string, painel?: string) => { setContratoAberto(id); if (painel) setPainel(painel); };
 
   const termo = useAtrasado(busca);
   const { data, isLoading, isFetching, error } = useDocumentosPagina({ busca: termo, situacao: filtro, pagina: pag.pagina, por: pag.por });
@@ -76,7 +81,7 @@ export default function Documentos() {
           <>
             <div className="overflow-hidden rounded-xl border border-border bg-card">
               <ul className="divide-y divide-border">
-                {lista.map((d) => <Linha key={d.id} d={d} />)}
+                {lista.map((d) => <Linha key={d.id} d={d} onAbrirContrato={abrirContrato} />)}
               </ul>
             </div>
             <Paginacao pagina={pag.pagina} por={pag.por} total={total} onPagina={pag.irPara} onPor={pag.mudarPor} />
@@ -84,12 +89,14 @@ export default function Documentos() {
         )}
       </div>
 
-      <NovoDocumento aberto={novo} onFechar={() => setNovo(false)} />
+      <NovoDocumento aberto={novo} onFechar={() => setNovo(false)}
+        onCompletar={(contratoId, onde) => { setNovo(false); abrirContrato(contratoId, onde === "cliente" ? "cliente" : "dados"); }} />
+      <ContratoDetalhe contratoId={contratoAberto || null} onFechar={() => setContratoAberto(null)} />
     </div>
   );
 }
 
-function Linha({ d }: { d: DocumentoLista }) {
+function Linha({ d, onAbrirContrato }: { d: DocumentoLista; onAbrirContrato: (id: string) => void }) {
   const { perfil } = useAuth();
   const salvar = useSalvarDocumento();
   const cancelar = useCancelarDocumento();
@@ -132,7 +139,7 @@ function Linha({ d }: { d: DocumentoLista }) {
           {d.cliente_nome ?? "Cliente de outra carteira"}
           {d.cliente_documento ? ` · ${formatarDocumento(d.cliente_documento)}` : ""}
           {" · "}
-          <Link to={`/contratos?contrato=${d.contrato_id}`} className="q-link">Contrato #{d.contrato_numero}</Link>
+          <button type="button" onClick={() => onAbrirContrato(d.contrato_id)} className="q-link">Contrato #{d.contrato_numero}</button>
         </p>
       </div>
       <div className="text-xs text-muted-foreground sm:w-56">
@@ -164,7 +171,11 @@ function Linha({ d }: { d: DocumentoLista }) {
   );
 }
 
-function NovoDocumento({ aberto, onFechar }: { aberto: boolean; onFechar: () => void }) {
+function NovoDocumento({ aberto, onFechar, onCompletar }: {
+  aberto: boolean;
+  onFechar: () => void;
+  onCompletar: (contratoId: string, onde: "cliente" | "dados") => void;
+}) {
   const [contrato, setContrato] = useState<ContratoEscolhido | null>(null);
   const fechar = () => { setContrato(null); onFechar(); };
   return (
@@ -186,7 +197,8 @@ function NovoDocumento({ aberto, onFechar }: { aberto: boolean; onFechar: () => 
                 <TabsTrigger value="link">Assinado fora (link)</TabsTrigger>
               </TabsList>
               <TabsContent value="modelo" className="pt-3">
-                <GerarDocumento contrato={contrato} onGerado={fechar} />
+                <GerarDocumento contrato={contrato} onGerado={fechar}
+                  onCompletar={(onde) => { const id = contrato.id; setContrato(null); onCompletar(id, onde); }} />
               </TabsContent>
               <TabsContent value="link" className="pt-3">
                 <NovoLink contratoId={contrato.id} onCriado={fechar} />

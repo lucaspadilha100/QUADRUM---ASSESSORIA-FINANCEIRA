@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { CampoData } from "@/components/CampoData";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEquipe } from "@/hooks/useCadastros";
@@ -167,7 +168,10 @@ export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorIn
                   </Select>
                 </div>
                 {campo("profissao", "Profissão")}
-                {campo("data_nascimento", "Data de nascimento", { type: "date" })}
+                <div className="space-y-1.5">
+                  <Label htmlFor="cli-data_nascimento">Data de nascimento</Label>
+                  <CampoData id="cli-data_nascimento" valor={doc.data_nascimento} onChange={muda("data_nascimento")} anoMax={new Date().getFullYear()} />
+                </div>
                 {campo("rg", "RG")}
                 {campo("rg_orgao", "Órgão emissor", { placeholder: "SSP/RN" })}
               </div>

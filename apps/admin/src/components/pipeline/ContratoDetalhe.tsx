@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Archive, Bell, Eye, Globe, Loader2, MessageSquare, RotateCcw, XCircle } from "lucide-react";
+import { Archive, ArrowLeft, Bell, Eye, Globe, Loader2, MessageSquare, RotateCcw, UserPen, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,10 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { confirmar, pedirTexto } from "@/shell";
+import { confirmar, pedirTexto, useParamUrl } from "@/shell";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  useBancos, useDepartamentos, useEquipe, useEtapas, useLinhasCredito,
+  useDepartamentos, useEquipe, useEtapas, useLinhasCredito,
 } from "@/hooks/useCadastros";
 import {
   LIMITE_HISTORICO, useAtendimentosDoContrato, useAtualizarContrato, useContrato, useHistorico,
@@ -19,7 +19,9 @@ import {
 } from "@/hooks/usePipeline";
 import { DocumentosDoContrato } from "@/components/documento/DocumentosDoContrato";
 import { Conversa } from "@/components/atendimento/Conversa";
+import { SelectBanco } from "@/components/SelectBanco";
 import { AcessoPortal } from "@/components/AcessoPortal";
+import { EdicaoCliente } from "@/components/clientes/ClientePainel";
 import { dataBR, dataHoraBR, formatarDocumento } from "@/lib/formato";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,28 +34,54 @@ const NENHUM = "nenhum";
 
 // O painel lê o contrato pelo ID, direto do banco: a lista ao lado é uma
 // PÁGINA, e o link direto (?contrato=…) tem de abrir mesmo fora dela.
+// O "falta RG" troca de ABA aqui dentro, em vez de mandar para outra tela —
+// antes não havia como voltar. `?painel=cliente` só ABRE o painel numa aba
+// (é o que a tela de Documentos usa); trocar de aba depois fica no painel.
+// ⚠️ Trocar de aba NÃO grava no histórico: uma entrada nova por cima apagava a
+// marca do "Voltar fecha o diálogo", e confirmar qualquer coisa dentro do
+// painel (cancelar documento) passava a FECHAR o painel inteiro.
 export function ContratoDetalhe({ contratoId, onFechar }: { contratoId: string | null; onFechar: () => void }) {
-  const { data: contrato, isLoading, error } = useContrato(contratoId);
+  const [, setPainel] = useParamUrl("painel", "dados");
   return (
-    <Sheet open={!!contratoId} onOpenChange={(o) => !o && onFechar()}>
+    <Sheet open={!!contratoId} onOpenChange={(o) => { if (!o) { setPainel(null); onFechar(); } }}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
-        {isLoading ? (
-          <p className="flex items-center gap-2 pt-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando…</p>
-        ) : error ? (
-          <p className="pt-10 text-sm text-destructive">Não foi possível abrir o contrato: {(error as Error).message}</p>
-        ) : contrato ? (
-          <Conteudo c={contrato} />
-        ) : (
-          <p className="pt-10 text-sm text-muted-foreground">Contrato não encontrado — ou é de outra carteira.</p>
-        )}
+        {contratoId && <ContratoPainel contratoId={contratoId} />}
       </SheetContent>
     </Sheet>
+  );
+}
+
+/** O contrato inteiro, para morar dentro de uma barra lateral. `voltar` põe o "← Voltar" no topo. */
+export function ContratoPainel({ contratoId, voltar }: { contratoId: string; voltar?: { rotulo: string; onClick: () => void } }) {
+  const { data: contrato, isLoading, error } = useContrato(contratoId);
+  return (
+    <>
+      {voltar && (
+        <button type="button" onClick={voltar.onClick}
+          className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-q-petrol hover:underline">
+          <ArrowLeft className="h-4 w-4" /> {voltar.rotulo}
+        </button>
+      )}
+      {isLoading ? (
+        <p className="flex items-center gap-2 pt-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando…</p>
+      ) : error ? (
+        <p className="pt-10 text-sm text-destructive">Não foi possível abrir o contrato: {(error as Error).message}</p>
+      ) : contrato ? (
+        <Conteudo key={contrato.id} c={contrato} />
+      ) : (
+        <p className="pt-10 text-sm text-muted-foreground">Contrato não encontrado — ou é de outra carteira.</p>
+      )}
+    </>
   );
 }
 
 function Conteudo({ c }: { c: ContratoPipeline }) {
   const { data: etapas = [] } = useEtapas();
   const etapaAceite = etapas.find((e) => e.aceita && e.ativo);
+  const [painelUrl] = useParamUrl("painel", "dados");
+  const [aba, setAba] = useState(painelUrl);
+  // Sem o cliente (é de outra carteira), não há aba Cliente para abrir.
+  const abaVisivel = aba === "cliente" && !c.cliente ? "dados" : aba;
   return (
     <>
       <SheetHeader className="pr-8 text-left">
@@ -82,16 +110,25 @@ function Conteudo({ c }: { c: ContratoPipeline }) {
         </div>
       </SheetHeader>
 
-      <Tabs defaultValue="dados" className="mt-5">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="dados">Dados</TabsTrigger>
-          <TabsTrigger value="historico">Histórico</TabsTrigger>
-          <TabsTrigger value="documentos">Pendências</TabsTrigger>
-          <TabsTrigger value="atendimentos">Atendim.</TabsTrigger>
+      <Tabs value={abaVisivel} onValueChange={(v) => setAba(v)} className="mt-5">
+        <TabsList className={`grid w-full ${c.cliente ? "grid-cols-5" : "grid-cols-4"}`}>
+          <TabsTrigger value="dados" className="px-1 text-xs sm:text-sm">Contrato</TabsTrigger>
+          {c.cliente && <TabsTrigger value="cliente" className="px-1 text-xs sm:text-sm">Cliente</TabsTrigger>}
+          <TabsTrigger value="historico" className="px-1 text-xs sm:text-sm">Histórico</TabsTrigger>
+          <TabsTrigger value="documentos" className="px-1 text-xs sm:text-sm">Pendências</TabsTrigger>
+          <TabsTrigger value="atendimentos" className="px-1 text-xs sm:text-sm">Chat</TabsTrigger>
         </TabsList>
-        <TabsContent value="dados"><AbaDados c={c} /></TabsContent>
+        <TabsContent value="dados"><AbaDados c={c} onEditarCliente={() => setAba("cliente")} /></TabsContent>
+        {c.cliente && (
+          <TabsContent value="cliente" className="pt-2">
+            <p className="mb-3 text-[11px] text-muted-foreground">Os dados do cliente valem para todos os contratos dele.</p>
+            <EdicaoCliente clienteId={c.cliente.id} />
+          </TabsContent>
+        )}
         <TabsContent value="historico"><AbaHistorico contratoId={c.id} /></TabsContent>
-        <TabsContent value="documentos"><DocumentosDoContrato contrato={c} /></TabsContent>
+        <TabsContent value="documentos">
+          <DocumentosDoContrato contrato={c} onCompletar={(onde) => setAba(onde === "cliente" ? "cliente" : "dados")} />
+        </TabsContent>
         <TabsContent value="atendimentos"><AbaAtendimentos contratoId={c.id} /></TabsContent>
       </Tabs>
     </>
@@ -100,10 +137,9 @@ function Conteudo({ c }: { c: ContratoPipeline }) {
 
 // ── Dados ────────────────────────────────────────────────────────────────────
 
-function AbaDados({ c }: { c: ContratoPipeline }) {
+function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente: () => void }) {
   const { isGestor, perfil } = useAuth();
   const { data: etapas = [] } = useEtapas();
-  const { data: bancos = [] } = useBancos();
   const { data: linhas = [] } = useLinhasCredito();
   const { data: equipe = [] } = useEquipe();
   const atualizar = useAtualizarContrato();
@@ -190,6 +226,9 @@ function AbaDados({ c }: { c: ContratoPipeline }) {
             {c.cliente.email ? ` · ${c.cliente.email}` : ""}
           </p>
           <AcessoPortal cliente={c.cliente} />
+          <button type="button" onClick={onEditarCliente} className="q-link mt-2 inline-flex items-center gap-1 text-xs font-medium">
+            <UserPen className="h-3.5 w-3.5" /> Editar os dados do cliente (RG, endereço…)
+          </button>
         </div>
       )}
 
@@ -220,15 +259,7 @@ function AbaDados({ c }: { c: ContratoPipeline }) {
           )}
         </Campo>
         <Campo rotulo="Banco">
-          <Select value={bancoId} onValueChange={setBancoId}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NENHUM}>Não informado</SelectItem>
-              {bancos.filter((b) => b.ativo || b.id === c.banco_id).map((b) => (
-                <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SelectBanco valor={bancoId} onChange={setBancoId} manterId={c.banco_id} />
         </Campo>
         <Campo rotulo="Linha de crédito">
           <Select value={linhaId} onValueChange={setLinhaId}>

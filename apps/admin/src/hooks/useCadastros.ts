@@ -59,3 +59,17 @@ export function useSalvarDepartamento() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["cadastro", "departamentos"] }),
   });
 }
+
+// ── Banco novo na hora (gestor): a tela de Bancos está parada, mas o contrato
+// precisa do banco para os documentos. Cadastro, não CHECK: é um INSERT.
+export function useCriarBanco() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (nome: string) => {
+      const { data, error } = await supabase.from("bancos").insert({ nome: nome.trim() }).select("id").single();
+      if (error) throw new Error(mensagemDeErro(error));
+      return data.id as string;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cadastro", "bancos"] }),
+  });
+}
