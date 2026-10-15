@@ -151,8 +151,9 @@ com erro.
 aplicadas e conferidas em 15/10/2026 (7 + 7 funções, 4 modelos inativos, as 4
 views com `security_invoker=true`, nenhum cliente sem `busca`). Sem elas,
 Painel, Pipeline, Clientes, Contratos, Documentos e Atendimentos abrem com erro.
-`20261018000000` (ao vivo) — sem ela o admin funciona, mas só atualiza com F5
-ou ao voltar à aba.
+`20261018000000` (ao vivo) — aplicada e conferida em 15/10/2026 (8 tabelas na
+publicação `supabase_realtime`). Sem ela o admin funciona, mas só atualiza com
+F5 ou ao voltar à aba.
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
