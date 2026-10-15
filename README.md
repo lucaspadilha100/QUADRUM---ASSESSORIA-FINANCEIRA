@@ -29,5 +29,6 @@ cd ../../supabase/testes && npm install && npm test
 
 ## Deploy (Vercel)
 
-Projeto com **Root Directory = `apps/admin`**. Não precisa de variável de
-ambiente: URL e anon key (públicas) estão em `apps/admin/.env`.
+Importe o repositório e deixe o Root Directory na raiz: o `vercel.json` da raiz
+instala e builda `apps/admin`. Não precisa de variável de ambiente — URL e anon
+key (públicas) estão em `apps/admin/.env`.

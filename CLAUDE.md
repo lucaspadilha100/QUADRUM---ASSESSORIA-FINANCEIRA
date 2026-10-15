@@ -101,8 +101,17 @@ O ambiente cloud do Claude bloqueia `*.supabase.co` por padrão — teste ao viv
 só com o host liberado em Network access.
 Aplicadas (conferidas pelo retorno de cada bloco, 15/10/2026):
 `20261015000000` (estrutura inicial) e `20261015010000` (gestor/colaborador e
-perfis). `20261015020000` (pipeline) ENTREGUE em 15/10 — confirmar que rodou. Primeiro gestor: cadastrado à mão pelo bloco de bootstrap (não é
+perfis), `20261015020000` (pipeline). Primeiro gestor: cadastrado à mão pelo bloco de bootstrap (não é
 migração — depende do usuário criado em Authentication).
+
+## Deploy (Vercel)
+O projeto do Vercel aponta para a RAIZ do repo, e a raiz NÃO tem
+`package.json`: é o `vercel.json` da raiz que manda instalar e buildar em
+`apps/admin` e publicar `apps/admin/dist`. Sem ele o Vercel chama `vite build`
+sem instalar nada (`vite: command not found` — aconteceu no 1º deploy).
+⚠️ Install e build rodam SEPARADOS, cada um a partir da raiz: por isso os
+dois começam com `cd apps/admin`. Quando o portal existir, ele é OUTRO projeto
+no Vercel, com Root Directory = `apps/portal`.
 
 ## Marca (`docs/marca/`)
 Preto Onix `#0B0B0B` · Dourado `#D4AF37` · Cinza Grafite `#2E2E2E` ·
