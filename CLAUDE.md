@@ -154,6 +154,9 @@ Painel, Pipeline, Clientes, Contratos, Documentos e Atendimentos abrem com erro.
 `20261018000000` (ao vivo) — aplicada e conferida em 15/10/2026 (8 tabelas na
 publicação `supabase_realtime`). Sem ela o admin funciona, mas só atualiza com
 F5 ou ao voltar à aba.
+`20261018010000` (senha provisória) — aplicada e conferida em 15/10/2026 (3
+funções, 3 gatilhos, 2 contas marcadas provisórias). Login de teste
+`teste@email.com` (gestor) criado pelo SQL Editor, sem senha provisória.
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
