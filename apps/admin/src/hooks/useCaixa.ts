@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { lerTudo } from "@/lib/lerTudo";
 import { mensagemDeErro } from "@/lib/formato";
+import { useRpcPagina } from "@/hooks/usePagina";
 
 // A caixa de atendimentos: uma linha por conversa, com a última mensagem e as
-// do CLIENTE sem leitura (view `atendimentos_caixa`, migração 20261016000000).
-// A view roda com as permissões de quem lê: o colaborador só vê a carteira dele.
+// do CLIENTE sem leitura (view `atendimentos_caixa`). A página vem pronta do
+// banco (`q_caixa_pagina`), com as contagens das abas; a view roda com as
+// permissões de quem lê, então o colaborador só vê a carteira dele.
 
 export interface ItemCaixa {
   id: string;
@@ -28,20 +29,24 @@ export interface ItemCaixa {
   nao_lidas: number;
 }
 
-export function useCaixa() {
+export interface ContagemCaixa { abertos: number; nao_lidas: number; arquivados: number }
+
+export function useCaixaPagina(args: { busca: string; setor: string | null; aba: string; pagina: number; por: number }) {
+  return useRpcPagina<ItemCaixa, ContagemCaixa>(["caixa", "pagina"], "q_caixa_pagina", {
+    p_busca: args.busca, p_setor: args.setor, p_aba: args.aba, p_pagina: args.pagina, p_por: args.por,
+  }, { refetchInterval: 15_000 });   // o cliente escreve pelo portal: relê no ritmo dele
+}
+
+/** O atendimento aberto, lido por id — pode não estar na página visível. */
+export function useItemCaixa(id: string | null) {
   return useQuery({
-    queryKey: ["caixa"],
-    // O cliente escreve pelo portal: relê a cada 15 s, o ritmo do portal.
+    queryKey: ["caixa", "item", id],
+    enabled: !!id,
     refetchInterval: 15_000,
     queryFn: async () => {
-      const linhas = await lerTudo<ItemCaixa>((de, ate) =>
-        supabase.from("atendimentos_caixa").select("*")
-          .order("created_at", { ascending: false }).order("id", { ascending: true })
-          .range(de, ate) as unknown as PromiseLike<{ data: ItemCaixa[] | null; error: { message: string } | null }>,
-      );
-      // Mais recente primeiro pela ÚLTIMA mensagem (conversa viva sobe).
-      const quando = (i: ItemCaixa) => i.ultima_em ?? i.created_at;
-      return linhas.sort((a, b) => quando(b).localeCompare(quando(a)));
+      const { data, error } = await supabase.from("atendimentos_caixa").select("*").eq("id", id!).maybeSingle();
+      if (error) throw new Error(mensagemDeErro(error));
+      return data as ItemCaixa | null;
     },
   });
 }

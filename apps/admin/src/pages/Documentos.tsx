@@ -1,75 +1,66 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, ExternalLink, Loader2, Plus, Search } from "lucide-react";
+import { Ban, CheckCircle2, ExternalLink, Eye, Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Chips } from "@/components/Chips";
 import { Carregando, Falha, Vazio } from "@/components/Estados";
-import { useDocumentoTipos } from "@/hooks/useCadastros";
-import { useDocumentosTodos, type DocumentoLista } from "@/hooks/useDocumentosTodos";
-import { useContratosPipeline, useSalvarDocumento } from "@/hooks/usePipeline";
-import { useParamUrl } from "@/shell";
-import { dataBR, dataHoraBR, diasDesde, formatarDocumento, soDigitos } from "@/lib/formato";
+import { Paginacao, usePaginacaoUrl } from "@/components/Paginacao";
+import { BuscaContrato, type ContratoEscolhido } from "@/components/busca/BuscaContrato";
+import { GerarDocumento } from "@/components/documento/GerarDocumento";
+import { NovoLink, SituacaoDocumento } from "@/components/documento/DocumentosDoContrato";
+import { useAuth } from "@/contexts/AuthContext";
+import { useDocumentosPagina, type DocumentoLista } from "@/hooks/useDocumentosTodos";
+import { useAtrasado } from "@/hooks/usePagina";
+import { useCancelarDocumento, useSalvarDocumento } from "@/hooks/usePipeline";
+import { pedirTexto, useParamUrl } from "@/shell";
+import { dataBR, diasDesde, formatarDocumento } from "@/lib/formato";
 
-// Todas as pendências de assinatura num lugar só. É o "Pendências contrato #N"
-// do Portal do Cliente: pendente aparece lá com o botão Assinar (o link).
-
-const semAcento = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+// Todos os documentos num lugar só, uma página por vez. O pendente aparece no
+// Portal do Cliente: o do MODELO com "Assinar" dentro do portal; o de LINK com
+// o botão do link.
 
 export default function Documentos() {
-  const { data: docs = [], isLoading, error } = useDocumentosTodos();
-  const salvar = useSalvarDocumento();
-  const [filtro, setFiltro] = useParamUrl("status", "pendentes");
+  const [filtro, setFiltro] = useParamUrl("status", "pendente");
   const [busca, setBusca] = useParamUrl("busca", "", { replace: true });
+  const pag = usePaginacaoUrl();
   const [novo, setNovo] = useState(false);
 
-  const pendentes = docs.filter((d) => !d.assinado_em).length;
-  const lista = useMemo(() => {
-    const t = semAcento(busca.trim());
-    const dig = soDigitos(busca);
-    return docs
-      .filter((d) => filtro === "todos" || (filtro === "pendentes" ? !d.assinado_em : !!d.assinado_em))
-      .filter((d) => !t
-        || semAcento(d.contrato?.cliente?.nome ?? "").includes(t)
-        || semAcento(d.tipo_info?.nome ?? d.tipo).includes(t)
-        || (dig.length >= 3 && (d.contrato?.cliente?.documento ?? "").includes(dig))
-        || String(d.contrato?.numero) === t.replace("#", ""));
-  }, [docs, filtro, busca]);
-
-  const marcar = async (d: DocumentoLista) => {
-    try {
-      await salvar.mutateAsync({ contratoId: d.contrato_id, id: d.id, campos: { assinado_em: d.assinado_em ? null : new Date().toISOString() } });
-      toast.success(d.assinado_em ? "Voltou a ficar pendente." : "Marcado como assinado — sai das pendências do cliente.");
-    } catch (e) {
-      toast.error("Não foi possível atualizar.", { description: (e as Error).message });
-    }
-  };
+  const termo = useAtrasado(busca);
+  const { data, isLoading, isFetching, error } = useDocumentosPagina({ busca: termo, situacao: filtro, pagina: pag.pagina, por: pag.por });
+  const lista = data?.linhas ?? [];
+  const cont = data?.contagem ?? { todos: 0, pendente: 0, assinado: 0, cancelado: 0 };
+  const total = (cont as unknown as Record<string, number>)[filtro] ?? cont.todos;
+  const filtrar = <T,>(fn: (v: T) => void) => (v: T) => { fn(v); pag.voltarAoInicio(); };
+  const n = (v: number) => v.toLocaleString("pt-BR");
 
   return (
     <div>
       <PageHeader
         titulo="Documentos para assinatura"
-        descricao="O que está pendente aparece no Portal do Cliente com o botão Assinar, até ser marcado como assinado."
-        acoes={<Button onClick={() => setNovo(true)}><Plus className="mr-1.5 h-4 w-4" /> Nova pendência</Button>}
+        descricao="Gerados dos modelos e assinados pelo cliente no portal — ou registrados por link, quando assinados fora."
+        acoes={<Button onClick={() => setNovo(true)}><Plus className="mr-1.5 h-4 w-4" /> Novo documento</Button>}
       />
 
       <div className="flex flex-wrap items-center gap-2 px-4 pt-4 sm:px-8">
         <div className="relative w-full sm:w-72">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar cliente, documento ou nº" className="bg-card pl-9" />
+          <Input value={busca} onChange={(e) => filtrar(setBusca)(e.target.value)} placeholder="Buscar cliente, documento ou nº" className="bg-card pl-9" />
+          {isFetching && !isLoading && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
         </div>
         <Chips
           valor={filtro}
-          onChange={setFiltro}
+          onChange={filtrar(setFiltro)}
           opcoes={[
-            { valor: "pendentes", rotulo: `Pendentes (${pendentes})` },
-            { valor: "assinados", rotulo: `Assinados (${docs.length - pendentes})` },
-            { valor: "todos", rotulo: `Todos (${docs.length})` },
+            { valor: "pendente", rotulo: `Pendentes (${n(cont.pendente)})` },
+            { valor: "assinado", rotulo: `Assinados (${n(cont.assinado)})` },
+            { valor: "cancelado", rotulo: `Cancelados (${n(cont.cancelado)})` },
+            { valor: "todos", rotulo: `Todos (${n(cont.todos)})` },
           ]}
         />
       </div>
@@ -80,124 +71,129 @@ export default function Documentos() {
         ) : error ? (
           <Falha erro={error as Error} />
         ) : lista.length === 0 ? (
-          <Vazio texto={docs.length === 0 ? "Nenhuma pendência de assinatura." : filtro === "pendentes" ? "Nada pendente de assinatura. 🎉" : "Nada com esse filtro."} />
+          <Vazio texto={cont.todos === 0 && !termo ? "Nenhum documento ainda." : filtro === "pendente" && !termo ? "Nada pendente de assinatura. 🎉" : "Nada com esse filtro."} />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <ul className="divide-y divide-border">
-              {lista.map((d) => {
-                const dias = diasDesde(d.created_at);
-                return (
-                  <li key={d.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 p-4">
-                    {d.assinado_em
-                      ? <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
-                      : <span className="h-5 w-5 shrink-0 rounded-full border-2 border-warning" aria-label="Pendente" />}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-foreground">{d.tipo_info?.nome ?? d.tipo}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {d.contrato?.cliente?.nome ?? "Cliente de outra carteira"}
-                        {d.contrato?.cliente ? ` · ${formatarDocumento(d.contrato.cliente.documento)}` : ""}
-                        {" · "}
-                        <Link to={`/contratos?contrato=${d.contrato_id}`} className="q-link">Contrato #{d.contrato?.numero}</Link>
-                      </p>
-                    </div>
-                    <div className="text-xs text-muted-foreground sm:w-48">
-                      {d.assinado_em ? (
-                        <>Assinado em {dataHoraBR(d.assinado_em)}</>
-                      ) : (
-                        <span className={dias >= 7 ? "font-medium text-destructive" : ""}>Pendente desde {dataBR(d.created_at)}{dias > 0 ? ` (${dias}d)` : ""}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {d.link_assinatura ? (
-                        <a href={d.link_assinatura} target="_blank" rel="noreferrer" className="q-link inline-flex items-center gap-1 text-xs">
-                          Link <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted-foreground" title="Sem link, o cliente vê o aviso de que o consultor vai enviar">sem link</span>
-                      )}
-                      <Button size="sm" variant="outline" onClick={() => marcar(d)} disabled={salvar.isPending}>
-                        {d.assinado_em ? "Desfazer" : "Marcar assinado"}
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
+          <>
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <ul className="divide-y divide-border">
+                {lista.map((d) => <Linha key={d.id} d={d} />)}
+              </ul>
+            </div>
+            <Paginacao pagina={pag.pagina} por={pag.por} total={total} onPagina={pag.irPara} onPor={pag.mudarPor} />
+          </>
         )}
       </div>
 
-      <NovaPendencia aberto={novo} onFechar={() => setNovo(false)} />
+      <NovoDocumento aberto={novo} onFechar={() => setNovo(false)} />
     </div>
   );
 }
 
-function NovaPendencia({ aberto, onFechar }: { aberto: boolean; onFechar: () => void }) {
-  const { data: contratos = [] } = useContratosPipeline();
-  const { data: tipos = [] } = useDocumentoTipos();
+function Linha({ d }: { d: DocumentoLista }) {
+  const { perfil } = useAuth();
   const salvar = useSalvarDocumento();
-  const [contratoId, setContratoId] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [link, setLink] = useState("");
-  const ativos = contratos.filter((c) => !c.cancelado_em).sort((a, b) => b.numero - a.numero);
-  const escolhido = ativos.find((c) => c.id === contratoId);
+  const cancelar = useCancelarDocumento();
+  const dias = diasDesde(d.created_at);
+  const pendente = d.situacao === "pendente";
 
-  const enviar = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!contratoId || !tipo) return;
+  const marcar = async () => {
     try {
-      await salvar.mutateAsync({ contratoId, campos: { tipo, link_assinatura: link.trim() || null } });
-      toast.success("Pendência criada.");
-      setContratoId(""); setTipo(""); setLink("");
-      onFechar();
-    } catch (err) {
-      toast.error("Não foi possível criar.", { description: (err as Error).message });
+      await salvar.mutateAsync({ contratoId: d.contrato_id, id: d.id, campos: { assinado_em: d.assinado_em ? null : new Date().toISOString() } });
+      toast.success(d.assinado_em ? "Voltou a ficar pendente." : "Marcado como assinado — sai das pendências do cliente.");
+    } catch (e) {
+      toast.error("Não foi possível atualizar.", { description: (e as Error).message });
+    }
+  };
+  const aoCancelar = async () => {
+    const motivo = await pedirTexto({
+      titulo: "Cancelar este documento?", mensagem: "Ele sai das pendências do cliente. Para mandar outro, gere de novo.",
+      rotulo: "Motivo", obrigatorio: true, confirmar: "Cancelar documento", perigo: true,
+    });
+    if (!motivo) return;
+    try {
+      await cancelar.mutateAsync({ id: d.id, motivo, autorId: perfil?.id ?? null });
+      toast.success("Documento cancelado.");
+    } catch (e) {
+      toast.error("Não foi possível cancelar.", { description: (e as Error).message });
     }
   };
 
   return (
-    <Dialog open={aberto} onOpenChange={(o) => !o && onFechar()}>
-      <DialogContent className="sm:max-w-lg">
+    <li className={`flex flex-wrap items-center gap-x-4 gap-y-2 p-4 ${d.cancelado_em ? "opacity-60" : ""}`}>
+      {d.cancelado_em ? <Ban className="h-5 w-5 shrink-0 text-muted-foreground" />
+        : d.assinado_em ? <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />
+        : <span className="h-5 w-5 shrink-0 rounded-full border-2 border-warning" aria-label="Pendente" />}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-foreground">
+          {d.titulo}
+          {d.no_sistema && <span className="ml-2 rounded-full bg-q-onix px-1.5 py-0.5 align-middle text-[10px] font-medium text-q-gold">assina no portal</span>}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {d.cliente_nome ?? "Cliente de outra carteira"}
+          {d.cliente_documento ? ` · ${formatarDocumento(d.cliente_documento)}` : ""}
+          {" · "}
+          <Link to={`/contratos?contrato=${d.contrato_id}`} className="q-link">Contrato #{d.contrato_numero}</Link>
+        </p>
+      </div>
+      <div className="text-xs text-muted-foreground sm:w-56">
+        {pendente ? (
+          <span className={dias >= 7 ? "font-medium text-destructive" : ""}>
+            Pendente desde {dataBR(d.created_at)}{dias > 0 ? ` (${dias}d)` : ""}
+            {d.no_sistema && !d.contrato_aceite ? " · contrato ainda não aceito" : ""}
+          </span>
+        ) : (
+          <SituacaoDocumento assinado_em={d.assinado_em} cancelado_em={d.cancelado_em} no_sistema={d.no_sistema} />
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {d.no_sistema ? (
+          <Button asChild size="sm" variant="outline"><Link to={`/documentos/${d.id}`}><Eye className="mr-1 h-3.5 w-3.5" /> Ver</Link></Button>
+        ) : d.link_assinatura ? (
+          <a href={d.link_assinatura} target="_blank" rel="noreferrer" className="q-link inline-flex items-center gap-1 text-xs">Link <ExternalLink className="h-3 w-3" /></a>
+        ) : (
+          <span className="text-xs text-muted-foreground" title="Sem link, o cliente vê o aviso de que o consultor vai enviar">sem link</span>
+        )}
+        {!d.no_sistema && !d.cancelado_em && (
+          <Button size="sm" variant="outline" onClick={marcar} disabled={salvar.isPending}>{d.assinado_em ? "Desfazer" : "Marcar assinado"}</Button>
+        )}
+        {pendente && (
+          <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={aoCancelar}>Cancelar</Button>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function NovoDocumento({ aberto, onFechar }: { aberto: boolean; onFechar: () => void }) {
+  const [contrato, setContrato] = useState<ContratoEscolhido | null>(null);
+  const fechar = () => { setContrato(null); onFechar(); };
+  return (
+    <Dialog open={aberto} onOpenChange={(o) => !o && fechar()}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Nova pendência de assinatura</DialogTitle>
+          <DialogTitle>Novo documento para assinatura</DialogTitle>
           <DialogDescription>Aparece para o cliente em "Pendências do contrato" no portal.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={enviar} className="space-y-3">
+        <div className="space-y-4">
           <div className="space-y-1.5">
             <Label>Contrato</Label>
-            <Select value={contratoId} onValueChange={setContratoId}>
-              <SelectTrigger><SelectValue placeholder="Escolha o contrato" /></SelectTrigger>
-              <SelectContent>
-                {ativos.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>#{c.numero} · {c.cliente?.nome ?? "Cliente de outra carteira"}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {escolhido && !escolhido.data_aceite && (
-              <p className="text-[11px] text-warning">Este contrato ainda não foi aceito: o cliente só vê a pendência quando ele chegar à etapa de aceite.</p>
-            )}
+            <BuscaContrato valor={contrato} onChange={setContrato} />
           </div>
-          <div className="space-y-1.5">
-            <Label>Documento</Label>
-            <Select value={tipo} onValueChange={setTipo}>
-              <SelectTrigger><SelectValue placeholder="Escolha" /></SelectTrigger>
-              <SelectContent>
-                {tipos.filter((t) => t.ativo).map((t) => <SelectItem key={t.codigo} value={t.codigo}>{t.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="pend-link">Link para assinar (opcional)</Label>
-            <Input id="pend-link" type="url" value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://…" />
-            <p className="text-[11px] text-muted-foreground">Sem link, o cliente vê que o consultor vai enviar.</p>
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onFechar}>Cancelar</Button>
-            <Button type="submit" disabled={!contratoId || !tipo || salvar.isPending}>
-              {salvar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Criar pendência
-            </Button>
-          </DialogFooter>
-        </form>
+          {contrato && (
+            <Tabs defaultValue="modelo">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="modelo">Gerar do modelo</TabsTrigger>
+                <TabsTrigger value="link">Assinado fora (link)</TabsTrigger>
+              </TabsList>
+              <TabsContent value="modelo" className="pt-3">
+                <GerarDocumento contrato={contrato} onGerado={fechar} />
+              </TabsContent>
+              <TabsContent value="link" className="pt-3">
+                <NovoLink contratoId={contrato.id} onCriado={fechar} />
+              </TabsContent>
+            </Tabs>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

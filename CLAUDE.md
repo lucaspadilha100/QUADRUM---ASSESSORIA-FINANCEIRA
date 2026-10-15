@@ -39,8 +39,10 @@ React 18 + TypeScript + Vite · Tailwind + shadcn/ui · TanStack Query ·
 - ⚠️ Função SECURITY DEFINER nova: `revoke execute ... from public, anon` e
   `grant` explícito — mesmo com os defaults já revogados.
 - Documento (CPF/CNPJ) é gravado **só com dígitos** (CHECK garante).
-- Consulta de lista que pode passar de 1.000 linhas usa `lib/lerTudo.ts`: o
-  PostgREST corta em 1.000 **sem avisar**. Paginar exige ordem estável (`id`).
+- ⚠️ **Lista de carteira NÃO baixa tudo**: tela de lista pede UMA página ao
+  banco (`q_*_pagina`, ver "Escala"). `lib/lerTudo.ts` fica só para cadastro
+  curto que precise ler inteiro: o PostgREST corta em 1.000 **sem avisar**, e
+  paginar exige ordem estável (`id`).
 
 ## Acesso — GESTOR e COLABORADOR (sem matriz de telas)
 Pedido do dono do processo (15/10/2026): cada pessoa tem o seu perfil, e o
@@ -123,7 +125,8 @@ escrita         portal_abrir_atendimento · portal_enviar_mensagem
 - Sem tempo real: chat e avisos releem a cada 15 s (portal e admin).
 
 ⚠️ **Arquivos COPIADOS entre `admin` e `portal`** (mesmo conteúdo, mude nos
-dois): `src/index.css` (tokens da marca), `src/lib/formato.ts`,
+dois): `src/components/documento/DocumentoImpresso.tsx` (o documento e o
+manifesto de assinatura), `src/index.css` (tokens da marca), `src/lib/formato.ts`,
 `src/lib/utils.ts`, `src/integrations/supabase/client.ts`, `.env`,
 `tailwind.config.ts`, os `components/ui/*` em comum e os PNG da marca. Copiar
 foi escolha (cada app builda sozinho no Vercel); o custo é esta lista.
@@ -142,6 +145,10 @@ migração — depende do usuário criado em Authentication).
 atendimentos) — aplicada e conferida em 15/10/2026 (3 funções, 1 gatilho,
 caixa com `security_invoker=true`). Sem ela, Usuários e Atendimentos abrem
 com erro.
+`20261017000000` (escala) e `20261017010000` (modelos e assinatura) —
+aplicadas e conferidas em 15/10/2026 (7 + 7 funções, 4 modelos inativos, as 4
+views com `security_invoker=true`, nenhum cliente sem `busca`). Sem elas,
+Painel, Pipeline, Clientes, Contratos, Documentos e Atendimentos abrem com erro.
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
@@ -213,3 +220,85 @@ ficam PARADAS** (placeholder) por decisão do dono do processo: faltam os dados.
   `ativo = false`. ⚠️ `trg_perfil_sobra_um_gestor` recusa rebaixar ou
   desativar o ÚLTIMO gestor ativo — sem ele, só o SQL Editor devolveria a gestão.
 - A mesma conta não é equipe e cliente: a função recusa e-mail de cliente.
+
+## Escala — a tela pede UMA página, o banco conta (15/10/2026)
+Pedido do dono do processo: "parece um app que vai atender 10 clientes só".
+Migração `20261017000000_escala.sql`.
+
+```
+q_clientes_pagina · q_contratos_pagina · q_documentos_pagina · q_caixa_pagina
+      → { linhas: a página pedida (20/50/100), contagem: o número de cada filtro }
+q_pipeline   → as primeiras 30 de cada coluna + o TOTAL; `p_limites` = "carregar mais"
+q_painel     → os números do Painel, contados no banco
+contratos_lista · clientes_lista · documentos_lista · atendimentos_caixa   (views)
+```
+
+- Página, tamanho, busca e filtros moram na URL (`usePaginacaoUrl`,
+  `components/Paginacao.tsx`). Trocar filtro volta à página 1.
+- ⚠️ **A busca e a contagem são do MESMO lugar** (a função de página): a
+  contagem do chip e a lista não têm como discordar. Busca é por PALAVRA e sem
+  acento (`q_casa_busca` sobre colunas normalizadas por `q_busca`): "graca oliv"
+  acha "Maria das Graças Oliveira"; CPF com máscara vira só dígitos.
+  `clientes.busca` é coluna GERADA (normalizada uma vez, não a cada tecla).
+- ⚠️ As funções de página são **SECURITY INVOKER**: a RLS das tabelas vale
+  nelas. Não as torne DEFINER — o colaborador passaria a ver a carteira toda.
+- ⚠️ **Escolher contrato é BUSCA, nunca dropdown com todos**
+  (`components/busca/BuscaContrato.tsx`, 10 resultados do banco). Dropdown só
+  para cadastro curto (etapa, setor, equipe, modelo).
+- ⚠️ Painel/lista abertos **por id** (`useContrato`, `useCliente`,
+  `useItemCaixa`): a lista é uma página, e o link direto tem de abrir mesmo
+  fora dela.
+- ⚠️ **Regras de acesso sem consulta por linha**: `(select q_e_gestor())`
+  (o Postgres calcula uma vez) e `cliente_id in (select q_meus_clientes())`
+  em vez de `q_ve_cliente(cliente_id)` linha a linha. MESMA regra (os testes
+  antigos passam todos); regra nova segue o molde.
+- Conversa: as últimas 300 mensagens (desc + limit, virado na tela — asc +
+  limit traria as MAIS ANTIGAS); histórico do card: as últimas 200.
+- Cada tela é baixada quando é aberta (`lazy` no `App.tsx`, `Suspense` no
+  `Layout`), e as bibliotecas saem num arquivo próprio (`manualChunks`), que o
+  navegador guarda entre deploys.
+
+## Documentos: MODELO → gerar → o cliente assina no portal (15/10/2026)
+Pedido do dono do processo: contrato, termo, declaração e procuração como
+modelos preenchidos com os dados do cliente, e assinatura no próprio sistema,
+"juridicamente correta, com tudo salvo (IP, horário…)". Migração
+`20261017010000_modelos_e_assinatura.sql`.
+
+```
+documento_modelos      cadastro, versionado (editar o texto sobe a versão)
+q_documento_catalogo   os campos {{cliente.nome}}… (a tela lista daqui)
+q_documento_previa     o texto preenchido, sem gravar (a MESMA montagem da geração)
+q_documento_gerar      preenche, CONGELA o texto + SHA-256, manda ao portal
+portal_documento       o cliente lê (cada abertura vira evento com IP)
+portal_assinar_documento  aceite + nome digitado + SENHA do portal → a prova
+documento_assinaturas  a prova (IP, navegador, hora do servidor, hash, código)
+documento_eventos      a trilha: gerado, visualizado, senha_incorreta, assinado…
+```
+
+- ⚠️ **Quem preenche é o BANCO**, com os dados gravados: a tela não manda o
+  texto. Documento com texto só nasce por `q_documento_gerar` (o gatilho
+  recusa insert direto).
+- ⚠️ **Campo vazio RECUSA a geração** e diz qual falta (a prévia mostra
+  `[rótulo]`). `cliente.qualificacao` só sai inteira. Os dados ficam em
+  "Dados para documentos" na ficha do cliente (RG, estado civil, endereço…;
+  PJ: representante legal).
+- ⚠️ Campo novo no catálogo entra em `q_documento_catalogo` **e** em
+  `q_documento_variaveis` (o teste confere que as chaves batem).
+- ⚠️ **Assinatura não se desfaz e documento assinado não se cancela**
+  (`trg_documento_protege`). O texto gerado não muda; errou, cancela e gera
+  outro. Evento e assinatura: sem regra de escrita para ninguém.
+- ⚠️ IP e navegador vêm dos CABEÇALHOS que o Supabase repassa
+  (`q_requisicao`: `cf-connecting-ip`, `x-forwarded-for`), nunca da tela.
+- ⚠️ Senha errada DEVOLVE `{ok:false}` em vez de erro (um erro desfaria o
+  registro da tentativa). 5 erradas em 15 min travam a assinatura.
+- O `portal_documento` não relê sozinho no portal: cada leitura vira evento.
+- Os modelos de partida nascem **INATIVOS**: texto jurídico vai ao cliente
+  depois de o jurídico revisar e um gestor ativar.
+- Base legal: MP 2.200-2/2001, art. 10, § 2º (o modelo traz a cláusula de
+  aceite da assinatura eletrônica; o texto do aceite fica gravado).
+  ⚠️ Procuração para banco/cartório pode exigir ICP-Brasil ou firma
+  reconhecida — decisão do jurídico. ⚠️ Segundo fator (código por SMS/e-mail)
+  fortaleceria a prova; falta um provedor de envio.
+- Documento de LINK (assinado fora) continua: criar, marcar à mão.
+- Impressão/PDF: `/documentos/:id/imprimir` no admin (fora do layout) e o
+  "Imprimir / salvar PDF" do portal (`.q-nao-imprimir` esconde o resto).

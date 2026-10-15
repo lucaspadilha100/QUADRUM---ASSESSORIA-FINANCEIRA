@@ -241,5 +241,118 @@ await espera("anon não lê a caixa", () => como("anon", null, "select * from at
 
 await espera("updated_at anda no update", () => db.query("select updated_at >= created_at as andou from atendimentos limit 1"), false);
 
+
+// ════ ESCALA (20261017000000): busca, páginas e pipeline no banco ════════════
+await espera("busca sem acento e por palavra", () => db.query("select q_casa_busca(q_busca('Maria das Graças Oliveira 12345678901'), 'graca OLIV') as a, q_casa_busca(q_busca('Maria das Graças'), 'graça souza') as b, q_casa_busca('12345678901', '123.456') as c, q_casa_busca('x', '  ') as d"), false, (r) => r.rows[0].a && !r.rows[0].b && r.rows[0].c && r.rows[0].d);
+await espera("q_clientes_pagina: A vê os 2 dele e acha 'empresa'", () => como("authenticated", M, "select q_clientes_pagina('empresa') as p, q_clientes_pagina() as t"), false, (r) => r.rows[0].t.contagem.todos === 2 && r.rows[0].p.linhas.length === 1 && r.rows[0].p.linhas[0].nome === "Empresa do B" && !("busca" in r.rows[0].p.linhas[0]));
+await espera("q_clientes_pagina: B não vê nenhum", () => como("authenticated", B, "select q_clientes_pagina() as p"), false, (r) => r.rows[0].p.contagem.todos === 0 && r.rows[0].p.linhas.length === 0);
+await espera("q_clientes_pagina: o cliente do portal não vê nada", () => como("authenticated", P, "select q_clientes_pagina() as p"), false, (r) => r.rows[0].p.contagem.todos === 0);
+await espera("q_clientes_pagina: filtro do portal (com/sem acesso)", () => como("authenticated", M, "select q_clientes_pagina('', 'com') as p"), false, (r) => r.rows[0].p.contagem.com === 1 && r.rows[0].p.linhas.length === 1 && r.rows[0].p.linhas[0].contratos_ativos === 1);
+for (let i = 0; i < 3; i++) await como("authenticated", M, `insert into contratos (cliente_id) values ('${clienteDoA}')`);
+await espera("q_contratos_pagina pagina de verdade (por=2: 2 + 2)", () => como("authenticated", M, "select q_contratos_pagina('', null, null, 'todos', 1, 2) as a, q_contratos_pagina('', null, null, 'todos', 2, 2) as b, q_contratos_pagina('', null, null, 'todos', 9, 2) as c"), false, (r) => r.rows[0].a.contagem.todos === 4 && r.rows[0].a.linhas.length === 2 && r.rows[0].b.linhas.length === 2 && r.rows[0].c.linhas.length === 0 && r.rows[0].a.linhas[0].numero > r.rows[0].b.linhas[0].numero);
+await espera("q_contratos_pagina: situação e busca por nº", () => como("authenticated", M, "select q_contratos_pagina('#1') as a, q_contratos_pagina('', null, null, 'portal') as b"), false, (r) => r.rows[0].a.linhas.some((l) => l.numero === 1) && r.rows[0].b.contagem.portal === 1 && r.rows[0].b.linhas.length === 1);
+await espera("q_contratos_pagina: B não vê contrato (0)", () => como("authenticated", B, "select q_contratos_pagina() as p"), false, (r) => r.rows[0].p.contagem.todos === 0);
+await espera("q_contratos_pagina: 'por' passa de 100 vira 100 (sem erro)", () => como("authenticated", G, "select jsonb_array_length(q_contratos_pagina('', null, null, 'todos', 1, 100000) -> 'linhas') as n"), false, (r) => r.rows[0].n >= 4);
+const primeira = await etapa("Novo contato");
+await espera("q_pipeline traz N por coluna e o TOTAL", () => como("authenticated", M, "select q_pipeline('', false, 2) as p"), false, (r) => {
+  const c = r.rows[0].p.colunas.find((x) => x.etapa_id === primeira); return r.rows[0].p.colunas.length === 7 && c.total === 3 && c.cards.length === 2;
+});
+await espera("q_pipeline: 'carregar mais' aumenta só uma coluna", () => como("authenticated", M, `select q_pipeline('', false, 2, '{"${primeira}": 10}') as p`), false, (r) => r.rows[0].p.colunas.find((x) => x.etapa_id === primeira).cards.length === 3);
+await espera("q_pipeline: B não vê card (0)", () => como("authenticated", B, "select q_pipeline() as p"), false, (r) => r.rows[0].p.colunas.every((c) => c.total === 0));
+await espera("q_caixa_pagina: contagem por aba", () => como("authenticated", G, "select q_caixa_pagina('', null, 'arquivados') as p"), false, (r) => r.rows[0].p.contagem.arquivados >= 2 && r.rows[0].p.linhas.length === r.rows[0].p.contagem.arquivados);
+await espera("anon não chama as páginas", () => como("anon", null, "select q_contratos_pagina()"), true);
+
+// ════ MODELOS E ASSINATURA (20261017010000) ═════════════════════════════════
+await espera("o catálogo de campos é o MESMO dos valores", async () => {
+  const cat = await como("authenticated", G, "select array_agg(x->>'chave' order by x->>'chave') as k from jsonb_array_elements(q_documento_catalogo()) x");
+  const val = await db.query("select array_agg(k order by k) as k from jsonb_object_keys(q_documento_variaveis(null)) k");
+  return { rows: [cat.rows[0].k.join(","), val.rows[0].k.join(",")] };
+}, false, (r) => r.rows[0] === r.rows[1] && r.rows[0].includes("cliente.qualificacao"));
+await espera("os 4 modelos de partida nascem INATIVOS", () => db.query("select count(*) filter (where not ativo) as n from documento_modelos"), false, (r) => Number(r.rows[0].n) === 4);
+const modProc = (await db.query("select id from documento_modelos where tipo = 'procuracao'")).rows[0].id;
+const modTermo = (await db.query("select id from documento_modelos where tipo = 'termo'")).rows[0].id;
+await espera("modelo inativo não gera", () => como("authenticated", M, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
+await espera("colaborador não altera modelo (0)", () => como("authenticated", M, `update documento_modelos set ativo = true where id = '${modProc}' returning id`), false, n(0));
+await espera("gestor edita o modelo: versão sobe", () => como("authenticated", G, `update documento_modelos set ativo = true, corpo = corpo || ' ' where id = '${modProc}' returning versao`), false, (r) => r.rows[0].versao === 2);
+await sql(`update documento_modelos set ativo = true where id = '${modTermo}'`);
+await espera("prévia sem contrato mostra os campos como [rótulo] e acusa campo inexistente", () => como("authenticated", M, "select q_documento_previa('Eu, {{cliente.nome}}, {{cliente.xyz}}') as p"), false, (r) => r.rows[0].p.texto.startsWith("Eu, [Nome / razão social]") && r.rows[0].p.desconhecidas[0] === "cliente.xyz");
+await espera("gerar com cadastro incompleto RECUSA e diz o que falta", () => como("authenticated", M, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
+await sql(`update clientes set nacionalidade='brasileira', estado_civil='casado(a)', profissao='motorista', rg='1234567', rg_orgao='SSP/RN',
+  logradouro='Rua das Flores', endereco_numero='10', bairro='Centro', cidade='Natal', uf='RN', cep='59000-000' where id = '${clienteDoA}'`);
+await sql(`update bancos set nome = 'Banco X'; update contratos set banco_id = (select id from bancos limit 1), linha_credito_id = (select id from linhas_credito limit 1) where id = '${contrato1}'`);
+await espera("B não gera documento em contrato do A", () => como("authenticated", B, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
+let docProc;
+await espera("A gera a procuração preenchida, com hash", async () => {
+  const r = await como("authenticated", M, `select q_documento_gerar('${contrato1}', '${modProc}') as id`);
+  docProc = r.rows[0].id;
+  return db.query(`select conteudo, conteudo_hash = encode(extensions.digest(convert_to(conteudo, 'UTF8'), 'sha256'), 'hex') as hash_ok, modelo_versao from contrato_documentos where id = '${docProc}'`);
+}, false, (r) => r.rows[0].hash_ok && r.rows[0].modelo_versao === 2 && !r.rows[0].conteudo.includes("{{") && r.rows[0].conteudo.includes("Cliente do A, brasileira, casado(a), motorista, portador(a) do RG nº 1234567 SSP/RN, inscrito(a) no CPF sob o nº 123.456.789-01, residente e domiciliado(a) em Rua das Flores 10, Centro, Natal/RN, CEP 59000-000") && r.rows[0].conteudo.includes("Banco X"));
+await espera("o evento 'gerado' fica registrado", () => db.query(`select count(*) as n from documento_eventos where documento_id = '${docProc}' and tipo = 'gerado' and ator_id = '${M}'`), false, (r) => Number(r.rows[0].n) === 1);
+await espera("segundo do mesmo tipo pendente é recusado", () => como("authenticated", M, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
+await espera("ninguém grava documento com texto por fora da geração", () => como("authenticated", M, `insert into contrato_documentos (contrato_id, tipo, conteudo) values ('${contrato1}', 'termo', 'texto forjado')`), true);
+await espera("o texto gerado não muda", () => como("authenticated", M, `update contrato_documentos set conteudo = 'outro' where id = '${docProc}'`), true);
+await espera("a equipe NÃO marca como assinado o documento do sistema", () => como("authenticated", M, `update contrato_documentos set assinado_em = now() where id = '${docProc}'`), true);
+await espera("o portal mostra a pendência como 'assinar no portal'", () => como("authenticated", P, "select portal_contratos() as c"), false, (r) => r.rows[0].c[0].pendencias.some((p) => p.id === docProc && p.no_sistema === true));
+await espera("outro login não abre o documento", () => como("authenticated", C, `select portal_documento('${docProc}')`), true);
+const CAB = `{"x-forwarded-for": "200.1.2.3, 10.0.0.1", "user-agent": "NavegadorTeste/1.0"}`;
+async function comoCliente(q) {
+  await sql(`reset role; select set_config('request.jwt.claim.sub', '${P}', false); select set_config('request.headers', '${CAB}', false); set role authenticated;`);
+  try { return await db.query(q); } finally { await sql("reset role; select set_config('request.jwt.claim.sub', '', false); select set_config('request.headers', '', false);"); }
+}
+await espera("o cliente lê o documento, e a leitura vira evento com IP", async () => {
+  const r = await comoCliente(`select portal_documento('${docProc}') as d`);
+  if (!r.rows[0].d.conteudo.includes("PROCURAÇÃO")) throw new Error("sem texto");
+  return db.query(`select ip, user_agent from documento_eventos where documento_id = '${docProc}' and tipo = 'visualizado'`);
+}, false, (r) => r.rows[0]?.ip === "200.1.2.3" && r.rows[0].user_agent === "NavegadorTeste/1.0");
+await espera("assinar com a senha ERRADA não assina e registra a tentativa", async () => {
+  const r = await comoCliente(`select portal_assinar_documento('${docProc}', 'errada', 'Cliente do A', true) as r`);
+  if (r.rows[0].r.ok !== false) throw new Error("assinou com senha errada");
+  return db.query(`select (select count(*) from documento_eventos where documento_id = '${docProc}' and tipo = 'senha_incorreta') as n, (select assinado_em from contrato_documentos where id = '${docProc}') as a`);
+}, false, (r) => Number(r.rows[0].n) === 1 && r.rows[0].a === null);
+await espera("sem marcar o aceite não assina", () => comoCliente(`select portal_assinar_documento('${docProc}', 'novasenha9', 'Cliente do A', false)`), true);
+await espera("nome diferente do cadastro não assina", () => comoCliente(`select portal_assinar_documento('${docProc}', 'novasenha9', 'Fulano', true)`), true);
+await espera("ASSINA: senha certa, nome (sem acento/maiúscula) e aceite", () => comoCliente(`select portal_assinar_documento('${docProc}', 'novasenha9', '  cliente  do a ', true) as r`), false, (r) => r.rows[0].r.ok === true && r.rows[0].r.documento.assinatura.ip === "200.1.2.3");
+await espera("a prova fica gravada: IP, navegador, hash do texto, aceite, código", () => db.query(`select a.ip, a.user_agent, a.hash_sha256 = d.conteudo_hash as hash_ok, a.aceite_texto like 'Declaro que li%' as aceite, a.codigo_verificacao ~ '^[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$' as cod, a.visualizado_em is not null as viu, a.assinado_em = d.assinado_em as mesma_hora, a.signatario_documento from documento_assinaturas a join contrato_documentos d on d.id = a.documento_id where d.id = '${docProc}'`), false, (r) => {
+  const a = r.rows[0]; return a.ip === "200.1.2.3" && a.user_agent === "NavegadorTeste/1.0" && a.hash_ok && a.aceite && a.cod && a.viu && a.mesma_hora && a.signatario_documento === "12345678901";
+});
+await espera("não assina duas vezes", () => comoCliente(`select portal_assinar_documento('${docProc}', 'novasenha9', 'Cliente do A', true)`), true);
+await espera("a assinatura não se desfaz (nem o gestor)", () => como("authenticated", G, `update contrato_documentos set assinado_em = null where id = '${docProc}'`), true);
+await espera("documento assinado não se cancela", () => como("authenticated", G, `update contrato_documentos set cancelado_em = now() where id = '${docProc}'`), true);
+await espera("ninguém escreve evento ou assinatura por fora", async () => {
+  for (const q of [`insert into documento_eventos (documento_id, tipo, ator_tipo) values ('${docProc}', 'assinado', 'cliente')`,
+                   `delete from documento_assinaturas`, `update documento_assinaturas set ip = '1.1.1.1'`]) {
+    try { const r = await como("authenticated", G, q); if (r.affectedRows) throw new Error("passou: " + q); } catch (e) { if (String(e.message).startsWith("passou")) throw e; }
+  }
+  return db.query("select count(*) as n from documento_assinaturas where ip = '200.1.2.3'");
+}, false, (r) => Number(r.rows[0].n) === 1);
+await espera("a equipe do contrato lê a assinatura; B não", async () => {
+  const a = await como("authenticated", M, "select * from documento_assinaturas");
+  const b = await como("authenticated", B, "select * from documento_assinaturas");
+  return { rows: [a.rows.length, b.rows.length] };
+}, false, (r) => r.rows[0] === 1 && r.rows[1] === 0);
+await espera("no portal: sai das pendências e entra nos assinados", () => como("authenticated", P, "select portal_contratos() as c"), false, (r) => !r.rows[0].c[0].pendencias.some((p) => p.id === docProc) && r.rows[0].c[0].documentos.some((d) => d.id === docProc));
+let docTermo;
+await espera("5 senhas erradas travam por 15 minutos (nem a certa passa)", async () => {
+  docTermo = (await como("authenticated", M, `select q_documento_gerar('${contrato1}', '${modTermo}') as id`)).rows[0].id;
+  for (let i = 0; i < 5; i++) await comoCliente(`select portal_assinar_documento('${docTermo}', 'errada${i}', 'Cliente do A', true)`);
+  return comoCliente(`select portal_assinar_documento('${docTermo}', 'novasenha9', 'Cliente do A', true) as r`);
+}, false, (r) => r.rows[0].r.ok === false && /tentativas/.test(r.rows[0].r.erro));
+await espera("cancelar a pendência: vira evento e sai do portal", async () => {
+  await como("authenticated", M, `update contrato_documentos set cancelado_em = now(), cancelado_por = '${M}', motivo_cancelamento = 'gerado errado' where id = '${docTermo}'`);
+  return como("authenticated", P, "select portal_contratos() as c");
+}, false, (r) => !r.rows[0].c[0].pendencias.some((p) => p.id === docTermo));
+await espera("cancelado não volta", () => como("authenticated", M, `update contrato_documentos set cancelado_em = null where id = '${docTermo}'`), true);
+await espera("cancelado não se assina", () => comoCliente(`select portal_assinar_documento('${docTermo}', 'novasenha9', 'Cliente do A', true)`), true);
+await espera("documento de LINK continua marcável à mão (e vira evento)", async () => {
+  const id = (await como("authenticated", M, `insert into contrato_documentos (contrato_id, tipo, link_assinatura) values ('${contrato1}', 'declaracao', 'https://x') returning id`)).rows[0].id;
+  await como("authenticated", M, `update contrato_documentos set assinado_em = now() where id = '${id}'`);
+  return db.query(`select count(*) as n from documento_eventos where documento_id = '${id}' and tipo = 'marcado_assinado'`);
+}, false, (r) => Number(r.rows[0].n) === 1);
+await espera("q_documentos_pagina conta por situação", () => como("authenticated", M, "select q_documentos_pagina('', 'todos') as p"), false, (r) => r.rows[0].p.contagem.assinado === 2 && r.rows[0].p.contagem.cancelado === 1 && r.rows[0].p.linhas.length === r.rows[0].p.contagem.todos);
+await espera("q_painel conta no banco (gestor)", () => como("authenticated", G, "select q_painel() as p"), false, (r) => r.rows[0].p.andamento + r.rows[0].p.portal === 4 && typeof r.rows[0].p.por_etapa === "object");
+await espera("q_painel do colaborador B é vazio", () => como("authenticated", B, "select q_painel() as p"), false, (r) => r.rows[0].p.andamento === 0 && r.rows[0].p.portal === 0);
+await espera("anon não chama o painel", () => como("anon", null, "select q_painel()"), true);
+await espera("cliente do portal não gera documento", () => como("authenticated", P, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
+
 console.log(`\n${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);

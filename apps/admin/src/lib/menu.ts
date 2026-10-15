@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, KanbanSquare, MessagesSquare, Users, FileText, PenLine,
-  Landmark, CreditCard, Building2, Network, UserCog,
+  Landmark, CreditCard, Building2, Network, UserCog, FileSignature,
 } from "lucide-react";
 import type { ShellNavSection } from "@/shell";
 
@@ -31,6 +31,7 @@ export const MENU: ShellNavSection[] = [
       { to: "/cadastros/bancos", label: "Bancos", icon: Landmark },
       { to: "/cadastros/linhas-de-credito", label: "Linhas de crédito", icon: CreditCard },
       { to: "/cadastros/unidades", label: "Unidades", icon: Building2 },
+      { to: "/cadastros/modelos", label: "Modelos de documento", icon: FileSignature },
       { to: "/cadastros/departamentos", label: "Departamentos e setores", icon: Network },
       { to: "/cadastros/usuarios", label: "Usuários", icon: UserCog },
     ],

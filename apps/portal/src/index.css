@@ -102,3 +102,10 @@
     @apply font-titulo uppercase tracking-[0.18em];
   }
 }
+
+/* Impressão / "Salvar como PDF" dos documentos: some o que não é documento. */
+@media print {
+  .q-nao-imprimir { display: none !important; }
+  html, body { background: #fff !important; }
+  @page { margin: 18mm 16mm; }
+}

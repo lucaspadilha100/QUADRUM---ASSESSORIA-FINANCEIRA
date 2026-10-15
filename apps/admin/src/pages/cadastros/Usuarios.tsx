@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Chips } from "@/components/Chips";
+import { Paginacao, usePaginacaoUrl } from "@/components/Paginacao";
 import { Carregando, Falha, Vazio } from "@/components/Estados";
 import { confirmar } from "@/shell";
 import { useAuth, PAPEL_LABEL } from "@/contexts/AuthContext";
@@ -34,12 +35,15 @@ export default function Usuarios() {
   const [editando, setEditando] = useState<Usuario | null>(null);
   const [novo, setNovo] = useState(false);
   const [credencial, setCredencial] = useState<{ email: string; senha: string; titulo: string } | null>(null);
+  const pag = usePaginacaoUrl();
 
   const ativos = usuarios.filter((u) => u.ativo).length;
   const t = semAcento(busca.trim());
   const lista = usuarios
     .filter((u) => (filtro === "ativos" ? u.ativo : !u.ativo))
     .filter((u) => !t || semAcento(`${u.nome} ${u.email ?? ""} ${u.cargo ?? ""}`).includes(t));
+  // A equipe é pequena (dezenas): lê-se inteira e pagina-se na tela.
+  const pagina = lista.slice((pag.pagina - 1) * pag.por, pag.pagina * pag.por);
 
   return (
     <div>
@@ -52,9 +56,9 @@ export default function Usuarios() {
       <div className="flex flex-wrap items-center gap-2 px-4 pt-4 sm:px-8">
         <div className="relative w-full sm:w-72">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar nome, e-mail ou cargo" className="bg-card pl-9" />
+          <Input value={busca} onChange={(e) => { setBusca(e.target.value); pag.voltarAoInicio(); }} placeholder="Buscar nome, e-mail ou cargo" className="bg-card pl-9" />
         </div>
-        <Chips valor={filtro} onChange={setFiltro} opcoes={[
+        <Chips valor={filtro} onChange={(v) => { setFiltro(v); pag.voltarAoInicio(); }} opcoes={[
           { valor: "ativos", rotulo: `Ativos (${ativos})` },
           { valor: "desativados", rotulo: `Desativados (${usuarios.length - ativos})` },
         ]} />
@@ -66,7 +70,7 @@ export default function Usuarios() {
         ) : (
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <ul className="divide-y divide-border">
-              {lista.map((u) => (
+              {pagina.map((u) => (
                 <li key={u.id} className="flex flex-wrap items-center gap-3 p-4">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-q-onix text-sm font-semibold text-q-gold">{iniciais(u.nome)}</span>
                   <div className="min-w-0 flex-1">
@@ -86,6 +90,7 @@ export default function Usuarios() {
             </ul>
           </div>
         )}
+        <Paginacao pagina={pag.pagina} por={pag.por} total={lista.length} onPagina={pag.irPara} onPor={pag.mudarPor} />
       </div>
 
       {isGestor && (

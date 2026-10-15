@@ -11,4 +11,16 @@ export default defineConfig({
   resolve: {
     alias: { "@": path.resolve(__dirname, "./src") },
   },
+  // Bibliotecas num arquivo próprio: elas quase nunca mudam, então o navegador
+  // as guarda de um deploy para o outro e só baixa de novo o código do app.
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          dados: ["@supabase/supabase-js", "@tanstack/react-query"],
+        },
+      },
+    },
+  },
 });

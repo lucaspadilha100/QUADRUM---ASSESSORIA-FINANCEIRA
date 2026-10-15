@@ -5,43 +5,58 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/PageHeader";
 import { Falha } from "@/components/Estados";
 import { useEtapas } from "@/hooks/useCadastros";
-import { useCaixa } from "@/hooks/useCaixa";
-import { useDocumentosTodos } from "@/hooks/useDocumentosTodos";
-import { useContratosPipeline } from "@/hooks/usePipeline";
-import { diasDesde } from "@/lib/formato";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { diasDesde, mensagemDeErro } from "@/lib/formato";
 
-// O painel lê as MESMAS consultas das telas (pipeline, caixa, documentos):
-// a RLS já recorta — gestor vê a Quadrum inteira, colaborador a carteira dele.
-// Cada número é um link para a lista que ele resume, já filtrada.
+// Os números são CONTADOS NO BANCO (`q_painel`) — o painel não baixa a
+// carteira para contar. A RLS recorta: gestor vê a Quadrum inteira,
+// colaborador a carteira dele. Cada número é um link para a lista que ele
+// resume, já filtrada.
 
 const PARADO_DIAS = 7;
 
+interface DadosPainel {
+  andamento: number;
+  portal: number;
+  perdidos: number;
+  por_etapa: Record<string, number>;
+  parados_total: number;
+  parados: { id: string; numero: number; etapa_desde: string; cliente_nome: string | null; consultor_nome: string | null; etapa_nome: string | null }[];
+  atendimentos_abertos: number;
+  atendimentos_nao_lidos: number;
+  esperando: { id: string; cliente_nome: string; setor_nome: string | null; titulo: string; ultima_corpo: string | null; nao_lidas: number }[];
+  assinaturas_pendentes: number;
+}
+
+function usePainel() {
+  return useQuery({
+    queryKey: ["painel"],
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("q_painel", { p_parado_dias: PARADO_DIAS });
+      if (error) throw new Error(mensagemDeErro(error));
+      return data as DadosPainel;
+    },
+  });
+}
+
 export default function Painel() {
   const { perfil, isGestor } = useAuth();
-  const contratos = useContratosPipeline();
+  const painel = usePainel();
   const etapas = useEtapas();
-  const caixa = useCaixa();
-  const docs = useDocumentosTodos();
   const primeiroNome = perfil?.nome?.split(" ")[0] ?? "";
+  const p = painel.data;
 
-  const lista = contratos.data ?? [];
-  const ativos = lista.filter((c) => !c.cancelado_em);
-  const andamento = ativos.filter((c) => !c.data_aceite);
-  const noPortal = ativos.filter((c) => c.data_aceite);
-  const parados = ativos
-    .filter((c) => diasDesde(c.etapa_desde) >= PARADO_DIAS)
-    .sort((a, b) => a.etapa_desde.localeCompare(b.etapa_desde));
-  const abertos = (caixa.data ?? []).filter((i) => !i.arquivado_em);
-  const naoLidos = abertos.filter((i) => i.nao_lidas > 0);
-  const pendentes = (docs.data ?? []).filter((d) => !d.assinado_em);
-
-  const etapasVisiveis = (etapas.data ?? []).filter((e) => e.ativo || ativos.some((c) => c.etapa_id === e.id));
-  const porEtapa = etapasVisiveis.map((e) => ({ ...e, qtd: ativos.filter((c) => c.etapa_id === e.id).length }));
+  const porEtapa = (etapas.data ?? [])
+    .filter((e) => e.ativo || (p?.por_etapa[e.id] ?? 0) > 0)
+    .map((e) => ({ ...e, qtd: p?.por_etapa[e.id] ?? 0 }));
   const maior = Math.max(1, ...porEtapa.map((e) => e.qtd));
-  const nomeEtapa = (id: string) => etapas.data?.find((e) => e.id === id)?.nome ?? "—";
-
-  const carregando = contratos.isLoading || caixa.isLoading || docs.isLoading;
-  const falha = (contratos.error ?? caixa.error ?? docs.error ?? etapas.error) as Error | null;
+  const carregando = painel.isLoading;
+  const falha = (painel.error ?? etapas.error) as Error | null;
+  const parados = p?.parados ?? [];
+  const naoLidos = p?.esperando ?? [];
+  const n = (v: number | undefined) => (v ?? 0).toLocaleString("pt-BR");
 
   return (
     <div>
@@ -54,11 +69,11 @@ export default function Painel() {
         {falha && <Falha erro={falha} />}
 
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <Numero to="/contratos?situacao=andamento" icone={FileText} rotulo="Contratos em andamento" valor={andamento.length} carregando={carregando} />
-          <Numero to="/contratos?situacao=portal" icone={Globe} rotulo="No Portal do Cliente" valor={noPortal.length} carregando={carregando} />
-          <Numero to="/atendimentos?aba=nao_lidas" icone={MessagesSquare} rotulo="Atendimentos por ler" valor={naoLidos.length}
-            detalhe={`${abertos.length} aberto${abertos.length === 1 ? "" : "s"}`} destaque={naoLidos.length > 0} carregando={carregando} />
-          <Numero to="/documentos" icone={PenLine} rotulo="Assinaturas pendentes" valor={pendentes.length} carregando={carregando} />
+          <Numero to="/contratos?situacao=andamento" icone={FileText} rotulo="Contratos em andamento" valor={p?.andamento ?? 0} carregando={carregando} />
+          <Numero to="/contratos?situacao=portal" icone={Globe} rotulo="No Portal do Cliente" valor={p?.portal ?? 0} carregando={carregando} />
+          <Numero to="/atendimentos?aba=nao_lidas" icone={MessagesSquare} rotulo="Atendimentos por ler" valor={p?.atendimentos_nao_lidos ?? 0}
+            detalhe={`${n(p?.atendimentos_abertos)} aberto${p?.atendimentos_abertos === 1 ? "" : "s"}`} destaque={(p?.atendimentos_nao_lidos ?? 0) > 0} carregando={carregando} />
+          <Numero to="/documentos" icone={PenLine} rotulo="Assinaturas pendentes" valor={p?.assinaturas_pendentes ?? 0} carregando={carregando} />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
@@ -78,7 +93,7 @@ export default function Painel() {
                         <span className="truncate text-foreground group-hover:underline">
                           {e.nome}{e.aceita && <span className="ml-1.5 text-[11px] text-muted-foreground">(cliente vê no portal)</span>}
                         </span>
-                        <span className="font-semibold tabular-nums text-foreground">{e.qtd}</span>
+                        <span className="font-semibold tabular-nums text-foreground">{n(e.qtd)}</span>
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-muted">
                         <div className="h-full rounded-full" style={{ width: `${(e.qtd / maior) * 100}%`, background: e.cor }} />
@@ -93,21 +108,21 @@ export default function Painel() {
           <section className="rounded-xl border border-border bg-card p-4 sm:p-5">
             <div className="mb-4 flex items-baseline justify-between gap-2">
               <h2 className="q-titulo-marca text-xs text-foreground">Parados há {PARADO_DIAS}+ dias</h2>
-              <span className="text-xs text-muted-foreground">{parados.length} contrato{parados.length === 1 ? "" : "s"}</span>
+              <span className="text-xs text-muted-foreground">{n(p?.parados_total)} contrato{p?.parados_total === 1 ? "" : "s"}</span>
             </div>
             {parados.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">{carregando ? "Carregando…" : "Nenhum contrato parado. 🎉"}</p>
             ) : (
               <ul className="divide-y divide-border">
-                {parados.slice(0, 8).map((c) => {
+                {parados.map((c) => {
                   const dias = diasDesde(c.etapa_desde);
                   return (
                     <li key={c.id}>
                       <Link to={`/contratos?contrato=${c.id}`} className="flex items-center gap-3 py-2.5 hover:bg-accent/50">
                         <AlertTriangle className={`h-4 w-4 shrink-0 ${dias >= 15 ? "text-destructive" : "text-warning"}`} />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-foreground">#{c.numero} · {c.cliente?.nome ?? "Cliente de outra carteira"}</p>
-                          <p className="truncate text-xs text-muted-foreground">{nomeEtapa(c.etapa_id)} · {c.consultor?.nome ?? "Sem consultor"}</p>
+                          <p className="truncate text-sm font-medium text-foreground">#{c.numero} · {c.cliente_nome ?? "Cliente de outra carteira"}</p>
+                          <p className="truncate text-xs text-muted-foreground">{c.etapa_nome ?? "—"} · {c.consultor_nome ?? "Sem consultor"}</p>
                         </div>
                         <span className="shrink-0 text-xs font-semibold tabular-nums text-foreground">{dias}d</span>
                       </Link>
@@ -116,7 +131,7 @@ export default function Painel() {
                 })}
               </ul>
             )}
-            {parados.length > 8 && <Link to="/contratos" className="q-link mt-2 inline-block text-xs">Ver todos os contratos</Link>}
+            {(p?.parados_total ?? 0) > parados.length && <Link to="/contratos" className="q-link mt-2 inline-block text-xs">Ver todos os contratos</Link>}
           </section>
         </div>
 
@@ -127,7 +142,7 @@ export default function Painel() {
               <Link to="/atendimentos?aba=nao_lidas" className="q-link text-xs">Abrir atendimentos</Link>
             </div>
             <ul className="divide-y divide-border">
-              {naoLidos.slice(0, 6).map((i) => (
+              {naoLidos.map((i) => (
                 <li key={i.id}>
                   <Link to={`/atendimentos?atendimento=${i.id}`} className="flex items-center gap-3 py-2.5 hover:bg-accent/50">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-q-gold" />
@@ -155,7 +170,7 @@ function Numero({ to, icone: Icone, rotulo, valor, detalhe, destaque, carregando
     <Link to={to}
       className={`group flex flex-col gap-2 rounded-xl border bg-card p-4 transition-colors hover:bg-accent ${destaque ? "border-q-gold" : "border-border hover:border-q-gold/60"}`}>
       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-q-onix text-q-gold"><Icone className="h-4 w-4" /></span>
-      <span className="font-titulo text-2xl font-bold tabular-nums text-foreground">{carregando ? "—" : valor}</span>
+      <span className="font-titulo text-2xl font-bold tabular-nums text-foreground">{carregando ? "—" : valor.toLocaleString("pt-BR")}</span>
       <span className="text-xs leading-tight text-muted-foreground">{rotulo}{detalhe && !carregando ? ` · ${detalhe}` : ""}</span>
     </Link>
   );

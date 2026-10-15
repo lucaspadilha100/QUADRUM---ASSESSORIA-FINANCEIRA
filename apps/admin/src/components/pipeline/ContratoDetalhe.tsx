@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Archive, Bell, CheckCircle2, Eye, Globe, Loader2, MessageSquare, RotateCcw, XCircle } from "lucide-react";
+import { Archive, Bell, Eye, Globe, Loader2, MessageSquare, RotateCcw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,12 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { confirmar, pedirTexto } from "@/shell";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  useBancos, useDepartamentos, useDocumentoTipos, useEquipe, useEtapas, useLinhasCredito,
+  useBancos, useDepartamentos, useEquipe, useEtapas, useLinhasCredito,
 } from "@/hooks/useCadastros";
 import {
-  useAtendimentosDoContrato, useAtualizarContrato, useDocumentos, useHistorico,
-  useLancarOcorrencia, useSalvarDocumento, type ContratoPipeline,
+  LIMITE_HISTORICO, useAtendimentosDoContrato, useAtualizarContrato, useContrato, useHistorico,
+  useLancarOcorrencia, type ContratoPipeline,
 } from "@/hooks/usePipeline";
+import { DocumentosDoContrato } from "@/components/documento/DocumentosDoContrato";
 import { Conversa } from "@/components/atendimento/Conversa";
 import { AcessoPortal } from "@/components/AcessoPortal";
 import { dataBR, dataHoraBR, formatarDocumento } from "@/lib/formato";
@@ -29,11 +30,22 @@ import { dataBR, dataHoraBR, formatarDocumento } from "@/lib/formato";
 
 const NENHUM = "nenhum";
 
-export function ContratoDetalhe({ contrato, onFechar }: { contrato: ContratoPipeline | null; onFechar: () => void }) {
+// O painel lê o contrato pelo ID, direto do banco: a lista ao lado é uma
+// PÁGINA, e o link direto (?contrato=…) tem de abrir mesmo fora dela.
+export function ContratoDetalhe({ contratoId, onFechar }: { contratoId: string | null; onFechar: () => void }) {
+  const { data: contrato, isLoading, error } = useContrato(contratoId);
   return (
-    <Sheet open={!!contrato} onOpenChange={(o) => !o && onFechar()}>
+    <Sheet open={!!contratoId} onOpenChange={(o) => !o && onFechar()}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
-        {contrato && <Conteudo c={contrato} />}
+        {isLoading ? (
+          <p className="flex items-center gap-2 pt-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando…</p>
+        ) : error ? (
+          <p className="pt-10 text-sm text-destructive">Não foi possível abrir o contrato: {(error as Error).message}</p>
+        ) : contrato ? (
+          <Conteudo c={contrato} />
+        ) : (
+          <p className="pt-10 text-sm text-muted-foreground">Contrato não encontrado — ou é de outra carteira.</p>
+        )}
       </SheetContent>
     </Sheet>
   );
@@ -79,7 +91,7 @@ function Conteudo({ c }: { c: ContratoPipeline }) {
         </TabsList>
         <TabsContent value="dados"><AbaDados c={c} /></TabsContent>
         <TabsContent value="historico"><AbaHistorico contratoId={c.id} /></TabsContent>
-        <TabsContent value="documentos"><AbaDocumentos contratoId={c.id} /></TabsContent>
+        <TabsContent value="documentos"><DocumentosDoContrato contrato={c} /></TabsContent>
         <TabsContent value="atendimentos"><AbaAtendimentos contratoId={c.id} /></TabsContent>
       </Tabs>
     </>
@@ -341,83 +353,8 @@ function AbaHistorico({ contratoId }: { contratoId: string }) {
           ))}
         </ul>
       )}
-    </div>
-  );
-}
-
-// ── Pendências: documentos a assinar ─────────────────────────────────────────
-
-function AbaDocumentos({ contratoId }: { contratoId: string }) {
-  const { data: docs = [], isLoading, error } = useDocumentos(contratoId);
-  const { data: tipos = [] } = useDocumentoTipos();
-  const salvar = useSalvarDocumento();
-  const [tipo, setTipo] = useState("");
-  const [link, setLink] = useState("");
-
-  const adicionar = async () => {
-    if (!tipo) return;
-    try {
-      await salvar.mutateAsync({ contratoId, campos: { tipo, link_assinatura: link.trim() || null } });
-      setTipo(""); setLink("");
-      toast.success("Pendência criada.");
-    } catch (e) {
-      toast.error("Não foi possível criar.", { description: (e as Error).message });
-    }
-  };
-
-  const marcar = async (id: string, assinado: boolean) => {
-    try {
-      await salvar.mutateAsync({ contratoId, id, campos: { assinado_em: assinado ? new Date().toISOString() : null } });
-    } catch (e) {
-      toast.error("Não foi possível atualizar.", { description: (e as Error).message });
-    }
-  };
-
-  return (
-    <div className="space-y-4 pt-2">
-      <div className="space-y-2 rounded-lg border border-border p-3">
-        <Label>Nova pendência de assinatura</Label>
-        <div className="grid gap-2 sm:grid-cols-[160px_1fr_auto]">
-          <Select value={tipo} onValueChange={setTipo}>
-            <SelectTrigger><SelectValue placeholder="Documento" /></SelectTrigger>
-            <SelectContent>
-              {tipos.filter((t) => t.ativo).map((t) => <SelectItem key={t.codigo} value={t.codigo}>{t.nome}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Link para assinar (opcional)" />
-          <Button type="button" onClick={adicionar} disabled={!tipo || salvar.isPending}>Adicionar</Button>
-        </div>
-        <p className="text-[11px] text-muted-foreground">
-          Aparece para o cliente em "Pendências do contrato", com o botão de assinar, até ser marcada como assinada.
-        </p>
-      </div>
-
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Carregando…</p>
-      ) : error ? (
-        <p className="text-sm text-destructive">Não foi possível carregar: {(error as Error).message}</p>
-      ) : docs.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma pendência.</p>
-      ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border">
-          {docs.map((d) => (
-            <li key={d.id} className="flex items-center gap-3 p-3">
-              {d.assinado_em ? <CheckCircle2 className="h-4 w-4 shrink-0 text-success" /> : <span className="h-4 w-4 shrink-0 rounded-full border-2 border-warning" />}
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground">{d.tipo_info?.nome ?? d.tipo}</p>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {d.assinado_em ? `Assinado em ${dataHoraBR(d.assinado_em)}` : "Pendente"}
-                  {d.link_assinatura ? (
-                    <> · <a href={d.link_assinatura} target="_blank" rel="noreferrer" className="q-link">link</a></>
-                  ) : null}
-                </p>
-              </div>
-              <Button type="button" size="sm" variant="outline" onClick={() => marcar(d.id, !d.assinado_em)}>
-                {d.assinado_em ? "Desfazer" : "Marcar assinado"}
-              </Button>
-            </li>
-          ))}
-        </ul>
+      {ocorrencias.length >= LIMITE_HISTORICO && (
+        <p className="text-center text-[11px] text-muted-foreground">Mostrando as {LIMITE_HISTORICO} ocorrências mais recentes.</p>
       )}
     </div>
   );

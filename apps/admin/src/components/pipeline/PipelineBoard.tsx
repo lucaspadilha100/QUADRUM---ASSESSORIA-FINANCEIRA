@@ -6,21 +6,28 @@ import {
 import { Globe, Plus } from "lucide-react";
 import { DraggableCard, DroppableColumn, KanbanDragOverlay } from "@/components/kanban/KanbanDnd";
 import { ContratoCard } from "./ContratoCard";
-import type { ContratoPipeline } from "@/hooks/usePipeline";
+import { POR_COLUNA, type ColunaQuadro, type ContratoPipeline } from "@/hooks/usePipeline";
 import type { Etapa } from "@/hooks/useCadastros";
 
 // Portado do KanbanBoard do CRM da Carbo, sem o que era de lá (funis, repasse,
 // temperatura). A coluna é a ETAPA (cadastro); o card é o CONTRATO.
+//
+// ESCALA: cada coluna chega com as primeiras N (as paradas há mais tempo) e o
+// TOTAL dela (`q_pipeline`). O número no topo é o total real; "carregar mais"
+// pede as próximas daquela coluna só. Com 50 mil contratos, o quadro continua
+// abrindo com algumas centenas de cards, não com a carteira inteira.
 
 interface Props {
   etapas: Etapa[];
-  contratos: ContratoPipeline[];
+  colunas: ColunaQuadro[];
   onMover: (c: ContratoPipeline, etapaId: string) => void;
   onAbrir: (c: ContratoPipeline) => void;
   onNovo: (etapaId: string) => void;
+  onCarregarMais: (etapaId: string, quantos: number) => void;
+  carregando: boolean;
 }
 
-export function PipelineBoard({ etapas, contratos, onMover, onAbrir, onNovo }: Props) {
+export function PipelineBoard({ etapas, colunas, onMover, onAbrir, onNovo, onCarregarMais, carregando }: Props) {
   const [ativoId, setAtivoId] = useState<string | null>(null);
 
   // Mouse "pega" com 5px; toque exige pressionar (200ms) para não brigar com
@@ -31,13 +38,12 @@ export function PipelineBoard({ etapas, contratos, onMover, onAbrir, onNovo }: P
   );
 
   const porEtapa = useMemo(() => {
-    const m: Record<string, ContratoPipeline[]> = {};
-    for (const e of etapas) m[e.id] = [];
-    for (const c of contratos) (m[c.etapa_id] ||= []).push(c);
+    const m: Record<string, ColunaQuadro> = {};
+    for (const c of colunas) m[c.etapa_id] = c;
     return m;
-  }, [etapas, contratos]);
+  }, [colunas]);
 
-  const ativo = ativoId ? contratos.find((c) => c.id === ativoId) : null;
+  const ativo = ativoId ? colunas.flatMap((c) => c.cards).find((c) => c.id === ativoId) : null;
 
   const aoSoltar = (ev: DragEndEvent) => {
     setAtivoId(null);
@@ -62,7 +68,9 @@ export function PipelineBoard({ etapas, contratos, onMover, onAbrir, onNovo }: P
           No celular: uma coluna por arraste (86vw + snap). */}
       <div className="flex snap-x snap-mandatory justify-start gap-3 overflow-x-auto pb-4 sm:snap-none">
         {etapas.map((e) => {
-          const lista = porEtapa[e.id] ?? [];
+          const coluna = porEtapa[e.id];
+          const lista = coluna?.cards ?? [];
+          const total = coluna?.total ?? 0;
           return (
             <div
               key={e.id}
@@ -71,7 +79,7 @@ export function PipelineBoard({ etapas, contratos, onMover, onAbrir, onNovo }: P
               <div className="rounded-t-xl border-b border-border bg-card px-3 py-2.5" style={{ borderTop: `3px solid ${e.cor}` }}>
                 <div className="flex items-center gap-2">
                   <h3 className="min-w-0 flex-1 truncate font-sans text-sm font-semibold text-foreground" title={e.nome}>{e.nome}</h3>
-                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground">{lista.length}</span>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground" title={`${total} contratos nesta etapa`}>{total.toLocaleString("pt-BR")}</span>
                   <button
                     type="button"
                     onClick={() => onNovo(e.id)}
@@ -101,6 +109,13 @@ export function PipelineBoard({ etapas, contratos, onMover, onAbrir, onNovo }: P
                           <ContratoCard c={c} onClick={onAbrir} />
                         </DraggableCard>
                       ))
+                    )}
+                    {total > lista.length && (
+                      <button type="button" disabled={carregando}
+                        onClick={() => onCarregarMais(e.id, lista.length + POR_COLUNA)}
+                        className="w-full rounded-lg border border-dashed border-border bg-card/60 py-2 text-xs font-medium text-muted-foreground hover:bg-card hover:text-foreground disabled:opacity-60">
+                        Carregar mais ({(total - lista.length).toLocaleString("pt-BR")} restantes)
+                      </button>
                     )}
                   </div>
                 </DroppableColumn>

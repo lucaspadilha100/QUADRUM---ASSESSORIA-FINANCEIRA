@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertTriangle, Archive, FileSignature, Loader2, MessageCircle, PenLine } from "lucide-react";
+import { AlertTriangle, Archive, CheckCircle2, FileSignature, Loader2, MessageCircle, PenLine } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { marcarHistoricoLido, useAvisos, useContratos, type ContratoPortal } from "@/lib/portal";
@@ -75,7 +75,12 @@ export default function Contratos() {
                 {c.pendencias.map((p) => (
                   <li key={p.id} className="flex items-center gap-3 rounded-lg bg-[hsl(var(--q-gold)/0.1)] px-3 py-2">
                     <span className="flex-1 text-sm font-medium">{p.nome}</span>
-                    {p.link ? (
+                    {p.no_sistema ? (
+                      <Link to={`/documento/${p.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground no-underline">
+                        <PenLine className="h-3.5 w-3.5" /> Ler e assinar
+                      </Link>
+                    ) : p.link ? (
                       <a href={p.link} target="_blank" rel="noreferrer"
                         className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground no-underline">
                         <PenLine className="h-3.5 w-3.5" /> Assinar
@@ -117,10 +122,11 @@ function PainelContrato({ c }: { c: ContratoPortal }) {
       </AccordionTrigger>
       <AccordionContent className="px-5 pb-5">
         <Tabs defaultValue="dados">
-          <TabsList className="grid w-full grid-cols-3 sm:w-auto sm:inline-grid">
+          <TabsList className={`grid w-full sm:w-auto sm:inline-grid ${c.documentos.length ? "grid-cols-4" : "grid-cols-3"}`}>
             <TabsTrigger value="dados">Dados</TabsTrigger>
             <TabsTrigger value="historico">Histórico</TabsTrigger>
             <TabsTrigger value="atendimentos">Atendimentos</TabsTrigger>
+            {c.documentos.length > 0 && <TabsTrigger value="documentos">Documentos</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="dados" className="pt-3">
@@ -149,6 +155,30 @@ function PainelContrato({ c }: { c: ContratoPortal }) {
               </ul>
             )}
           </TabsContent>
+
+          {c.documentos.length > 0 && (
+            <TabsContent value="documentos" className="pt-3">
+              <ul className="divide-y divide-border rounded-lg border border-border">
+                {c.documentos.map((d) => (
+                  <li key={d.id}>
+                    {d.no_sistema ? (
+                      <Link to={`/documento/${d.id}`} className="flex items-center gap-3 p-3 text-foreground no-underline hover:bg-accent/50">
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+                        <span className="min-w-0 flex-1 truncate text-sm">{d.nome}</span>
+                        <span className="text-xs text-muted-foreground">Assinado em {dataHoraBR(d.assinado_em)}</span>
+                      </Link>
+                    ) : (
+                      <div className="flex items-center gap-3 p-3">
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+                        <span className="min-w-0 flex-1 truncate text-sm">{d.nome}</span>
+                        <span className="text-xs text-muted-foreground">Assinado em {dataHoraBR(d.assinado_em)}</span>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </TabsContent>
+          )}
 
           <TabsContent value="atendimentos" className="pt-3">
             {c.atendimentos.length === 0 ? (

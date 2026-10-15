@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
+import { Suspense } from "react";
 import { Outlet } from "react-router-dom";
+import { Carregando } from "@/components/Estados";
 import { LogOut, Menu } from "lucide-react";
 import { Sidebar, usePaginaAtual } from "@/shell";
 import { Link } from "react-router-dom";
@@ -74,7 +76,9 @@ export function Layout() {
           footer={rodape}
         />
         <main ref={mainRef} className="min-w-0 flex-1 overflow-y-auto">
-          <Outlet />
+          <Suspense fallback={<Carregando />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

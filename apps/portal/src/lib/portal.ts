@@ -23,7 +23,9 @@ export interface ContratoPortal {
   cancelado: boolean;
   historico: { id: string; texto: string; autor: string | null; created_at: string }[];
   urgente_nao_lido: boolean;
-  pendencias: { id: string; tipo: string; nome: string; link: string | null }[];
+  // `no_sistema`: assina AQUI no portal (documento gerado de modelo); senão, pelo link.
+  pendencias: { id: string; tipo: string; nome: string; link: string | null; no_sistema: boolean }[];
+  documentos: { id: string; nome: string; assinado_em: string; no_sistema: boolean }[];
   atendimentos: { id: string; numero: number; titulo: string; arquivado: boolean }[];
 }
 
@@ -97,6 +99,58 @@ export function useEnviarMensagem() {
     mutationFn: (v: { atendimentoId: string; corpo: string }) =>
       rpc<ChatPortal>("portal_enviar_mensagem", { p_atendimento: v.atendimentoId, p_corpo: v.corpo }),
     onSuccess: (chat) => qc.setQueryData(["portal", "chat", "ativo"], chat),
+  });
+}
+
+// ── Documento para ler e assinar (migração 20261017010000) ──────────────────
+
+export interface AssinaturaPortal {
+  nome: string; documento: string; nome_digitado: string; assinado_em: string;
+  ip: string | null; user_agent: string | null; metodo: string; hash: string; codigo: string;
+  aceite_texto: string; visualizado_em: string | null;
+}
+
+export interface DocumentoPortal {
+  id: string;
+  titulo: string;
+  tipo: string;
+  contrato_numero: number;
+  no_sistema: boolean;
+  link: string | null;
+  conteudo: string | null;
+  conteudo_hash: string | null;
+  criado_em: string;
+  cancelado: boolean;
+  assinado_em: string | null;
+  cliente_nome: string;
+  pj: boolean;
+  representante_nome: string | null;
+  aceite_texto: string;
+  assinatura: AssinaturaPortal | null;
+}
+
+// Abrir o documento fica REGISTRADO no banco (com IP e navegador): é parte da
+// prova de que o cliente leu antes de assinar. Por isso não relê sozinho.
+export const useDocumento = (id: string | undefined) =>
+  useQuery({
+    queryKey: ["portal", "documento", id],
+    enabled: !!id,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    queryFn: () => rpc<DocumentoPortal>("portal_documento", { p_documento: id }),
+  });
+
+export function useAssinarDocumento() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: string; senha: string; nome: string; aceite: boolean }) =>
+      rpc<{ ok: boolean; erro?: string; documento?: DocumentoPortal }>("portal_assinar_documento", {
+        p_documento: v.id, p_senha: v.senha, p_nome: v.nome, p_aceite: v.aceite,
+      }),
+    onSuccess: (r, v) => {
+      if (r.ok && r.documento) qc.setQueryData(["portal", "documento", v.id], r.documento);
+      qc.invalidateQueries({ queryKey: ["portal", "contratos"] });
+    },
   });
 }
 

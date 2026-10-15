@@ -35,9 +35,9 @@ export function Layout() {
 
   return (
     <div className="min-h-screen md:flex">
-      <aside className="q-escuro hidden w-[300px] shrink-0 bg-background md:fixed md:inset-y-0 md:flex md:flex-col">{menu}</aside>
+      <aside className="q-escuro q-nao-imprimir hidden w-[300px] shrink-0 bg-background md:fixed md:inset-y-0 md:flex md:flex-col">{menu}</aside>
 
-      <header className="q-escuro sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background px-4 md:hidden">
+      <header className="q-escuro q-nao-imprimir sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background px-4 md:hidden">
         <button onClick={() => setAberto(true)} aria-label="Abrir menu" className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted"><Menu className="h-5 w-5" /></button>
         <img src={simboloQ} alt="" className="h-7 w-auto" />
         <span className="q-titulo-marca text-sm font-semibold">Quadrum</span>
@@ -49,9 +49,9 @@ export function Layout() {
         </div>
       )}
 
-      <main className="relative min-h-screen flex-1 overflow-hidden md:ml-[300px]">
-        <img src={simboloQ} alt="" aria-hidden className="pointer-events-none fixed -bottom-24 -right-24 w-[480px] max-w-none select-none opacity-[0.04]" />
-        <div className="relative mx-auto max-w-4xl px-4 py-6 sm:px-8 sm:py-10">
+      <main className="relative min-h-screen flex-1 overflow-hidden md:ml-[300px] print:ml-0">
+        <img src={simboloQ} alt="" aria-hidden className="q-nao-imprimir pointer-events-none fixed -bottom-24 -right-24 w-[480px] max-w-none select-none opacity-[0.04]" />
+        <div className="relative mx-auto max-w-4xl px-4 py-6 sm:px-8 sm:py-10 print:max-w-none print:p-0">
           <Outlet />
         </div>
       </main>

@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CheckCircle2, Globe, KeyRound, Plus, Search } from "lucide-react";
+import { CheckCircle2, Globe, KeyRound, Loader2, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -8,43 +8,43 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClienteForm } from "@/components/clientes/ClienteForm";
 import { AcessoPortal } from "@/components/AcessoPortal";
 import { Chips } from "@/components/Chips";
 import { Carregando, Falha, Vazio } from "@/components/Estados";
+import { Paginacao, usePaginacaoUrl } from "@/components/Paginacao";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEtapas } from "@/hooks/useCadastros";
-import { useAtualizarCliente, useClientes, useCriarCliente, type Cliente } from "@/hooks/useClientes";
+import { useEquipe, useEtapas } from "@/hooks/useCadastros";
+import {
+  clientePorDocumento, useAtualizarCliente, useCliente, useClientesPagina, useCriarCliente,
+} from "@/hooks/useClientes";
+import { useAtrasado } from "@/hooks/usePagina";
 import { useParamUrl } from "@/shell";
 import { dataBR, documentoValido, formatarDocumento, mascararDocumento, soDigitos } from "@/lib/formato";
 
-const semAcento = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+const TODOS = "todos";
 
 export default function Clientes() {
   const { isGestor } = useAuth();
-  const { data: clientes = [], isLoading, error } = useClientes();
+  const { data: equipe = [] } = useEquipe();
   const [busca, setBusca] = useParamUrl("busca", "", { replace: true });
   const [filtro, setFiltro] = useParamUrl("portal", "todos");
+  const [consultor, setConsultor] = useParamUrl("consultor", TODOS);
   const [abertoId, setAbertoId] = useParamUrl("cliente", "");
+  const pag = usePaginacaoUrl();
   const [novo, setNovo] = useState(false);
 
-  const comAcesso = clientes.filter((c) => c.user_id).length;
-  const lista = useMemo(() => {
-    const t = semAcento(busca.trim());
-    const dig = soDigitos(busca);
-    return clientes.filter((c) => {
-      if (filtro === "com" && !c.user_id) return false;
-      if (filtro === "sem" && c.user_id) return false;
-      if (!t) return true;
-      return semAcento(c.nome).includes(t)
-        || (dig.length >= 3 && c.documento.includes(dig))
-        || semAcento(c.email ?? "").includes(t)
-        || soDigitos(c.telefone).includes(dig || "§");
-    });
-  }, [clientes, busca, filtro]);
+  const termo = useAtrasado(busca);
+  const { data, isLoading, isFetching, error } = useClientesPagina({
+    busca: termo, portal: filtro, consultor: consultor === TODOS ? null : consultor, pagina: pag.pagina, por: pag.por,
+  });
+  const lista = data?.linhas ?? [];
+  const cont = data?.contagem ?? { todos: 0, com: 0, sem: 0 };
+  const total = filtro === "com" ? cont.com : filtro === "sem" ? cont.sem : cont.todos;
 
-  // A ficha lê o cliente da LISTA (a versão mais nova do banco), não de uma cópia.
-  const aberto = clientes.find((c) => c.id === abertoId) ?? null;
+  // Filtro novo, página 1 — senão "página 7" de uma busca que tem uma página.
+  const filtrar = <T,>(fn: (v: T) => void) => (v: T) => { fn(v); pag.voltarAoInicio(); };
 
   return (
     <div>
@@ -57,15 +57,25 @@ export default function Clientes() {
       <div className="flex flex-wrap items-center gap-2 px-4 pt-4 sm:px-8">
         <div className="relative w-full sm:w-80">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar por nome, CPF/CNPJ, telefone ou e-mail" className="bg-card pl-9" />
+          <Input value={busca} onChange={(e) => filtrar(setBusca)(e.target.value)} placeholder="Buscar por nome, CPF/CNPJ, telefone ou e-mail" className="bg-card pl-9" />
+          {isFetching && !isLoading && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
         </div>
+        {isGestor && (
+          <Select value={consultor} onValueChange={filtrar(setConsultor)}>
+            <SelectTrigger className="w-full bg-card sm:w-56" aria-label="Consultor"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={TODOS}>Todos os consultores</SelectItem>
+              {equipe.map((p) => <SelectItem key={p.id} value={p.id}>{p.nome}{p.ativo ? "" : " (inativo)"}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
         <Chips
           valor={filtro}
-          onChange={setFiltro}
+          onChange={filtrar(setFiltro)}
           opcoes={[
-            { valor: "todos", rotulo: `Todos (${clientes.length})` },
-            { valor: "com", rotulo: `Com acesso ao portal (${comAcesso})` },
-            { valor: "sem", rotulo: `Sem acesso (${clientes.length - comAcesso})` },
+            { valor: "todos", rotulo: `Todos (${cont.todos.toLocaleString("pt-BR")})` },
+            { valor: "com", rotulo: `Com acesso ao portal (${cont.com.toLocaleString("pt-BR")})` },
+            { valor: "sem", rotulo: `Sem acesso (${cont.sem.toLocaleString("pt-BR")})` },
           ]}
         />
       </div>
@@ -76,23 +86,22 @@ export default function Clientes() {
         ) : error ? (
           <Falha erro={error as Error} />
         ) : lista.length === 0 ? (
-          <Vazio texto={clientes.length === 0 ? "Nenhum cliente cadastrado ainda." : "Nenhum cliente encontrado com esse filtro."} />
+          <Vazio texto={cont.todos === 0 && !termo && consultor === TODOS ? "Nenhum cliente cadastrado ainda." : "Nenhum cliente encontrado com esse filtro."} />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <table className="w-full text-sm">
-              <thead className="hidden border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground md:table-header-group">
-                <tr>
-                  <th className="px-4 py-2.5 font-medium">Cliente</th>
-                  <th className="px-4 py-2.5 font-medium">Telefone</th>
-                  <th className="px-4 py-2.5 font-medium">Consultor</th>
-                  <th className="px-4 py-2.5 font-medium">Contratos</th>
-                  <th className="px-4 py-2.5 font-medium">Portal</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {lista.map((c) => {
-                  const ativos = c.contratos.filter((k) => !k.cancelado_em).length;
-                  return (
+          <>
+            <div className="overflow-hidden rounded-xl border border-border bg-card">
+              <table className="w-full text-sm">
+                <thead className="hidden border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground md:table-header-group">
+                  <tr>
+                    <th className="px-4 py-2.5 font-medium">Cliente</th>
+                    <th className="px-4 py-2.5 font-medium">Telefone</th>
+                    <th className="px-4 py-2.5 font-medium">Consultor</th>
+                    <th className="px-4 py-2.5 font-medium">Contratos</th>
+                    <th className="px-4 py-2.5 font-medium">Portal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {lista.map((c) => (
                     <tr key={c.id} onClick={() => setAbertoId(c.id)} className="block cursor-pointer hover:bg-accent/50 md:table-row">
                       <td className="block px-4 pt-3 md:table-cell md:py-3">
                         <p className="font-medium text-foreground">{c.nome}</p>
@@ -100,11 +109,11 @@ export default function Clientes() {
                       </td>
                       <td className="block px-4 text-xs text-muted-foreground md:table-cell md:text-sm">{c.telefone ?? "—"}</td>
                       <td className="block px-4 text-xs text-muted-foreground md:table-cell md:text-sm md:text-foreground">
-                        <span className="md:hidden">Consultor: </span>{c.consultor?.nome ?? "Sem consultor"}
+                        <span className="md:hidden">Consultor: </span>{c.consultor_nome ?? "Sem consultor"}
                       </td>
                       <td className="inline-block px-4 pb-3 text-xs md:table-cell md:py-3 md:text-sm">
-                        {ativos} ativo{ativos === 1 ? "" : "s"}
-                        {c.contratos.length > ativos && <span className="text-muted-foreground"> · {c.contratos.length - ativos} perdido{c.contratos.length - ativos === 1 ? "" : "s"}</span>}
+                        {c.contratos_ativos} ativo{c.contratos_ativos === 1 ? "" : "s"}
+                        {c.contratos_perdidos > 0 && <span className="text-muted-foreground"> · {c.contratos_perdidos} perdido{c.contratos_perdidos === 1 ? "" : "s"}</span>}
                       </td>
                       <td className="inline-block px-4 pb-3 md:table-cell md:py-3">
                         {c.user_id ? (
@@ -114,25 +123,37 @@ export default function Clientes() {
                         )}
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Paginacao pagina={pag.pagina} por={pag.por} total={total} onPagina={pag.irPara} onPor={pag.mudarPor} />
+          </>
         )}
       </div>
 
       <NovoCliente aberto={novo} onFechar={() => setNovo(false)} onCriado={(id) => { setNovo(false); setAbertoId(id); }} />
-      <ClienteDetalhe cliente={aberto} onFechar={() => setAbertoId("")} />
+      <ClienteDetalhe clienteId={abertoId || null} onFechar={() => setAbertoId("")} />
     </div>
   );
 }
 
 function NovoCliente({ aberto, onFechar, onCriado }: { aberto: boolean; onFechar: () => void; onCriado: (id: string) => void }) {
   const criar = useCriarCliente();
-  const { data: clientes = [] } = useClientes();
   const [doc, setDoc] = useState("");
-  const jaExiste = documentoValido(doc) ? clientes.find((c) => c.documento === soDigitos(doc)) : undefined;
+  const [jaExiste, setJaExiste] = useState<{ id: string; nome: string } | null>(null);
+
+  // Documento completo ⇒ pergunta ao BANCO se já existe (dentro do que a
+  // pessoa vê), em vez de procurar numa lista baixada inteira.
+  useEffect(() => {
+    setJaExiste(null);
+    if (!documentoValido(doc)) return;
+    let vivo = true;
+    clientePorDocumento(doc).then((c) => { if (vivo) setJaExiste(c); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [doc]);
+
+  const tipo = soDigitos(doc).length === 14 ? "PJ" : soDigitos(doc).length === 11 ? "PF" : null;
 
   return (
     <Dialog open={aberto} onOpenChange={(o) => { if (!o) { onFechar(); setDoc(""); } }}>
@@ -144,6 +165,7 @@ function NovoCliente({ aberto, onFechar, onCriado }: { aberto: boolean; onFechar
         <ClienteForm
           rotuloSalvar="Cadastrar cliente"
           salvando={criar.isPending}
+          tipoPessoa={tipo}
           antes={
             <div className="space-y-1.5">
               <Label htmlFor="cli-doc">CPF ou CNPJ</Label>
@@ -173,15 +195,22 @@ function NovoCliente({ aberto, onFechar, onCriado }: { aberto: boolean; onFechar
   );
 }
 
-function ClienteDetalhe({ cliente, onFechar }: { cliente: Cliente | null; onFechar: () => void }) {
+function ClienteDetalhe({ clienteId, onFechar }: { clienteId: string | null; onFechar: () => void }) {
+  const { data: cliente, isLoading, error } = useCliente(clienteId);
   const atualizar = useAtualizarCliente();
   const { data: etapas = [] } = useEtapas();
   const etapaNome = (id: string) => etapas.find((e) => e.id === id)?.nome ?? "—";
 
   return (
-    <Sheet open={!!cliente} onOpenChange={(o) => !o && onFechar()}>
+    <Sheet open={!!clienteId} onOpenChange={(o) => !o && onFechar()}>
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
-        {cliente && (
+        {isLoading ? (
+          <Carregando />
+        ) : error ? (
+          <Falha erro={error as Error} />
+        ) : !cliente ? (
+          <p className="pt-10 text-sm text-muted-foreground">Cliente não encontrado — ou é de outra carteira.</p>
+        ) : (
           <>
             <SheetHeader className="pr-8 text-left">
               <p className="font-titulo text-xs font-semibold text-muted-foreground">CLIENTE · {cliente.tipo_pessoa}</p>
@@ -204,7 +233,7 @@ function ClienteDetalhe({ cliente, onFechar }: { cliente: Cliente | null; onFech
                 <ul className="divide-y divide-border rounded-lg border border-border">
                   {[...cliente.contratos].sort((a, b) => b.numero - a.numero).map((k) => (
                     <li key={k.id}>
-                      <Link to={`/pipeline?contrato=${k.id}`} className="flex items-center gap-3 p-3 text-sm text-foreground no-underline hover:bg-accent/50">
+                      <Link to={`/contratos?contrato=${k.id}`} className="flex items-center gap-3 p-3 text-sm text-foreground no-underline hover:bg-accent/50">
                         <span className="font-titulo font-semibold">#{k.numero}</span>
                         <span className="min-w-0 flex-1 truncate text-muted-foreground">{etapaNome(k.etapa_id)}</span>
                         {k.cancelado_em ? (
@@ -223,6 +252,8 @@ function ClienteDetalhe({ cliente, onFechar }: { cliente: Cliente | null; onFech
               <h3 className="mb-2 text-sm font-semibold">Dados</h3>
               <ClienteForm
                 inicial={{ nome: cliente.nome, telefone: cliente.telefone ?? "", email: cliente.email ?? "", observacoes: cliente.observacoes ?? "" }}
+                inicialDocumento={cliente}
+                tipoPessoa={cliente.tipo_pessoa}
                 consultorInicial={cliente.consultor_id}
                 rotuloSalvar="Salvar"
                 salvando={atualizar.isPending}

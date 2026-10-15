@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import Login from "@/pages/Login";
 import Contratos from "@/pages/Contratos";
 import Chat from "@/pages/Chat";
+import Documento from "@/pages/Documento";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, refetchOnWindowFocus: true } },
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="/contratos" element={<Contratos />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/chat/arquivado/:id" element={<Chat />} />
+              <Route path="/documento/:id" element={<Documento />} />
               <Route path="*" element={<NaoEncontrada />} />
             </Route>
           </Routes>
