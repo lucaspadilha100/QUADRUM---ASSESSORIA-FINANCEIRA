@@ -208,8 +208,12 @@ lista; o valor é o mesmo "AAAA-MM-DD".
 
 ## Telas do admin (15/10/2026)
 Painel · Pipeline · Atendimentos · Clientes · Contratos · Documentos p/ assinar ·
-Departamentos e setores · Usuários. **Bancos, Linhas de crédito e Unidades
-ficam PARADAS** (placeholder) por decisão do dono do processo: faltam os dados.
+Modelos de documento · Bancos · Linhas de crédito · Unidades · Departamentos e
+setores · Usuários. Bancos, Linhas e Unidades usam o MESMO componente
+(`components/CadastroSimples.tsx`): lista, busca, novo/editar e ativar na linha.
+- Quando falta banco para gerar documento, o banco se escolhe NO PRÓPRIO
+  AVISO (`BancoAqui` no `GerarDocumento`), com "+ Cadastrar banco…" para o
+  gestor. A Unidade do contrato (que o portal mostra) fica na aba Contrato.
 - O painel do contrato (`ContratoDetalhe`/`ContratoPainel`) é UM só: abre na
   Pipeline, em Contratos, em Documentos e DENTRO da ficha do cliente (com
   "← Voltar para o cliente"). Abas: Contrato · Cliente · Histórico ·
@@ -222,8 +226,7 @@ ficam PARADAS** (placeholder) por decisão do dono do processo: faltam os dados.
   "Voltar fecha o diálogo" (`shell/voltarFecha.ts`), e confirmar qualquer coisa
   no painel passava a FECHAR o painel inteiro (medido no teste).
   `?painel=cliente` só ABRE o painel numa aba.
-- Banco no contrato: `SelectBanco`, com "+ Cadastrar banco…" para o gestor
-  (a tela de Bancos está parada). O aviso de geração separa o que falta no
+- Banco no contrato: `SelectBanco`, com "+ Cadastrar banco…" para o gestor. O aviso de geração separa o que falta no
   CLIENTE do que falta no CONTRATO. A conversa (`components/atendimento/Conversa.tsx`) é a mesma no
   card e na caixa de Atendimentos; o acesso ao portal (`AcessoPortal.tsx`), o
   mesmo no card e em Clientes.

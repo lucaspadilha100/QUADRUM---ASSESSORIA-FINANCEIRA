@@ -73,3 +73,26 @@ export function useCriarBanco() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["cadastro", "bancos"] }),
   });
 }
+
+export interface Unidade { id: string; nome: string; cidade: string | null; uf: string | null; ativo: boolean }
+export const useUnidades = () =>
+  useQuery(lista<Unidade>("unidades", "unidades", "id, nome, cidade, uf, ativo", [{ col: "nome" }]));
+
+/** Grava em um cadastro curto (bancos, linhas, unidades). A RLS deixa só o gestor. */
+export function useSalvarCadastro(tabela: "bancos" | "linhas_credito" | "unidades", chave: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, campos }: { id?: string; campos: Record<string, unknown> }) => {
+      const { error } = id
+        ? await supabase.from(tabela).update(campos).eq("id", id)
+        : await supabase.from(tabela).insert(campos);
+      if (error) throw new Error(/duplicate|unique/i.test(error.message) ? "Já existe um cadastro com esse nome." : mensagemDeErro(error));
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["cadastro", chave] });
+      qc.invalidateQueries({ queryKey: ["pipeline"] });
+      qc.invalidateQueries({ queryKey: ["contratos"] });
+      qc.invalidateQueries({ queryKey: ["contrato"] });
+    },
+  });
+}

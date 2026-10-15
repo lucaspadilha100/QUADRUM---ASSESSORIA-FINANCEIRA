@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TextoDocumento } from "@/components/documento/DocumentoImpresso";
 import { useGerarDocumento, useModelos, usePrevia } from "@/hooks/useModelos";
+import { useAtualizarContrato } from "@/hooks/usePipeline";
+import { NENHUM, SelectBanco } from "@/components/SelectBanco";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Escolher o MODELO, ver a prévia JÁ PREENCHIDA com os dados deste contrato, e
@@ -35,6 +37,9 @@ export function GerarDocumento({ contrato, onGerado, onCompletar }: {
   const doContrato = faltando.filter((f) => f.chave.startsWith("contrato."));
   const doCliente = faltando.filter((f) => !f.chave.startsWith("contrato."));
   const nomes = (l: typeof faltando) => l.map((f) => f.rotulo ?? f.chave).join(", ");
+  // Banco é o que mais falta (e o mais escondido): escolhe-se AQUI, no aviso.
+  const faltaBanco = doContrato.some((f) => f.chave === "contrato.banco");
+  const outrosDoContrato = doContrato.filter((f) => f.chave !== "contrato.banco");
   const desconhecidas = previa?.desconhecidas ?? [];
   const pode = !!modelo && !!previa && faltando.length === 0 && desconhecidas.length === 0;
 
@@ -90,9 +95,10 @@ export function GerarDocumento({ contrato, onGerado, onCompletar }: {
                         : contrato.cliente_id && <Link to={`/clientes?cliente=${contrato.cliente_id}`} className="q-link">Completar os dados do cliente</Link>}
                     </p>
                   )}
-                  {doContrato.length > 0 && (
+                  {faltaBanco && <BancoAqui contratoId={contrato.id} />}
+                  {outrosDoContrato.length > 0 && (
                     <p className="mt-1 text-muted-foreground">
-                      Falta no <strong className="text-foreground">contrato</strong>: <strong className="text-foreground">{nomes(doContrato)}</strong>.{" "}
+                      Falta no <strong className="text-foreground">contrato</strong>: <strong className="text-foreground">{nomes(outrosDoContrato)}</strong>.{" "}
                       {onCompletar
                         ? <button type="button" onClick={() => onCompletar("dados")} className="q-link font-medium">Preencher no contrato</button>
                         : <Link to={`/contratos?contrato=${contrato.id}`} className="q-link">Preencher no contrato</Link>}
@@ -119,6 +125,31 @@ export function GerarDocumento({ contrato, onGerado, onCompletar }: {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** O banco do contrato, escolhido e gravado direto no aviso — a prévia atualiza sozinha. */
+function BancoAqui({ contratoId }: { contratoId: string }) {
+  const [bancoId, setBancoId] = useState(NENHUM);
+  const atualizar = useAtualizarContrato();
+  const salvar = async () => {
+    try {
+      await atualizar.mutateAsync({ id: contratoId, campos: { banco_id: bancoId } });
+      toast.success("Banco salvo no contrato.");
+    } catch (e) {
+      toast.error("Não foi possível salvar o banco.", { description: (e as Error).message });
+    }
+  };
+  return (
+    <div className="mt-2 space-y-1.5">
+      <p className="text-muted-foreground">Falta o <strong className="text-foreground">banco</strong> deste contrato — escolha aqui:</p>
+      <div className="flex flex-wrap items-start gap-2">
+        <div className="min-w-[200px] flex-1"><SelectBanco valor={bancoId} onChange={setBancoId} /></div>
+        <Button type="button" onClick={salvar} disabled={bancoId === NENHUM || atualizar.isPending}>
+          {atualizar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Salvar banco
+        </Button>
+      </div>
     </div>
   );
 }

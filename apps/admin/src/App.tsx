@@ -9,7 +9,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { PaginaNaoEncontrada } from "@/shell";
 import Login from "@/pages/Login";
 import Painel from "@/pages/Painel";
-const EmConstrucao = lazy(() => import("@/pages/EmConstrucao"));
 const MeuPerfil = lazy(() => import("@/pages/MeuPerfil"));
 const Pipeline = lazy(() => import("@/pages/Pipeline"));
 const Clientes = lazy(() => import("@/pages/Clientes"));
@@ -19,6 +18,9 @@ const Documentos = lazy(() => import("@/pages/Documentos"));
 const Departamentos = lazy(() => import("@/pages/cadastros/Departamentos"));
 const Usuarios = lazy(() => import("@/pages/cadastros/Usuarios"));
 const Modelos = lazy(() => import("@/pages/cadastros/Modelos"));
+const Bancos = lazy(() => import("@/pages/cadastros/Bancos"));
+const LinhasCredito = lazy(() => import("@/pages/cadastros/LinhasCredito"));
+const Unidades = lazy(() => import("@/pages/cadastros/Unidades"));
 const DocumentoVer = lazy(() => import("@/pages/DocumentoVer"));
 const DocumentoImprimir = lazy(() => import("@/pages/DocumentoImprimir"));
 
@@ -29,12 +31,6 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
 });
 
-// Telas do menu ainda não construídas — cada uma diz o que vai fazer.
-const PENDENTES: { path: string; titulo: string; oQueFaz: string[] }[] = [
-  { path: "/cadastros/bancos", titulo: "Bancos", oQueFaz: ["Bancos credores que aparecem nos contratos"] },
-  { path: "/cadastros/linhas-de-credito", titulo: "Linhas de crédito", oQueFaz: ["Veicular, consignado, pessoal… — lista editável, sem deploy"] },
-  { path: "/cadastros/unidades", titulo: "Unidades", oQueFaz: ["Unidades e parceiros (cidade, UF) exibidos no contrato"] },
-];
 
 export default function App() {
   return (
@@ -58,9 +54,9 @@ export default function App() {
                 <Route path="/cadastros/departamentos" element={<Departamentos />} />
                 <Route path="/cadastros/usuarios" element={<Usuarios />} />
                 <Route path="/cadastros/modelos" element={<Modelos />} />
-                {PENDENTES.map((p) => (
-                  <Route key={p.path} path={p.path} element={<EmConstrucao titulo={p.titulo} oQueFaz={p.oQueFaz} />} />
-                ))}
+                <Route path="/cadastros/bancos" element={<Bancos />} />
+                <Route path="/cadastros/linhas-de-credito" element={<LinhasCredito />} />
+                <Route path="/cadastros/unidades" element={<Unidades />} />
                 <Route path="*" element={<PaginaNaoEncontrada />} />
               </Route>
             </Routes>

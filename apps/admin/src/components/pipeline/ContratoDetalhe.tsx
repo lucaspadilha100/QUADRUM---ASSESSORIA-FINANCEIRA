@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Archive, ArrowLeft, Bell, Eye, Globe, Loader2, MessageSquare, RotateCcw, UserPen, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -11,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { confirmar, pedirTexto, useParamUrl } from "@/shell";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  useDepartamentos, useEquipe, useEtapas, useLinhasCredito,
+  useDepartamentos, useEquipe, useEtapas, useLinhasCredito, useUnidades,
 } from "@/hooks/useCadastros";
 import {
   LIMITE_HISTORICO, useAtendimentosDoContrato, useAtualizarContrato, useContrato, useHistorico,
@@ -152,6 +154,18 @@ function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente
   const [placa, setPlaca] = useState(c.placa ?? "");
   const [consultorId, setConsultorId] = useState(c.consultor_id ?? NENHUM);
   const [observacoes, setObservacoes] = useState(c.observacoes ?? "");
+  const { data: unidades = [] } = useUnidades();
+  // A unidade não vem na lista (é um campo só do card): lê-se à parte.
+  const { data: unidadeAtual } = useQuery({
+    queryKey: ["contrato", c.id, "unidade"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("contratos").select("unidade_id").eq("id", c.id).maybeSingle();
+      if (error) throw new Error(error.message);
+      return (data?.unidade_id as string | null) ?? null;
+    },
+  });
+  const [unidadeId, setUnidadeId] = useState(NENHUM);
+  useEffect(() => { setUnidadeId(unidadeAtual ?? NENHUM); }, [unidadeAtual]);
 
   useEffect(() => {
     setEtapaId(c.etapa_id); setBancoId(c.banco_id ?? NENHUM); setLinhaId(c.linha_credito_id ?? NENHUM);
@@ -172,6 +186,7 @@ function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente
       ano_modelo: vazio(anoModelo),
       placa: vazio(placa)?.toUpperCase() ?? null,
       observacoes: vazio(observacoes),
+      unidade_id: opc(unidadeId),
     };
     // Transferir de consultor é do gestor (a RLS recusaria o colaborador).
     if (isGestor) campos.consultor_id = opc(consultorId);
@@ -260,6 +275,17 @@ function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente
         </Campo>
         <Campo rotulo="Banco">
           <SelectBanco valor={bancoId} onChange={setBancoId} manterId={c.banco_id} />
+        </Campo>
+        <Campo rotulo="Unidade (o cliente vê no portal)">
+          <Select value={unidadeId} onValueChange={setUnidadeId}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NENHUM}>Sem unidade</SelectItem>
+              {unidades.filter((u) => u.ativo || u.id === unidadeAtual).map((u) => (
+                <SelectItem key={u.id} value={u.id}>{u.nome}{u.cidade ? ` — ${u.cidade}${u.uf ? `/${u.uf}` : ""}` : ""}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Campo>
         <Campo rotulo="Linha de crédito">
           <Select value={linhaId} onValueChange={setLinhaId}>
