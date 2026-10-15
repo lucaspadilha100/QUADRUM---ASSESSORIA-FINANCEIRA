@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
-  const { user, membro, isLoading, signOut } = useAuth();
+  const { user, perfil, isLoading, signOut } = useAuth();
 
   if (isLoading) {
     return (
@@ -18,7 +18,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
   if (!user) return <Navigate to="/login" replace />;
 
   // Autenticado não é o mesmo que equipe: cliente do portal usa o MESMO Auth.
-  if (!membro || !membro.ativo) {
+  if (!perfil || !perfil.ativo) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-destructive/10">
@@ -27,7 +27,7 @@ export function ProtectedRoute({ children }: { children: ReactNode }) {
         <div>
           <h1 className="text-xl font-semibold">Acesso restrito</h1>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-            {membro
+            {perfil
               ? "Seu acesso à equipe Quadrum está desativado. Fale com um gestor."
               : "Esta conta não faz parte da equipe Quadrum. Se você é cliente, use o Portal do Cliente."}
           </p>

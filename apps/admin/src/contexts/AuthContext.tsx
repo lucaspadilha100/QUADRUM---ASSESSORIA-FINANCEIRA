@@ -2,14 +2,26 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-/** Linha de `public.equipe`: quem trabalha na Quadrum. */
-export interface MembroEquipe {
+/**
+ * Linha de `public.perfis`: o perfil de quem trabalha na Quadrum.
+ * GESTOR vê e opera tudo; COLABORADOR vê só a própria carteira — quem garante
+ * isso é a RLS, a tela só acompanha.
+ */
+export interface Perfil {
   id: string;
   nome: string;
   email: string | null;
-  papel: "gestor" | "membro";
+  telefone: string | null;
+  cargo: string | null;
+  avatar_url: string | null;
+  papel: "gestor" | "colaborador";
   ativo: boolean;
 }
+
+export const PAPEL_LABEL: Record<Perfil["papel"], string> = {
+  gestor: "Gestor",
+  colaborador: "Colaborador",
+};
 
 interface AuthContextType {
   user: User | null;
@@ -20,8 +32,10 @@ interface AuthContextType {
    * autenticar aqui — e é esta linha (com `ativo`) que o barra na porta.
    * A trava de verdade é a RLS; isto é só a porta da tela.
    */
-  membro: MembroEquipe | null;
+  perfil: Perfil | null;
   isGestor: boolean;
+  /** Relê o perfil depois de uma edição (ex.: Meu perfil). */
+  recarregarPerfil: () => Promise<void>;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -32,18 +46,18 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [membro, setMembro] = useState<MembroEquipe | null>(null);
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [isLoading, setLoading] = useState(true);
 
-  const carregarMembro = async (userId: string) => {
+  const carregarPerfil = async (userId: string) => {
     const { data, error } = await supabase
-      .from("equipe")
-      .select("id, nome, email, papel, ativo")
+      .from("perfis")
+      .select("id, nome, email, telefone, cargo, avatar_url, papel, ativo")
       .eq("id", userId)
       .maybeSingle();
     // Falha de consulta NÃO vira "não é da equipe" calado: aparece no console.
-    if (error) console.error("[auth] falha ao ler equipe:", error.message);
-    setMembro((data as MembroEquipe | null) ?? null);
+    if (error) console.error("[auth] falha ao ler o perfil:", error.message);
+    setPerfil((data as Perfil | null) ?? null);
   };
 
   useEffect(() => {
@@ -54,11 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Fora do callback: chamar o Supabase DENTRO do onAuthStateChange
         // pode travar o cliente (documentado pelo próprio supabase-js).
         setTimeout(async () => {
-          await carregarMembro(s.user.id);
+          await carregarPerfil(s.user.id);
           setLoading(false);
         }, 0);
       } else {
-        setMembro(null);
+        setPerfil(null);
         setLoading(false);
       }
     });
@@ -84,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
-    setMembro(null);
+    setPerfil(null);
   };
 
   return (
@@ -92,8 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         session,
-        membro,
-        isGestor: membro?.papel === "gestor",
+        perfil,
+        isGestor: perfil?.papel === "gestor",
+        recarregarPerfil: async () => { if (user) await carregarPerfil(user.id); },
         isLoading,
         signIn,
         signOut,

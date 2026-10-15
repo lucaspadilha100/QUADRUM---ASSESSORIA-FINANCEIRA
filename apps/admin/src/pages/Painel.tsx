@@ -4,8 +4,8 @@ import { PageHeader } from "@/components/PageHeader";
 import { MENU } from "@/lib/menu";
 
 export default function Painel() {
-  const { membro } = useAuth();
-  const primeiroNome = membro?.nome?.split(" ")[0] ?? "";
+  const { perfil } = useAuth();
+  const primeiroNome = perfil?.nome?.split(" ")[0] ?? "";
   const atalhos = MENU.flatMap((s) => s.items).filter((i) => i.to !== "/");
 
   return (

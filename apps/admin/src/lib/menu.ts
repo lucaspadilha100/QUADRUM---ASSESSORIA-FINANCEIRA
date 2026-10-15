@@ -27,7 +27,7 @@ export const MENU: ShellNavSection[] = [
       { to: "/cadastros/linhas-de-credito", label: "Linhas de crédito", icon: CreditCard },
       { to: "/cadastros/unidades", label: "Unidades", icon: Building2 },
       { to: "/cadastros/departamentos", label: "Departamentos e setores", icon: Network },
-      { to: "/cadastros/equipe", label: "Equipe", icon: UserCog },
+      { to: "/cadastros/usuarios", label: "Usuários", icon: UserCog },
     ],
   },
 ];

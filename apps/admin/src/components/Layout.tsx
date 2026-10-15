@@ -2,14 +2,15 @@ import { useRef, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { LogOut, Menu } from "lucide-react";
 import { Sidebar, usePaginaAtual } from "@/shell";
-import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
+import { useAuth, PAPEL_LABEL } from "@/contexts/AuthContext";
 import { MENU } from "@/lib/menu";
 import simboloQ from "@/assets/simbolo-q.png";
 
 const CHAVE_RECOLHIDO = "quadrum:sidebar:recolhido";
 
 export function Layout() {
-  const { membro, signOut } = useAuth();
+  const { perfil, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     try { return localStorage.getItem(CHAVE_RECOLHIDO) === "1"; } catch { return false; }
@@ -27,12 +28,12 @@ export function Layout() {
   const rodape = (
     <div className={collapsed ? "flex justify-center" : "flex items-center gap-2"}>
       {!collapsed && (
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground">{membro?.nome}</p>
+        <Link to="/perfil" title="Meu perfil" className="min-w-0 flex-1 rounded-md px-1 py-0.5 hover:bg-muted">
+          <p className="truncate text-sm font-medium text-foreground">{perfil?.nome}</p>
           <p className="truncate text-xs text-muted-foreground">
-            {membro?.papel === "gestor" ? "Gestor" : "Equipe"}
+            {perfil ? PAPEL_LABEL[perfil.papel] : ""}
           </p>
-        </div>
+        </Link>
       )}
       <button
         type="button"

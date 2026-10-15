@@ -9,6 +9,7 @@ import { PaginaNaoEncontrada } from "@/shell";
 import Login from "@/pages/Login";
 import Painel from "@/pages/Painel";
 import EmConstrucao from "@/pages/EmConstrucao";
+import MeuPerfil from "@/pages/MeuPerfil";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
@@ -61,7 +62,15 @@ const PENDENTES: { path: string; titulo: string; oQueFaz: string[] }[] = [
       "Marcar quais departamentos geram aviso urgente ao cliente",
     ],
   },
-  { path: "/cadastros/equipe", titulo: "Equipe", oQueFaz: ["Quem acessa o admin, papel (gestor/membro) e desativar sem apagar"] },
+  {
+    path: "/cadastros/usuarios",
+    titulo: "Usuários",
+    oQueFaz: [
+      "As pessoas da equipe, cada uma com o seu perfil",
+      "Nível: Gestor (vê e opera tudo) ou Colaborador (vê só a própria carteira) — sem matriz de telas",
+      "Criar acesso, redefinir senha e desativar sem apagar",
+    ],
+  },
 ];
 
 export default function App() {
@@ -74,6 +83,7 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<Painel />} />
+                <Route path="/perfil" element={<MeuPerfil />} />
                 {PENDENTES.map((p) => (
                   <Route key={p.path} path={p.path} element={<EmConstrucao titulo={p.titulo} oQueFaz={p.oQueFaz} />} />
                 ))}
