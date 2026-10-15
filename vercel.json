@@ -1,9 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "cd apps/admin && npm ci",
-  "buildCommand": "cd apps/admin && npm run build",
-  "outputDirectory": "apps/admin/dist",
+  "installCommand": "cd apps/admin && npm ci && cd ../portal && npm ci",
+  "buildCommand": "sh scripts/vercel-build.sh",
+  "outputDirectory": "dist",
   "rewrites": [
-    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+    { "source": "/portal", "destination": "/portal/index.html" },
+    { "source": "/portal/(.*)", "destination": "/portal/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

@@ -548,7 +548,8 @@ function Conversa({ atendimento, onVoltar }: { atendimento: AtendimentoResumo; o
 function AcessoPortal({ cliente }: { cliente: NonNullable<ContratoPipeline["cliente"]> }) {
   const definir = useDefinirSenhaPortal();
   const [senha, setSenha] = useState<string | null>(null);
-  const portalUrl = import.meta.env.VITE_PORTAL_URL as string | undefined;
+  // O portal sai no MESMO deploy, em /portal. VITE_PORTAL_URL só para domínio próprio.
+  const portalUrl = (import.meta.env.VITE_PORTAL_URL as string | undefined) || `${window.location.origin}/portal`;
 
   const gerar = async () => {
     if (cliente.user_id && !(await confirmar({

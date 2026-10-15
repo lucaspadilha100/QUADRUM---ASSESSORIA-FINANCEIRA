@@ -25,7 +25,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SessaoProvider>
-        <BrowserRouter>
+        <BrowserRouter basename="/portal">
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route element={<Layout />}>

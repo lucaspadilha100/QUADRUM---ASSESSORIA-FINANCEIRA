@@ -136,21 +136,28 @@ O ambiente cloud do Claude bloqueia `*.supabase.co` por padrão — teste ao viv
 só com o host liberado em Network access.
 Aplicadas (conferidas pelo retorno de cada bloco, 15/10/2026):
 `20261015000000` (estrutura inicial) e `20261015010000` (gestor/colaborador e
-perfis), `20261015020000` (pipeline). `20261015030000` (portal do cliente)
-ENTREGUE em 15/10 — confirmar que rodou. Primeiro gestor: cadastrado à mão pelo bloco de bootstrap (não é
+perfis), `20261015020000` (pipeline), `20261015030000` (portal do cliente). Primeiro gestor: cadastrado à mão pelo bloco de bootstrap (não é
 migração — depende do usuário criado em Authentication).
 
-## Deploy (Vercel)
-O projeto do Vercel aponta para a RAIZ do repo, e a raiz NÃO tem
-`package.json`: é o `vercel.json` da raiz que manda instalar e buildar em
-`apps/admin` e publicar `apps/admin/dist`. Sem ele o Vercel chama `vite build`
-sem instalar nada (`vite: command not found` — aconteceu no 1º deploy).
-⚠️ Install e build rodam SEPARADOS, cada um a partir da raiz: por isso os
-dois começam com `cd apps/admin`.
-O PORTAL é OUTRO projeto no Vercel, com **Root Directory = `apps/portal`** (aí
-o Vercel usa o `vercel.json` de lá e instala pelo `package.json` de lá). O
-endereço dele vai em `VITE_PORTAL_URL` no `apps/admin/.env` — é o link que o
-diálogo "Acesso ao portal" mostra para a equipe passar ao cliente.
+## Deploy (Vercel) — UM projeto, dois apps
+Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
+Vercel, mudando só o endereço. Um push na `main` = um deploy.
+
+```
+/          admin          apps/admin
+/portal    Portal do Cliente   apps/portal (vite `base: "/portal/"`, router basename)
+```
+
+- O `vercel.json` da raiz instala os dois e chama `scripts/vercel-build.sh`,
+  que junta os builds em `./dist` (admin na raiz, portal em `dist/portal`).
+  As rewrites mandam `/portal/*` para o index do portal e o resto para o do admin.
+- ⚠️ A raiz NÃO tem `package.json`: sem o `vercel.json` o Vercel chama
+  `vite build` sem instalar nada (`vite: command not found`, o 1º deploy).
+- ⚠️ Mesmo endereço ⇒ cada app guarda a sessão numa chave própria
+  (`VITE_AUTH_STORAGE_KEY` no `.env` de cada um), senão abrir o portal
+  derrubaria o login do admin no mesmo navegador.
+- O diálogo "Acesso ao portal" monta o link com o endereço do próprio admin +
+  `/portal`. `VITE_PORTAL_URL` só se o portal ganhar domínio próprio.
 
 ## Marca (`docs/marca/`)
 Preto Onix `#0B0B0B` · Dourado `#D4AF37` · Cinza Grafite `#2E2E2E` ·

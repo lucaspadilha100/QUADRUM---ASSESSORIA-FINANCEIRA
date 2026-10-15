@@ -29,13 +29,13 @@ cd ../../supabase/testes && npm install && npm test
 
 ## Deploy (Vercel)
 
-Importe o repositório e deixe o Root Directory na raiz: o `vercel.json` da raiz
-instala e builda `apps/admin`. Não precisa de variável de ambiente — URL e anon
-key (públicas) estão em `apps/admin/.env`.
+Um projeto só, apontando para a raiz do repositório. Cada push na `main` sobe:
 
-### Portal do Cliente
+- `/` — admin (`apps/admin`)
+- `/portal` — Portal do Cliente (`apps/portal`)
 
-Outro projeto no Vercel, com **Root Directory = `apps/portal`**. Rodar local:
-`cd apps/portal && npm install && npm run dev` (http://localhost:8091).
-O cliente entra com CPF/CNPJ e a senha que a equipe gera no card do contrato
-(admin → Pipeline → card → Dados → "Gerar acesso").
+O `vercel.json` da raiz instala os dois e roda `scripts/vercel-build.sh`. Não
+precisa de variável de ambiente: URL e anon key (públicas) estão nos `.env` dos apps.
+
+Rodar o portal local: `cd apps/portal && npm install && npm run dev` →
+http://localhost:8091/portal/
