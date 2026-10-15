@@ -15,7 +15,6 @@ docs/                mapeamento do portal antigo e manual da marca
 
 ```bash
 cd apps/admin
-cp .env.example .env      # preencha URL e anon key do Supabase
 npm install
 npm run dev               # http://localhost:8090
 ```
@@ -30,5 +29,5 @@ cd ../../supabase/testes && npm install && npm test
 
 ## Deploy (Vercel)
 
-Projeto com **Root Directory = `apps/admin`**, variáveis `VITE_SUPABASE_URL` e
-`VITE_SUPABASE_ANON_KEY`.
+Projeto com **Root Directory = `apps/admin`**. Não precisa de variável de
+ambiente: URL e anon key (públicas) estão em `apps/admin/.env`.

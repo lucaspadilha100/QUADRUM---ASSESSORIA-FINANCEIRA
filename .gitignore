@@ -1,8 +1,8 @@
 node_modules/
 dist/
-.env
-.env.*
-!.env.example
+# Valores PÚBLICOS ficam em apps/*/.env (versionado). Segredo vai em .env.local.
+.env.local
+.env.*.local
 .vercel
 *.log
 .DS_Store

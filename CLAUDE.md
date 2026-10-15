@@ -68,6 +68,10 @@ COLABORADOR  vê só a PRÓPRIA carteira: clientes de que é consultor e o que
 
 ## Supabase
 Projeto `qeahvsdlatrkdusxvbvv` (`https://qeahvsdlatrkdusxvbvv.supabase.co`).
+URL e anon key ficam em `apps/admin/.env`, VERSIONADO de propósito: são
+públicas (vão no bundle). ⚠️ `service_role` nunca entra no repo.
+O ambiente cloud do Claude bloqueia `*.supabase.co` por padrão — teste ao vivo
+só com o host liberado em Network access.
 Aplicadas (conferidas pelo retorno de cada bloco, 15/10/2026):
 `20261015000000` (estrutura inicial) e `20261015010000` (gestor/colaborador e
 perfis). Primeiro gestor: cadastrado à mão pelo bloco de bootstrap (não é
