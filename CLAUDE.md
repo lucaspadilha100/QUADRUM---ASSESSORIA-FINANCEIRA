@@ -93,6 +93,41 @@ etapa `aceita`               → data_aceite = hoje → o cliente VÊ no portal
 - `autoScroll` do quadro em 10% da borda: com 20% ele rolava antes da hora e
   o card caía na coluna vizinha (medido no teste de arraste).
 
+## Portal do Cliente (`apps/portal`) — o cliente só fala com FUNÇÕES
+Recriação do portal da Sete Capital (docs/mapeamento-portal-cliente.md):
+login por CPF/CNPJ, Meus Contratos (avisos, pendências, abas Dados/Histórico/
+Atendimentos) e o chat com o robô. Migração `20261015030000`.
+
+```
+login           CPF/CNPJ → e-mail SINTÉTICO <doc>@portal.quadrum.example
+                q_portal_email() no banco = emailDoDocumento() no portal
+senha           a EQUIPE gera no card (q_portal_definir_senha); sem cadastro
+leitura         portal_eu · portal_contratos · portal_avisos · portal_setores
+                portal_chat_ativo · portal_chat
+escrita         portal_abrir_atendimento · portal_enviar_mensagem
+                portal_marcar_historico_lido · portal_marcar_chat_lido
+```
+
+- ⚠️ **O cliente NÃO tem policy em tabela nenhuma.** Tudo passa pelas funções
+  `portal_*`, que descobrem quem ele é pela SESSÃO (`q_cliente_da_sessao`) e
+  nunca por id vindo da tela. Função nova do portal segue o mesmo molde.
+- ⚠️ O TEXTO de histórico urgente nunca sai do banco: só `urgente_nao_lido`.
+- ⚠️ As falas do ROBÔ são gravadas pelo banco (`portal_abrir_atendimento`), não
+  pela tela — senão o cliente gravaria qualquer coisa "dita pelo robô". As
+  frases no `Chat.tsx` são cópia de exibição; mudou lá, mude aqui.
+- ⚠️ `q_portal_definir_senha` escreve em `auth.users` com os tokens `''`, nunca
+  nulos: token nulo faz o Auth falhar no LOGIN ("Database error querying
+  schema"), longe de onde o erro nasceu.
+- O atendimento nasce com o CONSULTOR do contrato como responsável — é assim
+  que o colaborador vê o chat do cliente dele.
+- Sem tempo real: chat e avisos releem a cada 15 s (portal e admin).
+
+⚠️ **Arquivos COPIADOS entre `admin` e `portal`** (mesmo conteúdo, mude nos
+dois): `src/index.css` (tokens da marca), `src/lib/formato.ts`,
+`src/lib/utils.ts`, `src/integrations/supabase/client.ts`, `.env`,
+`tailwind.config.ts`, os `components/ui/*` em comum e os PNG da marca. Copiar
+foi escolha (cada app builda sozinho no Vercel); o custo é esta lista.
+
 ## Supabase
 Projeto `qeahvsdlatrkdusxvbvv` (`https://qeahvsdlatrkdusxvbvv.supabase.co`).
 URL e anon key ficam em `apps/admin/.env`, VERSIONADO de propósito: são
@@ -101,7 +136,8 @@ O ambiente cloud do Claude bloqueia `*.supabase.co` por padrão — teste ao viv
 só com o host liberado em Network access.
 Aplicadas (conferidas pelo retorno de cada bloco, 15/10/2026):
 `20261015000000` (estrutura inicial) e `20261015010000` (gestor/colaborador e
-perfis), `20261015020000` (pipeline). Primeiro gestor: cadastrado à mão pelo bloco de bootstrap (não é
+perfis), `20261015020000` (pipeline). `20261015030000` (portal do cliente)
+ENTREGUE em 15/10 — confirmar que rodou. Primeiro gestor: cadastrado à mão pelo bloco de bootstrap (não é
 migração — depende do usuário criado em Authentication).
 
 ## Deploy (Vercel)
@@ -110,8 +146,11 @@ O projeto do Vercel aponta para a RAIZ do repo, e a raiz NÃO tem
 `apps/admin` e publicar `apps/admin/dist`. Sem ele o Vercel chama `vite build`
 sem instalar nada (`vite: command not found` — aconteceu no 1º deploy).
 ⚠️ Install e build rodam SEPARADOS, cada um a partir da raiz: por isso os
-dois começam com `cd apps/admin`. Quando o portal existir, ele é OUTRO projeto
-no Vercel, com Root Directory = `apps/portal`.
+dois começam com `cd apps/admin`.
+O PORTAL é OUTRO projeto no Vercel, com **Root Directory = `apps/portal`** (aí
+o Vercel usa o `vercel.json` de lá e instala pelo `package.json` de lá). O
+endereço dele vai em `VITE_PORTAL_URL` no `apps/admin/.env` — é o link que o
+diálogo "Acesso ao portal" mostra para a equipe passar ao cliente.
 
 ## Marca (`docs/marca/`)
 Preto Onix `#0B0B0B` · Dourado `#D4AF37` · Cinza Grafite `#2E2E2E` ·

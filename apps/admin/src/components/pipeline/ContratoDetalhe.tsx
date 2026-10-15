@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Archive, Bell, CheckCircle2, Eye, Globe, Loader2, MessageSquare, RotateCcw, XCircle } from "lucide-react";
+import { Archive, ArrowLeft, Bell, Bot, CheckCircle2, Copy, Eye, Globe, KeyRound, Loader2, MessageSquare, RotateCcw, Send, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,9 +14,11 @@ import {
   useBancos, useDepartamentos, useDocumentoTipos, useEquipe, useEtapas, useLinhasCredito,
 } from "@/hooks/useCadastros";
 import {
-  useAtendimentosDoContrato, useAtualizarContrato, useDocumentos, useHistorico,
-  useLancarOcorrencia, useSalvarDocumento, type ContratoPipeline,
+  gerarSenha, useArquivarAtendimento, useAtendimentosDoContrato, useAtualizarContrato, useDefinirSenhaPortal,
+  useDocumentos, useHistorico, useLancarOcorrencia, useMensagens, useResponder, useSalvarDocumento,
+  type AtendimentoResumo, type ContratoPipeline,
 } from "@/hooks/usePipeline";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { dataBR, dataHoraBR, formatarDocumento } from "@/lib/formato";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -175,6 +177,7 @@ function AbaDados({ c }: { c: ContratoPipeline }) {
             {c.cliente.telefone ? ` · ${c.cliente.telefone}` : ""}
             {c.cliente.email ? ` · ${c.cliente.email}` : ""}
           </p>
+          <AcessoPortal cliente={c.cliente} />
         </div>
       )}
 
@@ -424,6 +427,10 @@ function AbaDocumentos({ contratoId }: { contratoId: string }) {
 
 function AbaAtendimentos({ contratoId }: { contratoId: string }) {
   const { data: lista = [], isLoading, error } = useAtendimentosDoContrato(contratoId);
+  const [abertoId, setAbertoId] = useState<string | null>(null);
+  const aberto = lista.find((a) => a.id === abertoId) ?? null;
+
+  if (aberto) return <Conversa atendimento={aberto} onVoltar={() => setAbertoId(null)} />;
   if (isLoading) return <p className="pt-2 text-sm text-muted-foreground">Carregando…</p>;
   if (error) return <p className="pt-2 text-sm text-destructive">Não foi possível carregar: {(error as Error).message}</p>;
   return (
@@ -434,22 +441,168 @@ function AbaAtendimentos({ contratoId }: { contratoId: string }) {
       ) : (
         <ul className="divide-y divide-border rounded-lg border border-border">
           {lista.map((a) => (
-            <li key={a.id} className="flex items-center gap-3 p-3">
-              {a.arquivado_em ? <Archive className="h-4 w-4 shrink-0 text-muted-foreground" /> : <MessageSquare className="h-4 w-4 shrink-0 text-q-petrol" />}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-foreground">{a.titulo}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  #{a.numero} · {a.setor?.nome ?? "—"} · aberto em {dataHoraBR(a.created_at)}
-                  {a.arquivado_em ? ` · arquivado` : " · em aberto"}
-                </p>
-              </div>
+            <li key={a.id}>
+              <button type="button" onClick={() => setAbertoId(a.id)} className="flex w-full items-center gap-3 p-3 text-left hover:bg-accent/60">
+                {a.arquivado_em ? <Archive className="h-4 w-4 shrink-0 text-muted-foreground" /> : <MessageSquare className="h-4 w-4 shrink-0 text-q-petrol" />}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">{a.titulo}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    #{a.numero} · {a.setor?.nome ?? "—"} · aberto em {dataHoraBR(a.created_at)}
+                    {a.arquivado_em ? " · arquivado" : " · em aberto"}
+                  </p>
+                </div>
+              </button>
             </li>
           ))}
         </ul>
       )}
       <p className="text-[11px] text-muted-foreground">
-        O cliente abre o atendimento pelo chat do portal. Responder e arquivar fica na tela Atendimentos.
+        O cliente abre o atendimento pelo chat do portal. Clique para ver a conversa e responder.
       </p>
+    </div>
+  );
+}
+
+// A conversa vista pela equipe: as falas do cliente à DIREITA, como no portal
+// (o lado é de quem escreveu, não de quem lê, para os dois verem a mesma conversa).
+function Conversa({ atendimento, onVoltar }: { atendimento: AtendimentoResumo; onVoltar: () => void }) {
+  const { perfil } = useAuth();
+  const { data: equipe = [] } = useEquipe();
+  const { data: msgs = [], isLoading } = useMensagens(atendimento.id);
+  const responder = useResponder();
+  const arquivar = useArquivarAtendimento();
+  const [texto, setTexto] = useState("");
+  const arquivado = !!atendimento.arquivado_em;
+  const nomeEquipe = (id: string | null) => equipe.find((p) => p.id === id)?.nome.split(" ")[0] ?? "Equipe";
+
+  const enviar = async () => {
+    if (!texto.trim() || !perfil) return;
+    try {
+      await responder.mutateAsync({ atendimentoId: atendimento.id, corpo: texto, autorId: perfil.id });
+      setTexto("");
+    } catch (e) {
+      toast.error("Não foi possível enviar.", { description: (e as Error).message });
+    }
+  };
+
+  const fechar = async () => {
+    if (!perfil) return;
+    if (!(await confirmar({ titulo: "Arquivar o atendimento?", mensagem: "A conversa fica só para leitura, aqui e no portal. O cliente poderá abrir um novo atendimento.", confirmar: "Arquivar" }))) return;
+    try {
+      await arquivar.mutateAsync({ atendimentoId: atendimento.id, autorId: perfil.id });
+      toast.success("Atendimento arquivado.");
+      onVoltar();
+    } catch (e) {
+      toast.error("Não foi possível arquivar.", { description: (e as Error).message });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-3 pt-2">
+      <div className="flex items-center gap-2">
+        <Button type="button" variant="ghost" size="sm" onClick={onVoltar}><ArrowLeft className="mr-1 h-4 w-4" /> Voltar</Button>
+        <p className="min-w-0 flex-1 truncate text-sm font-medium">#{atendimento.numero} · {atendimento.setor?.nome}</p>
+        {!arquivado && (
+          <Button type="button" variant="outline" size="sm" onClick={fechar} disabled={arquivar.isPending}>
+            <Archive className="mr-1 h-4 w-4" /> Arquivar
+          </Button>
+        )}
+      </div>
+
+      <div className="max-h-[50dvh] space-y-2 overflow-y-auto rounded-lg border border-border bg-muted/30 p-3">
+        {isLoading ? <p className="text-sm text-muted-foreground">Carregando…</p> : msgs.map((m) => {
+          const doCliente = m.autor_tipo === "cliente";
+          return (
+            <div key={m.id} className={`flex ${doCliente ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${doCliente ? "bg-[hsl(var(--q-gold)/0.15)]" : "border border-border bg-card"}`}>
+                <p className="mb-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                  {m.autor_tipo === "robo" && <Bot className="h-3 w-3" />}
+                  {doCliente ? "Cliente" : m.autor_tipo === "robo" ? "Assistente Quadrum" : nomeEquipe(m.autor_id)}
+                  <span className="font-normal">em {dataHoraBR(m.created_at)}</span>
+                </p>
+                <p className="whitespace-pre-wrap text-foreground">{m.corpo}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {arquivado ? (
+        <p className="text-center text-xs text-muted-foreground">Atendimento arquivado — somente leitura.</p>
+      ) : (
+        <div className="flex items-end gap-2">
+          <Textarea rows={2} value={texto} onChange={(e) => setTexto(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
+            placeholder="Responder ao cliente (Enter envia, Shift+Enter quebra linha)" />
+          <Button type="button" onClick={enviar} disabled={!texto.trim() || responder.isPending} aria-label="Enviar">
+            {responder.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Gera (ou redefine) a senha do Portal do Cliente. A senha aparece UMA vez,
+// para a equipe passar ao cliente — o banco guarda só o hash.
+function AcessoPortal({ cliente }: { cliente: NonNullable<ContratoPipeline["cliente"]> }) {
+  const definir = useDefinirSenhaPortal();
+  const [senha, setSenha] = useState<string | null>(null);
+  const portalUrl = import.meta.env.VITE_PORTAL_URL as string | undefined;
+
+  const gerar = async () => {
+    if (cliente.user_id && !(await confirmar({
+      titulo: "Redefinir a senha do portal?",
+      mensagem: "A senha atual deixa de valer na hora. Passe a nova ao cliente.",
+      confirmar: "Redefinir",
+    }))) return;
+    const nova = gerarSenha();
+    try {
+      await definir.mutateAsync({ clienteId: cliente.id, senha: nova });
+      setSenha(nova);
+    } catch (e) {
+      toast.error("Não foi possível gerar a senha.", { description: (e as Error).message });
+    }
+  };
+
+  const copiar = async (t: string) => {
+    try { await navigator.clipboard.writeText(t); toast.success("Copiado."); } catch { toast.error("Não foi possível copiar."); }
+  };
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+      <KeyRound className="h-4 w-4 text-q-petrol" />
+      <span className="text-xs text-muted-foreground">
+        {cliente.user_id ? "Tem acesso ao Portal do Cliente." : "Ainda sem acesso ao Portal do Cliente."}
+      </span>
+      <Button type="button" size="sm" variant="outline" className="ml-auto h-8" onClick={gerar} disabled={definir.isPending}>
+        {definir.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+        {cliente.user_id ? "Redefinir senha" : "Gerar acesso"}
+      </Button>
+
+      <Dialog open={!!senha} onOpenChange={(o) => !o && setSenha(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Acesso ao Portal do Cliente</DialogTitle>
+            <DialogDescription>Passe estes dados ao cliente. A senha aparece só agora — depois, só gerando outra.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-4 text-sm">
+            {portalUrl && <p><span className="text-muted-foreground">Endereço:</span> <a className="q-link" href={portalUrl} target="_blank" rel="noreferrer">{portalUrl}</a></p>}
+            <p><span className="text-muted-foreground">{cliente.documento.length === 14 ? "CNPJ" : "CPF"}:</span> <strong>{formatarDocumento(cliente.documento)}</strong></p>
+            <p className="flex items-center gap-2">
+              <span className="text-muted-foreground">Senha:</span>
+              <strong className="font-mono text-base tracking-wider">{senha}</strong>
+              <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={() => senha && copiar(senha)} aria-label="Copiar senha"><Copy className="h-3.5 w-3.5" /></Button>
+            </p>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => copiar(
+              `Portal do Cliente Quadrum${portalUrl ? `\n${portalUrl}` : ""}\n${cliente.documento.length === 14 ? "CNPJ" : "CPF"}: ${formatarDocumento(cliente.documento)}\nSenha: ${senha}`,
+            )}>Copiar tudo</Button>
+            <Button type="button" onClick={() => setSenha(null)}>Pronto</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

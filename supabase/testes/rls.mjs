@@ -6,10 +6,11 @@
 //
 // Teste novo de regra entra aqui. Regra que só existe na tela não é regra.
 import { PGlite } from "@electric-sql/pglite";
+import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
-const db = new PGlite();
+const db = new PGlite({ extensions: { pgcrypto } });
 const sql = (q) => db.exec(q);
 
 // Ambiente mínimo do Supabase: papéis, auth.users e auth.uid().
@@ -20,7 +21,18 @@ await sql(`
   alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
   alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
   create schema auth; grant usage on schema auth to anon, authenticated, service_role;
-  create table auth.users (id uuid primary key, email text);
+  create schema extensions; create extension pgcrypto schema extensions;
+  -- As colunas que o Auth do Supabase tem e que a q_portal_definir_senha grava.
+  create table auth.users (
+    instance_id uuid, id uuid primary key, aud text, role text, email text unique,
+    encrypted_password text, email_confirmed_at timestamptz, banned_until timestamptz,
+    raw_app_meta_data jsonb, raw_user_meta_data jsonb, created_at timestamptz, updated_at timestamptz,
+    confirmation_token text, recovery_token text, email_change_token_new text, email_change text
+  );
+  create table auth.identities (
+    id uuid primary key, user_id uuid references auth.users(id), provider_id text, identity_data jsonb,
+    provider text, last_sign_in_at timestamptz, created_at timestamptz, updated_at timestamptz
+  );
   create function auth.uid() returns uuid language sql stable as $$
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant execute on function auth.uid() to anon, authenticated, service_role;
@@ -36,7 +48,7 @@ const G = "00000000-0000-0000-0000-00000000000a"; // gestor
 const M = "00000000-0000-0000-0000-00000000000b"; // colaborador A
 const B = "00000000-0000-0000-0000-00000000000d"; // colaborador B
 const C = "00000000-0000-0000-0000-00000000000c"; // cliente do portal (não é equipe)
-await sql(`insert into auth.users values ('${G}','g@q'),('${M}','m@q'),('${B}','b@q'),('${C}','c@q');
+await sql(`insert into auth.users (id, email) values ('${G}','g@q'),('${M}','m@q'),('${B}','b@q'),('${C}','c@q');
   insert into public.perfis (id,nome,papel) values ('${G}','Gestora','gestor'),('${M}','Colab A','colaborador'),('${B}','Colab B','colaborador');`);
 
 let ok = 0, falhas = 0;
@@ -141,6 +153,60 @@ await espera("chegar em 'Contrato aceito' grava data_aceite = hoje", () => como(
 await espera("voltar de etapa NÃO apaga o aceite", () => como("authenticated", M, `update contratos set etapa_id='${proposta}' where numero=1 returning data_aceite`), false, (r) => r.rows[0].data_aceite !== null);
 await espera("etapa_desde anda na troca de etapa", () => db.query("select etapa_desde >= created_at as andou from contratos where numero=1"), false, (r) => r.rows[0].andou === true);
 await espera("contrato sem etapa é impossível", () => db.query("update contratos set etapa_id = null where numero=1"), true);
+
+// ── portal do cliente: o cliente só lê o que é dele, por funções
+await sql(`update perfis set ativo=true, papel='colaborador' where id in ('${M}','${B}')`);
+await espera("colaborador gera a senha do portal do PRÓPRIO cliente", () => como("authenticated", M, `select q_portal_definir_senha('${clienteDoA}', 'segredo123') as email`), false, (r) => r.rows[0].email === "12345678901@portal.quadrum.example");
+await espera("a conta nasce no Auth com senha bcrypt e tokens vazios (não nulos)", () => db.query(`select u.encrypted_password = extensions.crypt('segredo123', u.encrypted_password) as ok, u.confirmation_token = '' as tk, (select count(*) from auth.identities i where i.user_id = u.id) as ids from auth.users u where email = '12345678901@portal.quadrum.example'`), false, (r) => r.rows[0].ok && r.rows[0].tk && Number(r.rows[0].ids) === 1);
+await espera("senha curta é recusada", () => como("authenticated", M, `select q_portal_definir_senha('${clienteDoA}', '123')`), true);
+await espera("B NÃO gera senha para cliente do A", () => como("authenticated", B, `select q_portal_definir_senha('${clienteDoA}', 'outrasenha1')`), true);
+await espera("redefinir troca a senha da MESMA conta", async () => {
+  await como("authenticated", M, `select q_portal_definir_senha('${clienteDoA}', 'novasenha9')`);
+  return db.query(`select count(*) as n, bool_and(encrypted_password = extensions.crypt('novasenha9', encrypted_password)) as ok from auth.users where email like '12345678901@%'`);
+}, false, (r) => Number(r.rows[0].n) === 1 && r.rows[0].ok);
+const P = (await db.query(`select user_id from clientes where id = '${clienteDoA}'`)).rows[0].user_id;
+await espera("o cliente NÃO lê a tabela de contratos direto (0)", () => como("authenticated", P, "select * from contratos"), false, n(0));
+await espera("o cliente NÃO gera senha (nem para si)", () => como("authenticated", P, `select q_portal_definir_senha('${clienteDoA}', 'hackeado1')`), true);
+await espera("portal_eu devolve o cliente logado", () => como("authenticated", P, "select portal_eu() as eu"), false, (r) => r.rows[0].eu?.nome === "Cliente do A");
+await espera("portal_eu é nulo para a equipe", () => como("authenticated", G, "select portal_eu() as eu"), false, (r) => r.rows[0].eu === null);
+const depUrg = (await db.query(`insert into departamentos (nome, urgente) values ('Jurídico', true) returning id`)).rows[0].id;
+await sql(`insert into contrato_historico (contrato_id, texto, autor_id, departamento_id) select id, 'TEXTO URGENTE', '${M}', '${depUrg}' from contratos where numero = 1`);
+await espera("portal_contratos: só os ACEITOS, com histórico e marca de urgente", () => como("authenticated", P, "select portal_contratos() as c"), false, (r) => {
+  const c = r.rows[0].c; return c.length === 1 && c[0].numero === 1 && c[0].urgente_nao_lido === true && c[0].historico.length >= 1;
+});
+await espera("o TEXTO urgente não sai do banco", () => como("authenticated", P, "select portal_contratos()::text as t"), false, (r) => !r.rows[0].t.includes("TEXTO URGENTE"));
+await espera("abrir 'Meus Contratos' marca o histórico como lido", async () => {
+  await como("authenticated", P, "select portal_marcar_historico_lido()");
+  return como("authenticated", P, "select portal_contratos() as c");
+}, false, (r) => r.rows[0].c[0].urgente_nao_lido === false);
+await espera("outro login (cliente sem cadastro) não vê contrato nenhum", () => como("authenticated", C, "select portal_contratos() as c"), false, (r) => r.rows[0].c.length === 0);
+// Fecha o atendimento aberto pelos testes de equipe, para o cliente abrir o dele.
+await sql(`update atendimentos set arquivado_em = now()`);
+const setor = (await db.query("select id from departamentos where nome = 'Acordo'")).rows[0].id;
+const contrato1 = (await db.query("select id from contratos where numero = 1")).rows[0].id;
+await espera("o robô abre o atendimento com as 8 falas do roteiro", () => como("authenticated", P, `select portal_abrir_atendimento('${contrato1}', '${setor}', 'Quero renegociar as parcelas') as a`), false, (r) => {
+  const a = r.rows[0].a; return a.mensagens.length === 8 && a.titulo === "Quero renegociar as parcelas" && a.mensagens[0].autor_tipo === "robo" && a.mensagens[6].corpo === "Quero renegociar as parcelas";
+});
+await espera("SEGUNDO atendimento aberto é recusado", () => como("authenticated", P, `select portal_abrir_atendimento('${contrato1}', '${setor}', 'outro')`), true);
+await espera("o atendimento nasce com o CONSULTOR do contrato como responsável", () => db.query("select responsavel_id from atendimentos where arquivado_em is null"), false, (r) => r.rows[0].responsavel_id === M);
+const atd = (await db.query("select id from atendimentos where arquivado_em is null")).rows[0].id;
+await espera("o cliente envia mensagem", () => como("authenticated", P, `select portal_enviar_mensagem('${atd}', 'Alguma novidade?') as a`), false, (r) => r.rows[0].a.mensagens.length === 9);
+await espera("o cliente NÃO escreve em atendimento de outro", () => como("authenticated", C, `select portal_enviar_mensagem('${atd}', 'intruso')`), true);
+await espera("a equipe (consultor) responde", () => como("authenticated", M, `insert into atendimento_mensagens (atendimento_id, autor_tipo, autor_id, corpo) values ('${atd}', 'equipe', '${M}', 'Já pedimos ao banco.') returning id`), false, n(1));
+await espera("aviso 'Novas mensagens no chat!' acende", () => como("authenticated", P, "select portal_avisos() as a"), false, (r) => r.rows[0].a.chat_nao_lido === true);
+await espera("ler o chat apaga o aviso", async () => {
+  await como("authenticated", P, `select portal_marcar_chat_lido('${atd}')`);
+  return como("authenticated", P, "select portal_avisos() as a");
+}, false, (r) => r.rows[0].a.chat_nao_lido === false);
+await espera("a resposta da equipe chega com o primeiro nome", () => como("authenticated", P, "select portal_chat_ativo() as a"), false, (r) => r.rows[0].a.mensagens.at(-1).autor === "Colab");
+await sql(`update atendimentos set arquivado_em = now() where id = '${atd}'`);
+await espera("arquivado: o cliente lê, mas não escreve", async () => {
+  const lido = await como("authenticated", P, `select portal_chat('${atd}') as a`);
+  if (!lido.rows[0].a?.arquivado) throw new Error("não leu o arquivado");
+  return como("authenticated", P, `select portal_enviar_mensagem('${atd}', 'oi')`);
+}, true);
+await espera("anon não chama função do portal", () => como("anon", null, "select portal_contratos()"), true);
+await espera("ninguém chama a função interna do chat", () => como("authenticated", P, `select q_portal_chat_json('${atd}')`), true);
 
 await espera("updated_at anda no update", () => db.query("select updated_at >= created_at as andou from atendimentos limit 1"), false);
 

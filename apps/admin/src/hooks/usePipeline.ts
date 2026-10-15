@@ -31,7 +31,7 @@ export interface ContratoPipeline {
   banco_id: string | null;
   linha_credito_id: string | null;
   updated_at: string;
-  cliente: { id: string; nome: string; documento: string; telefone: string | null; email: string | null } | null;
+  cliente: { id: string; nome: string; documento: string; telefone: string | null; email: string | null; user_id: string | null } | null;
   banco: { id: string; nome: string } | null;
   linha: { id: string; nome: string; tem_veiculo: boolean } | null;
   consultor: { id: string; nome: string; avatar_url: string | null } | null;
@@ -43,7 +43,7 @@ export interface ContratoPipeline {
 const COLUNAS = `
   id, numero, etapa_id, etapa_desde, data_aceite, cancelado_em, motivo_cancelamento,
   veiculo, ano_modelo, placa, observacoes, consultor_id, banco_id, linha_credito_id, updated_at,
-  cliente:clientes(id, nome, documento, telefone, email),
+  cliente:clientes(id, nome, documento, telefone, email, user_id),
   banco:bancos(id, nome),
   linha:linhas_credito(id, nome, tem_veiculo),
   consultor:perfis!contratos_consultor_id_fkey(id, nome, avatar_url)
@@ -275,5 +275,87 @@ export function useSalvarDocumento() {
       if (error) throw erro(error);
     },
     onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["pipeline", "documentos", v.contratoId] }),
+  });
+}
+
+// ── Acesso ao Portal do Cliente ──────────────────────────────────────────────
+
+/** Senha legível para ditar por telefone: sem 0/O, 1/l/I. */
+export function gerarSenha(tamanho = 10) {
+  const alfabeto = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+  const bytes = new Uint32Array(tamanho);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => alfabeto[b % alfabeto.length]).join("");
+}
+
+export function useDefinirSenhaPortal() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ clienteId, senha }: { clienteId: string; senha: string }) => {
+      const { error } = await supabase.rpc("q_portal_definir_senha", { p_cliente: clienteId, p_senha: senha });
+      if (error) throw erro(error);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: CHAVE }),
+  });
+}
+
+// ── A conversa de um atendimento (a equipe responde o chat do portal) ────────
+
+export interface Mensagem {
+  id: string;
+  autor_tipo: "cliente" | "equipe" | "robo";
+  autor_id: string | null;
+  corpo: string;
+  created_at: string;
+  lida_em: string | null;
+}
+
+export function useMensagens(atendimentoId: string | null) {
+  return useQuery({
+    queryKey: ["pipeline", "mensagens", atendimentoId],
+    enabled: !!atendimentoId,
+    // O cliente escreve pelo portal: relê a cada 15 s (o mesmo ritmo do portal).
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("atendimento_mensagens")
+        .select("id, autor_tipo, autor_id, corpo, created_at, lida_em")
+        .eq("atendimento_id", atendimentoId!)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true });
+      if (error) throw new Error(error.message);
+      // Viu ⇒ marca as do CLIENTE como lidas (o UPDATE só alcança `lida_em`).
+      const naoLidas = (data ?? []).filter((m) => m.autor_tipo === "cliente" && !m.lida_em).map((m) => m.id);
+      if (naoLidas.length) {
+        await supabase.from("atendimento_mensagens").update({ lida_em: new Date().toISOString() }).in("id", naoLidas);
+      }
+      return (data ?? []) as Mensagem[];
+    },
+  });
+}
+
+export function useResponder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { atendimentoId: string; corpo: string; autorId: string }) => {
+      const { error } = await supabase.from("atendimento_mensagens").insert({
+        atendimento_id: v.atendimentoId, autor_tipo: "equipe", autor_id: v.autorId, corpo: v.corpo.trim(),
+      });
+      if (error) throw erro(error);
+    },
+    onSuccess: (_d, v) => qc.invalidateQueries({ queryKey: ["pipeline", "mensagens", v.atendimentoId] }),
+  });
+}
+
+export function useArquivarAtendimento() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { atendimentoId: string; autorId: string }) => {
+      const { error } = await supabase.from("atendimentos")
+        .update({ arquivado_em: new Date().toISOString(), arquivado_por: v.autorId })
+        .eq("id", v.atendimentoId);
+      if (error) throw erro(error);
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pipeline", "atendimentos"] }),
   });
 }
