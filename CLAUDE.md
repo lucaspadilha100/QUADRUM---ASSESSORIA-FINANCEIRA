@@ -153,6 +153,15 @@ Vercel, mudando só o endereço. Um push na `main` = um deploy.
   As rewrites mandam `/portal/*` para o index do portal e o resto para o do admin.
 - ⚠️ A raiz NÃO tem `package.json`: sem o `vercel.json` o Vercel chama
   `vite build` sem instalar nada (`vite: command not found`, o 1º deploy).
+- ⚠️ São DOIS `vercel.json` com o MESMO efeito — o da raiz e o de
+  `apps/admin` — porque o Root Directory do projeto no Vercel pode estar em
+  qualquer um dos dois, e o Vercel lê só o da pasta escolhida. Os dois juntam
+  admin + portal pelo `scripts/vercel-build.sh`. Mudou um, mude o outro.
+- ⚠️ O Vercel publica em produção a branch PADRÃO do GitHub. Em 15/10 ela ainda
+  era `claude/keen-turing-ftz5o8` (a primeira a subir): a `main` só gerava
+  preview, e `/portal` abria o admin antigo. Enquanto a padrão não for a
+  `main` (GitHub → Settings → Default branch; Vercel → Settings → Git →
+  Production Branch), aquela branch é avançada até a `main` a cada entrega.
 - ⚠️ Mesmo endereço ⇒ cada app guarda a sessão numa chave própria
   (`VITE_AUTH_STORAGE_KEY` no `.env` de cada um), senão abrir o portal
   derrubaria o login do admin no mesmo navegador.

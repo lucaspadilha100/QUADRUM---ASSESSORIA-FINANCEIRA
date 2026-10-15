@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm ci && cd ../portal && npm ci",
+  "buildCommand": "sh ../../scripts/vercel-build.sh && rm -rf dist && cp -r ../../dist dist",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/portal", "destination": "/portal/index.html" },
+    { "source": "/portal/(.*)", "destination": "/portal/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
