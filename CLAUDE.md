@@ -68,8 +68,10 @@ COLABORADOR  vê só a PRÓPRIA carteira: clientes de que é consultor e o que
 
 ## Supabase
 Projeto `qeahvsdlatrkdusxvbvv` (`https://qeahvsdlatrkdusxvbvv.supabase.co`).
-Aplicadas: `20261015000000` (estrutura inicial). A `20261015010000`
-(gestor/colaborador e perfis) foi ENTREGUE em 15/10 — confirmar que rodou.
+Aplicadas (conferidas pelo retorno de cada bloco, 15/10/2026):
+`20261015000000` (estrutura inicial) e `20261015010000` (gestor/colaborador e
+perfis). Primeiro gestor: cadastrado à mão pelo bloco de bootstrap (não é
+migração — depende do usuário criado em Authentication).
 
 ## Marca (`docs/marca/`)
 Preto Onix `#0B0B0B` · Dourado `#D4AF37` · Cinza Grafite `#2E2E2E` ·
