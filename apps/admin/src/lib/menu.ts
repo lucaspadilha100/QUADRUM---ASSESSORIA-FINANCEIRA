@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, MessagesSquare, Users, FileText, PenLine,
+  LayoutDashboard, KanbanSquare, MessagesSquare, Users, FileText, PenLine,
   Landmark, CreditCard, Building2, Network, UserCog,
 } from "lucide-react";
 import type { ShellNavSection } from "@/shell";
@@ -7,7 +7,12 @@ import type { ShellNavSection } from "@/shell";
 // O menu é a lista de telas do admin. O título da guia sai DAQUI
 // (`usePaginaAtual`): tela nova que entra no menu ganha título sozinha.
 export const MENU: ShellNavSection[] = [
-  { items: [{ to: "/", label: "Painel", icon: LayoutDashboard, end: true }] },
+  {
+    items: [
+      { to: "/", label: "Painel", icon: LayoutDashboard, end: true },
+      { to: "/pipeline", label: "Pipeline", icon: KanbanSquare },
+    ],
+  },
   {
     label: "Atendimento",
     items: [{ to: "/atendimentos", label: "Atendimentos", icon: MessagesSquare }],

@@ -42,7 +42,9 @@ await sql(`insert into auth.users values ('${G}','g@q'),('${M}','m@q'),('${B}','
 let ok = 0, falhas = 0;
 async function como(role, uid, q) {
   await sql(`reset role; select set_config('request.jwt.claim.sub', '${uid ?? ""}', false); set role ${role};`);
-  try { return await db.query(q); } finally { await sql("reset role;"); }
+  // Limpa o "login" no fim: sem isso o próximo comando de administrador ainda
+  // carrega o usuário simulado, e as travas (com razão) o tratam como ele.
+  try { return await db.query(q); } finally { await sql("reset role; select set_config('request.jwt.claim.sub', '', false);"); }
 }
 async function espera(desc, fn, deveFalhar, conferir) {
   try {
@@ -124,6 +126,22 @@ await espera("colaborador vê a equipe (3 perfis)", () => como("authenticated", 
 await espera("gestor muda o nível de alguém", () => como("authenticated", G, `update perfis set papel='gestor' where id='${B}' returning id`), false, n(1));
 await espera("gestor desativa alguém", () => como("authenticated", G, `update perfis set ativo=false where id='${M}' returning id`), false, n(1));
 await espera("colaborador DESATIVADO não lê nada", () => como("authenticated", M, "select * from clientes"), false, n(0));
+// ── pipeline: o card é o contrato
+const etapa = async (nome) => (await db.query(`select id from pipeline_etapas where nome = '${nome}'`)).rows[0].id;
+await espera("contrato novo cai na PRIMEIRA etapa", () => db.query(`select e.nome from contratos k join pipeline_etapas e on e.id = k.etapa_id order by k.numero limit 1`), false, (r) => r.rows[0].nome === "Novo contato");
+await espera("antes do aceite, data_aceite é nula", () => db.query("select data_aceite from contratos order by numero limit 1"), false, (r) => r.rows[0].data_aceite === null);
+await sql(`update perfis set ativo=true, papel='colaborador' where id in ('${M}','${B}')`);
+await espera("colaborador não cria etapa (cadastro é do gestor)", () => como("authenticated", B, "insert into pipeline_etapas (nome) values ('X')"), true);
+await espera("colaborador LÊ as etapas (7)", () => como("authenticated", B, "select * from pipeline_etapas"), false, n(7));
+const proposta = await etapa("Proposta apresentada");
+const aceito = await etapa("Contrato aceito");
+await espera("A arrasta o próprio card para Proposta", () => como("authenticated", M, `update contratos set etapa_id='${proposta}' where numero=1 returning data_aceite`), false, (r) => r.rows.length === 1 && r.rows[0].data_aceite === null);
+await espera("B NÃO move card do A (0)", () => como("authenticated", B, `update contratos set etapa_id='${aceito}' where numero=1 returning id`), false, n(0));
+await espera("chegar em 'Contrato aceito' grava data_aceite = hoje", () => como("authenticated", M, `update contratos set etapa_id='${aceito}' where numero=1 returning data_aceite = current_date as hoje`), false, (r) => r.rows[0].hoje === true);
+await espera("voltar de etapa NÃO apaga o aceite", () => como("authenticated", M, `update contratos set etapa_id='${proposta}' where numero=1 returning data_aceite`), false, (r) => r.rows[0].data_aceite !== null);
+await espera("etapa_desde anda na troca de etapa", () => db.query("select etapa_desde >= created_at as andou from contratos where numero=1"), false, (r) => r.rows[0].andou === true);
+await espera("contrato sem etapa é impossível", () => db.query("update contratos set etapa_id = null where numero=1"), true);
+
 await espera("updated_at anda no update", () => db.query("select updated_at >= created_at as andou from atendimentos limit 1"), false);
 
 console.log(`\n${ok} ok, ${falhas} falha(s)`);

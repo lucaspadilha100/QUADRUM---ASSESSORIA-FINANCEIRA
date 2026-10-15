@@ -7,6 +7,10 @@ redução de juros, proteção do nome, planejamento financeiro.
 REFERÊNCIA: telas e componentes de lá são portados para cá (copiar e adaptar),
 nunca editados lá.
 
+## Git
+Tudo direto na **`main`**. Branch só quando o dono do processo PEDIR (para
+testar algo fora da produção).
+
 ## Ordem do projeto
 1. **Admin** (`apps/admin`) — back-office da equipe. Vem PRIMEIRO porque tudo o
    que o cliente vê nasce aqui.
@@ -66,6 +70,29 @@ COLABORADOR  vê só a PRÓPRIA carteira: clientes de que é consultor e o que
 - Corpo de função SQL guarda nome de tabela em TEXTO: renomeou tabela,
   recrie as funções que a citam (a 20261015010000 teve de fazer isso).
 
+## Pipeline (kanban) — o CARD É O CONTRATO
+Pedido do dono do processo (15/10/2026): a pipeline do CRM da Carbo (card,
+arrastar e soltar), casando com o Portal do Cliente. Portada de
+`carbohub-gestao/apps/crm` (KanbanDnd, KanbanBoard, LeadCard), sem funil,
+repasse nem temperatura.
+
+```
+pipeline_etapas (CADASTRO)   colunas; uma com `aceita`
+contratos.etapa_id           a coluna do card (NOT NULL; novo cai na 1ª ativa)
+contratos.etapa_desde        "N dias nesta etapa" — quem grava é o gatilho
+etapa `aceita`               → data_aceite = hoje → o cliente VÊ no portal
+"Perdido"                    → cancelado_em (NÃO é etapa) → selo CANCELADO
+```
+
+- ⚠️ "Perdido" não é coluna: é `cancelado_em`, a mesma que o portal lê. Uma
+  etapa "Perdido" seria a segunda verdade sobre o cancelamento.
+- ⚠️ Voltar o card NÃO apaga `data_aceite`: aceite é fato, não posição.
+- O card aberto tem as abas do PORTAL (Dados, Histórico, Atendimentos) mais
+  Pendências, e cada aba diz o que o cliente vai ver. Histórico de
+  departamento `urgente` não aparece na lista do cliente — só o aviso.
+- `autoScroll` do quadro em 10% da borda: com 20% ele rolava antes da hora e
+  o card caía na coluna vizinha (medido no teste de arraste).
+
 ## Supabase
 Projeto `qeahvsdlatrkdusxvbvv` (`https://qeahvsdlatrkdusxvbvv.supabase.co`).
 URL e anon key ficam em `apps/admin/.env`, VERSIONADO de propósito: são
@@ -74,7 +101,7 @@ O ambiente cloud do Claude bloqueia `*.supabase.co` por padrão — teste ao viv
 só com o host liberado em Network access.
 Aplicadas (conferidas pelo retorno de cada bloco, 15/10/2026):
 `20261015000000` (estrutura inicial) e `20261015010000` (gestor/colaborador e
-perfis). Primeiro gestor: cadastrado à mão pelo bloco de bootstrap (não é
+perfis). `20261015020000` (pipeline) ENTREGUE em 15/10 — confirmar que rodou. Primeiro gestor: cadastrado à mão pelo bloco de bootstrap (não é
 migração — depende do usuário criado em Authentication).
 
 ## Marca (`docs/marca/`)

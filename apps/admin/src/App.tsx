@@ -10,6 +10,7 @@ import Login from "@/pages/Login";
 import Painel from "@/pages/Painel";
 import EmConstrucao from "@/pages/EmConstrucao";
 import MeuPerfil from "@/pages/MeuPerfil";
+import Pipeline from "@/pages/Pipeline";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
@@ -84,6 +85,7 @@ export default function App() {
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route index element={<Painel />} />
                 <Route path="/perfil" element={<MeuPerfil />} />
+                <Route path="/pipeline" element={<Pipeline />} />
                 {PENDENTES.map((p) => (
                   <Route key={p.path} path={p.path} element={<EmConstrucao titulo={p.titulo} oQueFaz={p.oQueFaz} />} />
                 ))}
