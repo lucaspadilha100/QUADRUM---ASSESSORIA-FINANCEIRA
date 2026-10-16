@@ -383,8 +383,8 @@ await espera("anon não chama o painel", () => como("anon", null, "select q_pain
 await espera("cliente do portal não gera documento", () => como("authenticated", P, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
 
 // ── ao vivo: as tabelas que o admin escuta estão na publicação do Realtime
-const AO_VIVO = ["atendimento_mensagens", "atendimentos", "clientes", "contrato_documentos", "contrato_historico", "contratos", "documento_assinaturas", "documento_eventos"];
-await espera("as 8 tabelas do ao vivo estão na publicação supabase_realtime", () => db.query("select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1"), false, (r) => JSON.stringify(r.rows.map((x) => x.tablename)) === JSON.stringify(AO_VIVO));
+const AO_VIVO = ["atendimento_mensagens", "atendimentos", "clientes", "contrato_documentos", "contrato_historico", "contrato_movimentos", "contratos", "documento_assinaturas", "documento_eventos"];
+await espera("as tabelas do ao vivo estão na publicação supabase_realtime", () => db.query("select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1"), false, (r) => JSON.stringify(r.rows.map((x) => x.tablename)) === JSON.stringify(AO_VIVO));
 await espera("a migração do ao vivo roda de novo sem erro (idempotente)", () => sql(readFileSync(join(pasta, "20261018000000_ao_vivo.sql"), "utf8")), false);
 await espera("as tabelas do useAoVivo são as da publicação", async () => {
   const fonte = readFileSync(new URL("../../apps/admin/src/hooks/useAoVivo.tsx", import.meta.url), "utf8");
@@ -463,6 +463,73 @@ await espera("o bucket de fotos existe e é público", () => db.query("select pu
 await espera("a pessoa envia foto na própria pasta", () => como("authenticated", M, `insert into storage.objects (bucket_id, name) values ('avatares', '${M}/1.webp') returning id`), false, (r) => r.rows.length === 1);
 await espera("não envia na pasta de outra pessoa", () => como("authenticated", M, `insert into storage.objects (bucket_id, name) values ('avatares', '${B}/1.webp')`), true);
 await espera("cliente do portal não envia foto", () => como("authenticated", P, `insert into storage.objects (bucket_id, name) values ('avatares', '${P}/1.webp')`), true);
+
+// ── linha do tempo de etapas: o banco registra quem moveu, de onde para onde
+const etapas = (await db.query("select id, nome from pipeline_etapas where ativo order by ordem")).rows;
+await espera("contrato novo nasce com o movimento 'criado'", () => db.query(`select tipo, para_etapa_id from contrato_movimentos where contrato_id = '${contrato1}' order by created_at, id limit 1`), false, (r) => r.rows[0]?.tipo === "criado");
+await espera("mover o card registra de → para e QUEM moveu", async () => {
+  const atual = (await db.query(`select etapa_id from contratos where id = '${contrato1}'`)).rows[0].etapa_id;
+  const outra = etapas.find((e) => e.id !== atual).id;
+  await db.query(`update contrato_movimentos set created_at = created_at - interval '3 days' where contrato_id = '${contrato1}'`);
+  await como("authenticated", M, `update contratos set etapa_id = '${outra}' where id = '${contrato1}'`);
+  return db.query(`select tipo, de_etapa_id, para_etapa_id, autor_id from contrato_movimentos where contrato_id = '${contrato1}' order by created_at desc, id desc limit 1`);
+}, false, (r) => r.rows[0].tipo === "etapa" && r.rows[0].autor_id === M && r.rows[0].de_etapa_id !== r.rows[0].para_etapa_id);
+await espera("perder e reabrir também entram na linha do tempo", async () => {
+  await como("authenticated", M, `update contratos set cancelado_em = now(), motivo_cancelamento = 'desistiu' where id = '${contrato1}'`);
+  await como("authenticated", M, `update contratos set cancelado_em = null, motivo_cancelamento = null where id = '${contrato1}'`);
+  return db.query(`select tipo, motivo from contrato_movimentos where contrato_id = '${contrato1}' and tipo in ('perdido','reaberto') order by created_at, id`);
+}, false, (r) => r.rows.length === 2 && r.rows[0].tipo === "perdido" && r.rows[0].motivo === "desistiu" && r.rows[1].tipo === "reaberto");
+await espera("a equipe do contrato lê a linha do tempo; o colaborador B não", async () => {
+  const a = await como("authenticated", M, `select count(*) as n from contrato_movimentos where contrato_id = '${contrato1}'`);
+  const b = await como("authenticated", B, `select count(*) as n from contrato_movimentos where contrato_id = '${contrato1}'`);
+  return { rows: [Number(a.rows[0].n), Number(b.rows[0].n)] };
+}, false, (r) => r.rows[0] >= 4 && r.rows[1] === 0);
+await espera("ninguém escreve na linha do tempo pela API", () => como("authenticated", G, `insert into contrato_movimentos (contrato_id, tipo) values ('${contrato1}', 'etapa')`), true);
+await espera("tempo médio por etapa: a passagem de ~3 dias aparece", () => como("authenticated", M, "select q_tempo_por_etapa(90) as t"), false, (r) => r.rows[0].t.some((x) => Number(x.media_dias) >= 1 && x.passagens >= 1));
+await espera("o colaborador B mede só a carteira dele (vazio)", () => como("authenticated", B, "select q_tempo_por_etapa(90) as t"), false, (r) => r.rows[0].t.length === 0);
+
+// ── LGPD: termo de privacidade
+await espera("sem termo ativo, o portal não pede aceite", () => como("authenticated", P, "select portal_privacidade() as t"), false, (r) => r.rows[0].t === null);
+const termo0 = (await db.query("select id from privacidade_termos order by versao limit 1")).rows[0].id;
+await espera("termo de partida com [PREENCHER] não publica", () => como("authenticated", G, `select q_privacidade_publicar('${termo0}')`), true);
+let termo1;
+await espera("gestor cria versão completa e publica", async () => {
+  termo1 = (await como("authenticated", G, "insert into privacidade_termos (titulo, texto) values ('Política', '# POLÍTICA\n\nTexto completo v1.') returning id")).rows[0].id;
+  await como("authenticated", G, `select q_privacidade_publicar('${termo1}')`);
+  return db.query("select id from privacidade_termos where ativo");
+}, false, (r) => r.rows.length === 1 && r.rows[0].id === termo1);
+await espera("colaborador não publica nem cria termo", () => como("authenticated", M, `select q_privacidade_publicar('${termo1}')`), true);
+await espera("colaborador não cria versão", () => como("authenticated", M, "insert into privacidade_termos (titulo, texto) values ('x', 'y')"), true);
+await espera("o texto de uma versão não muda (nem pelo dono do banco)", () => db.query(`update privacidade_termos set texto = 'outro' where id = '${termo1}'`), true);
+await espera("o cliente vê o termo pendente", () => como("authenticated", P, "select portal_privacidade() as t"), false, (r) => r.rows[0].t?.id === termo1 && r.rows[0].t.aceito_em === null);
+await espera("o cliente aceita: fica a prova (IP, navegador, hash do texto)", async () => {
+  await comoCliente(`select portal_aceitar_privacidade('${termo1}')`);
+  await comoCliente(`select portal_aceitar_privacidade('${termo1}')`);
+  return db.query(`select count(*) as n, max(ip) as ip, max(user_agent) as ua, max(texto_hash) as h from privacidade_aceites where termo_id = '${termo1}'`);
+}, false, (r) => Number(r.rows[0].n) === 1 && r.rows[0].ip === "200.1.2.3" && r.rows[0].ua === "NavegadorTeste/1.0" && r.rows[0].h.length === 64);
+await espera("aceito, o portal não pede de novo", () => como("authenticated", P, "select portal_privacidade() as t"), false, (r) => r.rows[0].t.aceito_em !== null);
+await espera("o consultor vê o aceite do cliente dele; B não", async () => {
+  const a = await como("authenticated", M, "select count(*) as n from privacidade_aceites");
+  const b = await como("authenticated", B, "select count(*) as n from privacidade_aceites");
+  return { rows: [Number(a.rows[0].n), Number(b.rows[0].n)] };
+}, false, (r) => r.rows[0] === 1 && r.rows[1] === 0);
+await espera("ninguém grava aceite pela API", () => como("authenticated", P, `insert into privacidade_aceites (termo_id, cliente_id, user_id, texto_hash) values ('${termo1}', '${clienteDoA}', '${P}', 'x')`), true);
+await espera("termo que saiu de vigor não se aceita", async () => {
+  const t2 = (await como("authenticated", G, "insert into privacidade_termos (titulo, texto) values ('Política', 'Texto v2.') returning id")).rows[0].id;
+  await como("authenticated", G, `select q_privacidade_publicar('${t2}')`);
+  return comoCliente(`select portal_aceitar_privacidade('${termo1}')`);
+}, true);
+await espera("versão nova publicada → o cliente aceita de novo", () => como("authenticated", P, "select portal_privacidade() as t"), false, (r) => r.rows[0].t.aceito_em === null && r.rows[0].t.id !== termo1);
+
+// ── LGPD: exportar os dados de um cliente
+await espera("gestor exporta tudo do cliente (e fica registrado)", async () => {
+  const r = await como("authenticated", G, `select q_cliente_exportar('${clienteDoA}') as d`);
+  const n = await db.query(`select count(*) as n from lgpd_exportacoes where cliente_id = '${clienteDoA}'`);
+  return { rows: [r.rows[0].d, Number(n.rows[0].n)] };
+}, false, (r) => r.rows[0].cliente.documento === "12345678901" && r.rows[0].contratos.length >= 1 && r.rows[0].contratos[0].movimentos.length >= 1
+  && r.rows[0].atendimentos.some((a) => a.mensagens.length > 0) && r.rows[0].privacidade_aceites.length === 1 && !("busca" in r.rows[0].cliente) && r.rows[1] === 1);
+await espera("colaborador não exporta (nem cliente da própria carteira)", () => como("authenticated", M, `select q_cliente_exportar('${clienteDoA}')`), true);
+await espera("o cliente não exporta pela função da equipe", () => como("authenticated", P, `select q_cliente_exportar('${clienteDoA}')`), true);
 
 console.log(`\n${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);

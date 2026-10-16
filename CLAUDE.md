@@ -371,6 +371,38 @@ no admin, foto + nome + "PAPEL · DEPARTAMENTO". Meu perfil em abas
 - Tema escuro: `.dark` em `index.css`, só na tela (impressão sai clara);
   Azul Petróleo clareia no escuro.
 
+## Linha do tempo de etapas e LGPD (16/10/2026)
+Migração `20261020000000_linha_do_tempo_e_lgpd.sql`.
+
+- `contrato_movimentos`: o BANCO grava (gatilho em `contratos`) criado,
+  mudança de etapa (de → para), perdido (com motivo) e reaberto, com quem fez.
+  Contrato anterior entrou `reconstituido` (data aproximada, sem autor). Sem
+  regra de escrita para ninguém. Aparece no fim da aba Contrato
+  (`pipeline/LinhaDoTempo.tsx`); `q_tempo_por_etapa` (INVOKER) dá a média de
+  dias por etapa no Painel. Está no Realtime e no `AFETA`.
+- Termo de privacidade: `privacidade_termos` versionado — o texto de uma
+  versão NUNCA muda; mudar é versão nova, e publicar (`q_privacidade_publicar`)
+  faz todo cliente aceitar de novo. ⚠️ Termo com `[PREENCHER` não publica. A
+  versão de partida nasce inativa (jurídico completa). O portal só pede aceite
+  com termo em vigor (`AceitePrivacidade`, depois da troca de senha); o
+  aceite guarda IP, navegador e hash do texto (`privacidade_aceites`).
+  Admin: Cadastros → Privacidade (LGPD). Portal: menu Privacidade.
+- Exportar dados do cliente: `q_cliente_exportar` (só gestor, cada exportação
+  fica em `lgpd_exportacoes`), botão "Exportar dados (LGPD)" na ficha → JSON.
+  Tabela nova com dado do cliente entra nessa função.
+- ⚠️ Eliminação de dados (art. 18) esbarra em "nada se apaga": se pedirem,
+  é decisão do jurídico (anonimizar campos pessoais, não apagar a linha).
+
+## Radar — decidido para depois (16/10/2026)
+- **Boleto pelo banco da Quadrum**: emitir e saber quando compensou. Possível
+  por API do banco (registro de boleto/PIX + webhook de liquidação) ou por um
+  intermediador; roda em Edge Function do Supabase (não precisa de VPS). Antes:
+  escolher o banco, o certificado/credencial dele e onde ficam as parcelas.
+- **Esperando domínio, VPS e número de WhatsApp**: cliente enviar documentos
+  pelo portal, aviso por e-mail/WhatsApp, "esqueci minha senha" (precisa de
+  envio de e-mail), segundo fator na assinatura.
+- **Em espera**: instalar como app no celular (PWA).
+
 ## Documentos: MODELO → gerar → o cliente assina no portal (15/10/2026)
 Pedido do dono do processo: contrato, termo, declaração e procuração como
 modelos preenchidos com os dados do cliente, e assinatura no próprio sistema,

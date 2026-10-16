@@ -1,4 +1,5 @@
-import { ChevronRight, CheckCircle2, KeyRound } from "lucide-react";
+import { useState } from "react";
+import { ChevronRight, CheckCircle2, Download, KeyRound, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ClienteForm } from "@/components/clientes/ClienteForm";
@@ -6,7 +7,10 @@ import { AcessoPortal } from "@/components/AcessoPortal";
 import { Carregando, Falha } from "@/components/Estados";
 import { useEtapas } from "@/hooks/useCadastros";
 import { useAtualizarCliente, useCliente } from "@/hooks/useClientes";
-import { dataBR, formatarDocumento } from "@/lib/formato";
+import { dataBR, dataHoraBR, formatarDocumento } from "@/lib/formato";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { exportarCliente, useAceiteDoCliente } from "@/hooks/useLgpd";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // A ficha do cliente, em DOIS lugares e um componente só:
@@ -65,13 +69,14 @@ export function ClientePainel({ clienteId, onAbrirContrato }: { clienteId: strin
         <p className="font-titulo text-xs font-semibold text-muted-foreground">CLIENTE · {cliente.tipo_pessoa}</p>
         <SheetTitle className="text-xl">{cliente.nome}</SheetTitle>
         <SheetDescription>{formatarDocumento(cliente.documento)} · cadastrado em {dataBR(cliente.created_at)}</SheetDescription>
+        <Lgpd clienteId={clienteId} documento={cliente.documento} />
       </SheetHeader>
 
       <section className="mt-5">
         <h3 className="mb-2 text-sm font-semibold">Contratos</h3>
         {cliente.contratos.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
-            Nenhum contrato. Crie na Pipeline com o CPF/CNPJ deste cliente.
+            Nenhum contrato.
           </p>
         ) : (
           <ul className="divide-y divide-border rounded-lg border border-border">
@@ -100,5 +105,31 @@ export function ClientePainel({ clienteId, onAbrirContrato }: { clienteId: strin
         <EdicaoCliente clienteId={clienteId} />
       </section>
     </>
+  );
+}
+
+function Lgpd({ clienteId, documento }: { clienteId: string; documento: string }) {
+  const { isGestor } = useAuth();
+  const { data: aceite } = useAceiteDoCliente(clienteId);
+  const [exportando, setExportando] = useState(false);
+  const exportar = async () => {
+    setExportando(true);
+    try { await exportarCliente(clienteId, documento); toast.success("Arquivo gerado."); }
+    catch (e) { toast.error("Não foi possível exportar.", { description: (e as Error).message }); }
+    finally { setExportando(false); }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2 pt-1">
+      {aceite && (
+        <span className={`inline-flex items-center gap-1 text-xs ${aceite.termo.ativo ? "text-success" : "text-muted-foreground"}`}>
+          <ShieldCheck className="h-3.5 w-3.5" /> Privacidade v{aceite.termo.versao} aceita em {dataHoraBR(aceite.aceito_em)}
+        </span>
+      )}
+      {isGestor && (
+        <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={exportar} disabled={exportando}>
+          {exportando ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1.5 h-3.5 w-3.5" />} Exportar dados (LGPD)
+        </Button>
+      )}
+    </div>
   );
 }

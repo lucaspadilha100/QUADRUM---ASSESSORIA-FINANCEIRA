@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
-import { FileText, KeyRound, Loader2, LogOut, Menu, MessageCircle, Moon, Sun, X } from "lucide-react";
+import { FileText, KeyRound, Loader2, LogOut, Menu, MessageCircle, Moon, ShieldCheck, Sun, X } from "lucide-react";
+import { AceitePrivacidade } from "@/components/AceitePrivacidade";
 import { Notificacoes } from "@/components/Notificacoes";
 import { useTema } from "@/hooks/useTema";
 import { TrocarSenha } from "@/components/TrocarSenha";
 import { useSessao } from "@/contexts/Sessao";
 import { formatarDocumento } from "@/lib/formato";
-import { useAvisos } from "@/lib/portal";
+import { useAvisos, usePrivacidade } from "@/lib/portal";
 import simboloQ from "@/assets/simbolo-q.png";
 
 // Duas colunas, como no portal antigo: menu fixo escuro à esquerda e o
@@ -15,6 +16,7 @@ import simboloQ from "@/assets/simbolo-q.png";
 
 export function Layout() {
   const { user, cliente, carregando, sair, senhaProvisoria, senhaCriada } = useSessao();
+  const privacidade = usePrivacidade(cliente?.id ?? null);
   const [aberto, setAberto] = useState(false);
   const { pathname } = useLocation();
   useEffect(() => setAberto(false), [pathname]);
@@ -55,6 +57,11 @@ export function Layout() {
       </div>
     );
   }
+
+  if (privacidade.isLoading) {
+    return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
+  }
+  if (privacidade.data && !privacidade.data.aceito_em) return <AceitePrivacidade termo={privacidade.data} onSair={sair} />;
 
   const menu = <Menu_ nome={cliente.nome} documento={cliente.documento} onSair={sair} />;
 
@@ -114,6 +121,7 @@ function Menu_({ nome, documento, onSair }: { nome: string; documento: string; o
           {avisos?.chat_nao_lido && <span className="ml-auto h-2.5 w-2.5 rounded-full bg-q-gold" aria-label="Novas mensagens" />}
         </NavLink>
         <NavLink to="/senha" className={item}><KeyRound className="h-5 w-5" /> Alterar senha</NavLink>
+        <NavLink to="/privacidade" className={item}><ShieldCheck className="h-5 w-5" /> Privacidade</NavLink>
         <button onClick={onSair} className={item({ isActive: false }) + " w-full"}><LogOut className="h-5 w-5" /> Sair</button>
       </nav>
       <p className="px-6 pb-6 text-xs text-muted-foreground">Juntos pelo seu recomeço.</p>

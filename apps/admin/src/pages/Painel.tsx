@@ -41,9 +41,23 @@ function usePainel() {
   });
 }
 
+// Quanto tempo cada etapa leva (passagens dos últimos 90 dias). Sem a
+// migração 20261020000000, só não mostra.
+function useTempoPorEtapa() {
+  return useQuery({
+    queryKey: ["painel", "tempo"],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("q_tempo_por_etapa", { p_dias: 90 });
+      if (error) return {} as Record<string, number>;
+      return Object.fromEntries((data as { etapa_id: string; media_dias: number }[]).map((x) => [x.etapa_id, Number(x.media_dias)]));
+    },
+  });
+}
+
 export default function Painel() {
   const { perfil, isGestor } = useAuth();
   const painel = usePainel();
+  const { data: tempo = {} } = useTempoPorEtapa();
   const etapas = useEtapas();
   const primeiroNome = perfil?.nome?.split(" ")[0] ?? "";
   const p = painel.data;
@@ -89,8 +103,9 @@ export default function Painel() {
                   <li key={e.id}>
                     <Link to={`/contratos?etapa=${e.id}`} className="group block">
                       <div className="mb-1 flex items-baseline justify-between gap-2 text-sm">
-                        <span className="truncate text-foreground group-hover:underline">
+                        <span className="min-w-0 truncate text-foreground group-hover:underline">
                           {e.nome}
+                          {tempo[e.id] != null && <span className="ml-1.5 text-xs text-muted-foreground">≈ {tempo[e.id].toLocaleString("pt-BR")} {tempo[e.id] === 1 ? "dia" : "dias"}</span>}
                         </span>
                         <span className="font-semibold tabular-nums text-foreground">{n(e.qtd)}</span>
                       </div>

@@ -23,6 +23,7 @@ import { DocumentosDoContrato } from "@/components/documento/DocumentosDoContrat
 import { Conversa } from "@/components/atendimento/Conversa";
 import { SelectBanco } from "@/components/SelectBanco";
 import { AcessoPortal } from "@/components/AcessoPortal";
+import { LinhaDoTempo } from "@/components/pipeline/LinhaDoTempo";
 import { EdicaoCliente } from "@/components/clientes/ClientePainel";
 import { dataBR, dataHoraBR, formatarDocumento } from "@/lib/formato";
 
@@ -331,6 +332,7 @@ function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente
           Salvar
         </Button>
       </div>
+      <LinhaDoTempo contratoId={c.id} />
     </div>
   );
 }

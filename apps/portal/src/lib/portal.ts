@@ -162,3 +162,26 @@ export function useAssinarDocumento() {
 /** Rótulo do contrato no seletor do robô: "veículo ano (placa)", como no portal antigo. */
 export const rotuloContrato = (c: ContratoPortal) =>
   [c.veiculo, c.ano_modelo, c.placa ? `(${c.placa})` : null].filter(Boolean).join(" ").trim() || `Contrato #${c.numero}`;
+
+// ── Privacidade (LGPD): o termo em vigor e o aceite deste cliente ────────────
+export interface TermoPrivacidade { id: string; versao: number; titulo: string; texto: string; aceito_em: string | null }
+
+// Falha aqui NÃO trava o portal: sem resposta, não há aceite a pedir.
+export const usePrivacidade = (clienteId?: string | null) =>
+  useQuery({
+    queryKey: ["portal", "privacidade", clienteId ?? "sessao"],
+    enabled: clienteId !== null,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("portal_privacidade");
+      if (error) { console.error("[portal] privacidade:", error.message); return null; }
+      return (data as TermoPrivacidade | null) ?? null;
+    },
+  });
+
+export function useAceitarPrivacidade() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (termoId: string) => rpc<{ ok: boolean }>("portal_aceitar_privacidade", { p_termo: termoId }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["portal", "privacidade"] }),
+  });
+}
