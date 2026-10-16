@@ -160,6 +160,9 @@ funções, 3 gatilhos, 2 contas marcadas provisórias). Login de teste
 `20261019000000` (notificações, departamento, fotos) — aplicada e conferida em
 16/10/2026 (9 funções, 5 gatilhos, coluna `departamento_id`, bucket
 `avatares` público com 4 regras).
+`20261020000000` (linha do tempo e LGPD) — aplicada e conferida em 16/10/2026
+(2 contratos com linha reconstituída, 2 gatilhos, 6 funções, termo de partida
+como rascunho, `contrato_movimentos` no Realtime).
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
