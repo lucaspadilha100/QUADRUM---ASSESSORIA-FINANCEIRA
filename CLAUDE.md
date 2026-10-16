@@ -157,6 +157,9 @@ F5 ou ao voltar à aba.
 `20261018010000` (senha provisória) — aplicada e conferida em 15/10/2026 (3
 funções, 3 gatilhos, 2 contas marcadas provisórias). Login de teste
 `teste@email.com` (gestor) criado pelo SQL Editor, sem senha provisória.
+`20261019000000` (notificações, departamento, fotos) — aplicada e conferida em
+16/10/2026 (9 funções, 5 gatilhos, coluna `departamento_id`, bucket
+`avatares` público com 4 regras).
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
