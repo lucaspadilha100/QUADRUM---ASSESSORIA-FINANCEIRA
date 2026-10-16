@@ -24,7 +24,9 @@ const TUDO: QueryKey[] = [
   ["pipeline"], ["contratos"], ["contrato"], ["clientes"], ["cliente"], ["painel"], ["documentos"], ["caixa"],
 ];
 
-/** O que fica velho quando cada tabela muda. Invalidar consulta FECHADA só a marca; relê a que está na tela. */
+/** O que fica velho quando cada tabela muda. Invalidar consulta FECHADA só a
+ *  marca; relê a que está na tela. Todo aviso do sininho nasce de uma mudança
+ *  numa destas tabelas (gatilhos), então o sininho relê junto. */
 const AFETA: Record<string, QueryKey[]> = {
   contratos: TUDO,
   clientes: TUDO,
@@ -35,6 +37,8 @@ const AFETA: Record<string, QueryKey[]> = {
   atendimentos: [["caixa"], ["painel"], ["pipeline", "atendimentos"], ["pipeline", "quadro"]],
   atendimento_mensagens: [["caixa"], ["painel"], ["pipeline", "mensagens"], ["pipeline", "atendimentos"]],
 };
+
+for (const k of Object.keys(AFETA)) AFETA[k] = [...AFETA[k], ["notificacoes"]];
 
 export const TABELAS_AO_VIVO = Object.keys(AFETA);
 

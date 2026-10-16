@@ -43,7 +43,7 @@ export function AcessoPortal({ cliente }: { cliente: { id: string; documento: st
       <span className="text-xs text-muted-foreground">
         {!cliente.user_id ? "Sem acesso ao portal." : provisoria ? "Acesso gerado · o cliente ainda não criou a senha dele." : "Tem acesso ao portal."}
       </span>
-      <Button type="button" size="sm" variant="outline" className="ml-auto h-8" onClick={gerar} disabled={definir.isPending}>
+      <Button type="button" size="sm" variant="outline" className="ml-auto h-9" onClick={gerar} disabled={definir.isPending}>
         {definir.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
         {cliente.user_id ? "Redefinir senha" : "Gerar acesso"}
       </Button>

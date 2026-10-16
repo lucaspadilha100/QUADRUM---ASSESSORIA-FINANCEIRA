@@ -50,17 +50,17 @@ export function Paginacao({ pagina, por, total, onPagina, onPor }: {
       <div className="flex items-center gap-2">
         <span className="hidden sm:inline">Por página</span>
         <Select value={String(por)} onValueChange={(v) => onPor(Number(v))}>
-          <SelectTrigger className="h-8 w-[72px] bg-card" aria-label="Itens por página"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-10 w-[76px] bg-card sm:h-8" aria-label="Itens por página"><SelectValue /></SelectTrigger>
           <SelectContent>
             {TAMANHOS.map((t) => <SelectItem key={t} value={String(t)}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" disabled={pagina <= 1}
+        <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0 sm:h-8 sm:w-8" disabled={pagina <= 1}
           onClick={() => onPagina(pagina - 1)} aria-label="Página anterior">
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <span className="min-w-[88px] text-center tabular-nums">Página {pagina} de {paginas.toLocaleString("pt-BR")}</span>
-        <Button type="button" variant="outline" size="sm" className="h-8 w-8 p-0" disabled={pagina >= paginas}
+        <Button type="button" variant="outline" size="sm" className="h-10 w-10 p-0 sm:h-8 sm:w-8" disabled={pagina >= paginas}
           onClick={() => onPagina(pagina + 1)} aria-label="Próxima página">
           <ChevronRight className="h-4 w-4" />
         </Button>

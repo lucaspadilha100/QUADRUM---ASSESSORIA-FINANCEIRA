@@ -192,7 +192,7 @@ function CampoMensagem({ valor, onChange, onEnviar, enviando }: {
         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onEnviar(); } }}
         placeholder="Mensagem"
         aria-label="Mensagem"
-        className="h-10 min-w-0 flex-1 rounded-full border border-input bg-background px-4 text-sm outline-none focus:ring-2 focus:ring-ring"
+        className="h-11 min-w-0 flex-1 rounded-full border border-input bg-background px-4 text-base outline-none sm:h-10 sm:text-sm focus:ring-2 focus:ring-ring"
       />
       <Button type="button" onClick={onEnviar} disabled={!valor.trim() || enviando} className="h-10 w-10 shrink-0 rounded-full p-0" aria-label="Enviar">
         {enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

@@ -215,6 +215,14 @@ Navegação é `<Link>`, nunca `onClick={() => navigate()}`.
 Filtro, aba, busca e item aberto moram na URL (`useParamUrl`): F5 e link
 copiado reabrem a mesma coisa. O Painel linka cada número para a lista já
 filtrada (`/contratos?situacao=portal`, `/atendimentos?aba=nao_lidas`).
+⚠️ **Celular é uso de verdade** (pedido do dono do processo, 16/10/2026: o
+cliente usa o portal pelo celular, e a equipe usa o admin em emergência).
+Referência 360 px (conferido também em 320 e 390): nada rola de lado, alvo de
+toque ≥ 36 px no celular (`min-h-9`/`h-10` com `sm:` voltando ao compacto),
+campo de digitação com 16 px no celular (o iPhone dá zoom em campo menor),
+texto de documento justificado só a partir de `sm`, 4+ abas viram grade 2×2
+(portal) ou rolagem (painel do contrato), tabela larga rola dentro do cartão,
+e lista não corta nome no celular (empilha; `truncate` só a partir de `sm`).
 ⚠️ **Data é `components/CampoData.tsx`, nunca `<input type="date">`**: o
 calendário do navegador muda de ano clicando mês a mês (pedido do dono do
 processo, 15/10/2026). O nosso aceita digitar DD/MM/AAAA e tem mês e ano em
@@ -335,6 +343,30 @@ admin (`ProtectedRoute`) e portal (`Layout`) só abrem depois de
   (`senha_provisoria`, leitura para a equipe pela mesma regra de carteira).
 - Conta criada pelo SQL Editor NÃO fica provisória (sem usuário na sessão) —
   é assim que nasce o login de teste.
+
+## Barra do topo: sininho, tema e a pessoa logada (16/10/2026)
+Migração `20261019000000_notificacoes_e_foto.sql`. `TopBar` (admin) e a barra
+do portal: `Notificacoes` (arquivo COPIADO nos dois apps), botão de tema
+(`useTema`, copiado; `index.html` aplica antes do React para não piscar) e,
+no admin, foto + nome + "PAPEL · DEPARTAMENTO". Meu perfil em abas
+(Dados · Foto · Senha, `?aba=`).
+
+- ⚠️ **Quem cria notificação é o BANCO** (gatilhos em documento_assinaturas,
+  contrato_documentos, contratos.data_aceite, contrato_historico,
+  atendimento_mensagens). Ninguém tem policy na tabela: equipe e cliente
+  leem e marcam por `q_minhas_notificacoes` / `q_marcar_notificacoes_lidas`.
+- Mensagem de chat AGRUPA: aviso não lido da mesma conversa é atualizado, não
+  repetido. Histórico urgente avisa sem o texto. Gatilho que falha vira
+  `warning` e nunca derruba a gravação.
+- O sininho do admin é ao vivo sem a tabela no Realtime: todo aviso nasce de
+  uma tabela que o `useAoVivo` já escuta, e ele relê `["notificacoes"]` junto.
+  Portal: relê a cada 20 s.
+- Tipo novo de aviso: gatilho + ícone em `ICONE` (Notificacoes.tsx, nos dois).
+- Foto: `lib/comprimirImagem.ts` recorta e reduz para 256×256 WEBP (~15 KB)
+  antes de enviar ao bucket público `avatares`, pasta `<id>/`, só a equipe.
+- `perfis.departamento_id`: do GESTOR (entrou em `q_perfil_protege_acesso`).
+- Tema escuro: `.dark` em `index.css`, só na tela (impressão sai clara);
+  Azul Petróleo clareia no escuro.
 
 ## Documentos: MODELO → gerar → o cliente assina no portal (15/10/2026)
 Pedido do dono do processo: contrato, termo, declaração e procuração como

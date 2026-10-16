@@ -64,16 +64,16 @@ export function Conversa({ atendimento, onVoltar, cheia = false }: {
   return (
     <div className={`flex flex-col gap-3 ${cheia ? "h-full min-h-0" : "pt-2"}`}>
       <div className="flex items-center gap-2">
-        {onVoltar && <Button type="button" variant="ghost" size="sm" onClick={onVoltar}><ArrowLeft className="mr-1 h-4 w-4" /> Voltar</Button>}
+        {onVoltar && <Button type="button" variant="ghost" size="sm" onClick={onVoltar} aria-label="Voltar"><ArrowLeft className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Voltar</span></Button>}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">
+          <p className="line-clamp-2 text-sm font-medium sm:truncate">
             {atendimento.clienteNome ? `${atendimento.clienteNome} · ` : ""}#{atendimento.numero} · {atendimento.setorNome ?? "—"}
           </p>
           {atendimento.titulo && <p className="truncate text-xs text-muted-foreground">{atendimento.titulo}</p>}
         </div>
         {!arquivado && (
           <Button type="button" variant="outline" size="sm" onClick={fechar} disabled={arquivar.isPending}>
-            <Archive className="mr-1 h-4 w-4" /> Arquivar
+            <Archive className="h-4 w-4 sm:mr-1" /><span className="hidden sm:inline">Arquivar</span>
           </Button>
         )}
       </div>
@@ -84,7 +84,7 @@ export function Conversa({ atendimento, onVoltar, cheia = false }: {
           return (
             <div key={m.id} className={`flex ${doCliente ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${doCliente ? "bg-[hsl(var(--q-gold)/0.15)]" : "border border-border bg-card"}`}>
-                <p className="mb-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                <p className="mb-0.5 flex flex-wrap items-center gap-x-1 text-[11px] font-semibold text-muted-foreground">
                   {m.autor_tipo === "robo" && <Bot className="h-3 w-3" />}
                   {doCliente ? "Cliente" : m.autor_tipo === "robo" ? "Assistente Quadrum" : nomeEquipe(m.autor_id)}
                   <span className="font-normal">em {dataHoraBR(m.created_at)}</span>
@@ -103,7 +103,7 @@ export function Conversa({ atendimento, onVoltar, cheia = false }: {
         <div className="flex items-end gap-2">
           <Textarea rows={2} value={texto} onChange={(e) => setTexto(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviar(); } }}
-            placeholder="Responder ao cliente (Enter envia, Shift+Enter quebra linha)" />
+            placeholder="Responder ao cliente" />
           <Button type="button" onClick={enviar} disabled={!texto.trim() || responder.isPending} aria-label="Enviar">
             {responder.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>

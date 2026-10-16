@@ -77,12 +77,12 @@ export default function Contratos() {
                     <span className="flex-1 text-sm font-medium">{p.nome}</span>
                     {p.no_sistema ? (
                       <Link to={`/documento/${p.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground no-underline">
+                        className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground no-underline sm:min-h-0 sm:py-1.5 sm:text-xs">
                         <PenLine className="h-3.5 w-3.5" /> Ler e assinar
                       </Link>
                     ) : p.link ? (
                       <a href={p.link} target="_blank" rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground no-underline">
+                        className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground no-underline sm:min-h-0 sm:py-1.5 sm:text-xs">
                         <PenLine className="h-3.5 w-3.5" /> Assinar
                       </a>
                     ) : (
@@ -122,7 +122,7 @@ function PainelContrato({ c }: { c: ContratoPortal }) {
       </AccordionTrigger>
       <AccordionContent className="px-5 pb-5">
         <Tabs defaultValue="dados">
-          <TabsList className={`grid w-full sm:w-auto sm:inline-grid ${c.documentos.length ? "grid-cols-4" : "grid-cols-3"}`}>
+          <TabsList className={`grid w-full sm:w-auto sm:inline-grid ${c.documentos.length ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
             <TabsTrigger value="dados">Dados</TabsTrigger>
             <TabsTrigger value="historico">Histórico</TabsTrigger>
             <TabsTrigger value="atendimentos">Atendimentos</TabsTrigger>
@@ -164,14 +164,18 @@ function PainelContrato({ c }: { c: ContratoPortal }) {
                     {d.no_sistema ? (
                       <Link to={`/documento/${d.id}`} className="flex items-center gap-3 p-3 text-foreground no-underline hover:bg-accent/50">
                         <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-                        <span className="min-w-0 flex-1 truncate text-sm">{d.nome}</span>
-                        <span className="text-xs text-muted-foreground">Assinado em {dataHoraBR(d.assinado_em)}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm sm:truncate">{d.nome}</span>
+                          <span className="block text-xs text-muted-foreground">Assinado em {dataHoraBR(d.assinado_em)}</span>
+                        </span>
                       </Link>
                     ) : (
                       <div className="flex items-center gap-3 p-3">
                         <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
-                        <span className="min-w-0 flex-1 truncate text-sm">{d.nome}</span>
-                        <span className="text-xs text-muted-foreground">Assinado em {dataHoraBR(d.assinado_em)}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm sm:truncate">{d.nome}</span>
+                          <span className="block text-xs text-muted-foreground">Assinado em {dataHoraBR(d.assinado_em)}</span>
+                        </span>
                       </div>
                     )}
                   </li>
@@ -189,9 +193,11 @@ function PainelContrato({ c }: { c: ContratoPortal }) {
                   <li key={a.id}>
                     <Link to={a.arquivado ? `/chat/arquivado/${a.id}` : "/chat"}
                       className="flex items-center gap-3 p-3 text-foreground no-underline hover:bg-accent/50">
-                      {a.arquivado ? <Archive className="h-4 w-4 text-muted-foreground" /> : <MessageCircle className="h-4 w-4 text-q-petrol" />}
-                      <span className="min-w-0 flex-1 truncate text-sm">{a.titulo}</span>
-                      <span className="text-xs text-muted-foreground">{a.arquivado ? "Arquivado" : "Em aberto"}</span>
+                      {a.arquivado ? <Archive className="h-4 w-4 shrink-0 text-muted-foreground" /> : <MessageCircle className="h-4 w-4 shrink-0 text-q-petrol" />}
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm sm:truncate">{a.titulo}</span>
+                        <span className="block text-xs text-muted-foreground">#{a.numero} · {a.arquivado ? "Arquivado" : "Em aberto"}</span>
+                      </span>
                     </Link>
                   </li>
                 ))}

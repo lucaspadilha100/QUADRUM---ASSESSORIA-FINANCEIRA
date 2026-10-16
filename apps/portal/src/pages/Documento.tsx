@@ -29,7 +29,7 @@ export default function Documento() {
   return (
     <div className="space-y-5">
       <div className="q-nao-imprimir flex flex-wrap items-center gap-2">
-        <Link to="/contratos" className="q-link inline-flex items-center gap-1 text-sm"><ArrowLeft className="h-4 w-4" /> Meus Contratos</Link>
+        <Link to="/contratos" className="q-link -my-2 inline-flex items-center gap-1 py-2 text-sm"><ArrowLeft className="h-4 w-4" /> Meus Contratos</Link>
         {d.conteudo && (
           <Button variant="outline" size="sm" className="ml-auto" onClick={() => window.print()}>
             <Printer className="mr-1 h-4 w-4" /> Imprimir / salvar PDF

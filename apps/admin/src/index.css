@@ -56,7 +56,37 @@
     --input: 0 0% 84%;
     /* Foco de campo em Azul Petróleo (manual: links, ícones informativos, foco). */
     --ring: var(--q-petrol);
+    --link: var(--q-petrol);
     --radius: 0.625rem;
+  }
+
+  /* TEMA ESCURO (botão na barra do topo): a mesma paleta, invertida — fundo
+     Preto Onix, superfícies em tons de Grafite, Dourado como destaque. Só na
+     TELA: impressão/PDF sai sempre clara. */
+  @media screen {
+    .dark {
+      --background: var(--q-onix);
+      --foreground: var(--q-offwhite);
+      --card: 0 0% 8%;
+      --card-foreground: var(--q-offwhite);
+      --popover: 0 0% 11%;
+      --popover-foreground: var(--q-offwhite);
+      --secondary-foreground: var(--q-offwhite);
+      --muted: 0 0% 14%;
+      --muted-foreground: 0 0% 64%;
+      --accent: 46 28% 15%;
+      --accent-foreground: var(--q-offwhite);
+      --destructive: 355 75% 60%;
+      --success: 152 50% 48%;
+      --warning: 40 90% 55%;
+      --border: var(--q-graphite);
+      --input: 0 0% 24%;
+      --ring: var(--q-gold);
+      /* Azul Petróleo puro some no preto: no escuro ele clareia (links, ícones). */
+      --q-petrol: 192 50% 58%;
+      --link: 192 50% 58%;
+      color-scheme: dark;
+    }
   }
 
   /* Escopo ESCURO (menu lateral, login): mesmas variáveis, outros valores.
@@ -76,6 +106,7 @@
     --border: var(--q-graphite);
     --input: 0 0% 26%;
     --ring: var(--q-gold);
+    --link: 46 65% 60%;
     color: hsl(var(--foreground));
   }
 }
@@ -94,7 +125,7 @@
      dourado ficaria azul. */
   .q-link {
     @apply font-medium underline-offset-4 hover:underline;
-    color: hsl(var(--q-petrol));
+    color: hsl(var(--link));
   }
 
   /* Título no estilo do manual: caixa alta, espaçamento largo entre letras. */

@@ -78,14 +78,14 @@ export function PipelineBoard({ etapas, colunas, onMover, onAbrir, onNovo, onCar
             >
               <div className="rounded-t-xl border-b border-border bg-card px-3 py-2.5" style={{ borderTop: `3px solid ${e.cor}` }}>
                 <div className="flex items-center gap-2">
-                  <h3 className="min-w-0 flex-1 truncate font-sans text-sm font-semibold text-foreground" title={e.nome}>{e.nome}</h3>
+                  <h3 className="line-clamp-2 min-w-0 flex-1 font-sans text-sm font-semibold leading-tight text-foreground" title={e.nome}>{e.nome}</h3>
                   <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground" title={`${total} contratos nesta etapa`}>{total.toLocaleString("pt-BR")}</span>
                   <button
                     type="button"
                     onClick={() => onNovo(e.id)}
                     title="Novo contrato nesta etapa"
                     aria-label={`Novo contrato em ${e.nome}`}
-                    className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                    className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground sm:h-6 sm:w-6 hover:bg-muted hover:text-foreground"
                   >
                     <Plus className="h-3.5 w-3.5" />
                   </button>
@@ -94,7 +94,7 @@ export function PipelineBoard({ etapas, colunas, onMover, onAbrir, onNovo, onCar
                   // Diz ANTES do arraste o que esta coluna faz: soltar aqui
                   // publica o contrato para o cliente.
                   <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-q-petrol">
-                    <Globe className="h-3 w-3" /> Ao chegar aqui, o cliente passa a ver no portal
+                    <Globe className="h-3 w-3" /> Portal
                   </p>
                 )}
               </div>

@@ -16,7 +16,8 @@ import { useAuth, PAPEL_LABEL } from "@/contexts/AuthContext";
 import { gerarSenha } from "@/hooks/usePipeline";
 import { useAtualizarUsuario, useCriarUsuario, useRedefinirSenhaUsuario, useSenhasProvisorias, useUsuarios, type Usuario } from "@/hooks/useUsuarios";
 import { useParamUrl } from "@/shell";
-import { iniciais } from "@/lib/formato";
+import { Avatar } from "@/components/Avatar";
+import { useDepartamentos } from "@/hooks/useCadastros";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // A equipe. Sem matriz de telas: o NÍVEL decide (gestor vê e opera tudo;
@@ -31,6 +32,8 @@ export default function Usuarios() {
   const { isGestor, perfil } = useAuth();
   const { data: usuarios = [], isLoading, error } = useUsuarios();
   const { data: provisorias } = useSenhasProvisorias();
+  const { data: deps = [] } = useDepartamentos();
+  const nomeDep = (id?: string | null) => deps.find((d) => d.id === id)?.nome;
   const [filtro, setFiltro] = useParamUrl("situacao", "ativos");
   const [busca, setBusca] = useParamUrl("busca", "", { replace: true });
   const [editando, setEditando] = useState<Usuario | null>(null);
@@ -71,22 +74,24 @@ export default function Usuarios() {
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <ul className="divide-y divide-border">
               {pagina.map((u) => (
-                <li key={u.id} className="flex flex-wrap items-center gap-3 p-4">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-q-onix text-sm font-semibold text-q-gold">{iniciais(u.nome)}</span>
+                <li key={u.id} className="flex items-center gap-3 p-4">
+                  <Avatar nome={u.nome} url={u.avatar_url} className="h-10 w-10 text-sm" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-foreground">
+                    <p className="font-medium text-foreground sm:truncate">
                       {u.nome} {u.id === perfil?.id && <span className="text-xs font-normal text-muted-foreground">(você)</span>}
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">{[u.email, u.cargo, u.telefone].filter(Boolean).join(" · ")}</p>
+                    <p className="break-all text-xs text-muted-foreground sm:truncate sm:break-normal">{[u.email, nomeDep(u.departamento_id), u.cargo, u.telefone].filter(Boolean).join(" · ")}</p>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${u.papel === "gestor" ? "bg-q-onix text-q-gold" : "bg-muted text-muted-foreground"}`}>
+                        {PAPEL_LABEL[u.papel]}
+                      </span>
+                      {provisorias?.has(u.id) && (
+                        <span className="rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning">Senha provisória</span>
+                      )}
+                    </div>
                   </div>
-                  {provisorias?.has(u.id) && (
-                    <span className="rounded-full border border-warning/40 bg-warning/10 px-2.5 py-0.5 text-xs font-medium text-warning">Senha provisória</span>
-                  )}
-                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${u.papel === "gestor" ? "bg-q-onix text-q-gold" : "bg-muted text-muted-foreground"}`}>
-                    {PAPEL_LABEL[u.papel]}
-                  </span>
                   {isGestor && (
-                    <Button size="sm" variant="outline" onClick={() => setEditando(u)}>Editar</Button>
+                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => setEditando(u)}>Editar</Button>
                   )}
                 </li>
               ))}
@@ -164,10 +169,13 @@ function EditarUsuario({ usuario, euId, onFechar, onSenha }: {
   const [telefone, setTelefone] = useState("");
   const [papel, setPapel] = useState<Usuario["papel"]>("colaborador");
   const [ativo, setAtivo] = useState(true);
+  const [dep, setDep] = useState(SEM_DEP);
+  const { data: deps = [] } = useDepartamentos();
   if ((usuario?.id ?? null) !== chave) {
     setChave(usuario?.id ?? null);
     setNome(usuario?.nome ?? ""); setCargo(usuario?.cargo ?? ""); setTelefone(usuario?.telefone ?? "");
     setPapel(usuario?.papel ?? "colaborador"); setAtivo(usuario?.ativo ?? true);
+    setDep(usuario?.departamento_id ?? SEM_DEP);
   }
   const souEu = usuario?.id === euId;
 
@@ -182,6 +190,8 @@ function EditarUsuario({ usuario, euId, onFechar, onSenha }: {
     try {
       await atualizar.mutateAsync({ id: usuario.id, campos: {
         nome: nome.trim(), cargo: cargo.trim() || null, telefone: telefone.trim() || null, papel, ativo,
+        // Só manda o departamento se o banco já tiver a coluna.
+        ...("departamento_id" in usuario ? { departamento_id: dep === SEM_DEP ? null : dep } : {}),
       } });
       toast.success("Usuário salvo.");
       onFechar();
@@ -215,7 +225,19 @@ function EditarUsuario({ usuario, euId, onFechar, onSenha }: {
             <div className="space-y-1.5"><Label htmlFor="e-cargo">Cargo</Label><Input id="e-cargo" value={cargo} onChange={(e) => setCargo(e.target.value)} /></div>
             <div className="space-y-1.5"><Label htmlFor="e-tel">Telefone</Label><Input id="e-tel" type="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)} /></div>
           </div>
-          <NivelSelect valor={papel} onChange={setPapel} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <NivelSelect valor={papel} onChange={setPapel} />
+            <div className="space-y-1.5">
+              <Label>Departamento</Label>
+              <Select value={dep} onValueChange={setDep}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={SEM_DEP}>Nenhum</SelectItem>
+                  {deps.filter((d) => d.ativo || d.id === dep).map((d) => <SelectItem key={d.id} value={d.id}>{d.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="flex items-center justify-between rounded-lg border border-border p-3">
             <div>
               <p className="text-sm font-medium">Ativo</p>
@@ -240,6 +262,8 @@ function EditarUsuario({ usuario, euId, onFechar, onSenha }: {
   );
 }
 
+const SEM_DEP = "nenhum";
+
 function NivelSelect({ valor, onChange }: { valor: Usuario["papel"]; onChange: (v: Usuario["papel"]) => void }) {
   return (
     <div className="space-y-1.5">
@@ -248,7 +272,7 @@ function NivelSelect({ valor, onChange }: { valor: Usuario["papel"]; onChange: (
         <SelectTrigger><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value="colaborador">Colaborador</SelectItem>
-          <SelectItem value="gestor">Gestor — vê e opera tudo</SelectItem>
+          <SelectItem value="gestor">Gestor</SelectItem>
         </SelectContent>
       </Select>
     </div>

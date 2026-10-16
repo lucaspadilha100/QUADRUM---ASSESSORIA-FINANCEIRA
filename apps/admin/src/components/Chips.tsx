@@ -15,7 +15,7 @@ export function Chips({ valor, onChange, opcoes }: {
             role="radio"
             aria-checked={ativo}
             onClick={() => onChange(o.valor)}
-            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+            className={`rounded-full border px-3 py-2 text-xs font-medium sm:py-1.5 transition-colors ${
               ativo ? "border-q-onix bg-q-onix text-q-gold" : "border-border bg-card text-muted-foreground hover:text-foreground"
             }`}
           >

@@ -37,6 +37,14 @@ await sql(`
   create function auth.uid() returns uuid language sql stable as $$
     select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   grant execute on function auth.uid() to anon, authenticated, service_role;
+  -- Storage mínimo: o bucket, os objetos (com RLS) e a função das pastas.
+  create schema storage; grant usage on schema storage to anon, authenticated, service_role;
+  create table storage.buckets (id text primary key, name text, public boolean, file_size_limit bigint, allowed_mime_types text[]);
+  create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text, name text, owner uuid default auth.uid());
+  alter table storage.objects enable row level security;
+  grant all on storage.objects to authenticated; grant select on storage.buckets to authenticated;
+  create function storage.foldername(name text) returns text[] language sql immutable as $$ select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
+  grant execute on function storage.foldername(text) to anon, authenticated, service_role;
   -- O Supabase já nasce com a publicação do Realtime (vazia).
   create publication supabase_realtime;
 `);
@@ -404,6 +412,57 @@ await espera("o gestor redefine a senha → volta a ser provisória", async () =
   return como("authenticated", novoEq, "select q_senha_provisoria() as p");
 }, false, (r) => r.rows[0].p === true);
 await espera("anon não troca senha", () => como("anon", null, "select q_trocar_minha_senha(null, 'Qualquer123')"), true);
+
+// ── notificações: o banco avisa, cada um lê só as suas
+const notif = async (uid) => (await como("authenticated", uid, "select q_minhas_notificacoes(50) as n")).rows[0].n;
+await espera("documento assinado avisa o CONSULTOR do contrato", async () => ({ rows: (await notif(M)).itens }), false, (r) => r.rows.some((i) => i.tipo === "documento_assinado" && i.link.startsWith("/documentos/")));
+await espera("documento novo avisa o CLIENTE (contrato no portal)", async () => ({ rows: (await notif(P)).itens }), false, (r) => r.rows.some((i) => i.tipo === "documento_novo"));
+await espera("o colaborador B não vê aviso da carteira do A", async () => ({ rows: (await notif(B)).itens }), false, (r) => !r.rows.some((i) => i.tipo === "documento_assinado"));
+await espera("ninguém lê a tabela de avisos direto (nem o dono)", () => como("authenticated", M, "select * from notificacoes"), true);
+await espera("ninguém grava aviso pela API", () => como("authenticated", M, `insert into notificacoes (destinatario, tipo, titulo) values ('${M}', 'x', 'falso')`), true);
+await espera("anon não lê avisos", () => como("anon", null, "select q_minhas_notificacoes(10)"), true);
+let atA;
+await espera("mensagens do cliente viram UM aviso só para o responsável (agrupa)", async () => {
+  await como("authenticated", M, "select q_marcar_notificacoes_lidas(null)");
+  atA = (await db.query(`select id from atendimentos where cliente_id = '${clienteDoA}' and arquivado_em is null`)).rows[0]?.id;
+  if (!atA) {
+    const setor = (await db.query("select id from departamentos where atende_chat limit 1")).rows[0].id;
+    atA = (await db.query(`insert into atendimentos (cliente_id, contrato_id, setor_id, titulo, responsavel_id) values ('${clienteDoA}', '${contrato1}', '${setor}', 'Teste', '${M}') returning id`)).rows[0].id;
+  }
+  await db.query(`update atendimentos set responsavel_id = '${M}' where id = '${atA}'`);
+  for (const t of ["oi", "tudo bem?", "mandei o RG"]) await db.query(`insert into atendimento_mensagens (atendimento_id, autor_tipo, autor_id, corpo) values ('${atA}', 'cliente', '${clienteDoA}', '${t}')`);
+  const n = await notif(M);
+  return { rows: [n.nao_lidas, n.itens.filter((i) => i.tipo === "mensagem_cliente" && !i.lida_em)] };
+}, false, (r) => r.rows[0] === 1 && r.rows[1].length === 1 && r.rows[1][0].corpo === "mandei o RG");
+await espera("resposta da equipe avisa o cliente", async () => {
+  await db.query(`insert into atendimento_mensagens (atendimento_id, autor_tipo, autor_id, corpo) values ('${atA}', 'equipe', '${M}', 'Recebido!')`);
+  return { rows: (await notif(P)).itens };
+}, false, (r) => r.rows.some((i) => i.tipo === "mensagem_equipe" && i.link === "/chat"));
+await espera("marcar como lidas zera o contador (só as minhas)", async () => {
+  const antesP = (await notif(P)).nao_lidas;
+  await como("authenticated", M, "select q_marcar_notificacoes_lidas(null)");
+  return { rows: [(await notif(M)).nao_lidas, (await notif(P)).nao_lidas, antesP] };
+}, false, (r) => r.rows[0] === 0 && r.rows[1] === r.rows[2] && r.rows[2] > 0);
+await espera("histórico URGENTE: o cliente recebe o aviso, nunca o texto", async () => {
+  const dep = (await db.query("insert into departamentos (nome, urgente) values ('Jurídico urgente teste', true) returning id")).rows[0].id;
+  await como("authenticated", M, `insert into contrato_historico (contrato_id, departamento_id, texto) values ('${contrato1}', '${dep}', 'SEGREDO-INTERNO')`);
+  return { rows: (await notif(P)).itens };
+}, false, (r) => r.rows.some((i) => i.tipo === "historico_urgente") && !JSON.stringify(r.rows).includes("SEGREDO-INTERNO"));
+
+// ── departamento no perfil: só o gestor muda
+const depX = (await db.query("select id from departamentos limit 1")).rows[0].id;
+await espera("colaborador não muda o próprio departamento", () => como("authenticated", M, `update perfis set departamento_id = '${depX}' where id = '${M}'`), true);
+await espera("gestor muda o departamento de alguém", async () => {
+  await como("authenticated", G, `update perfis set departamento_id = '${depX}' where id = '${M}'`);
+  return db.query(`select departamento_id from perfis where id = '${M}'`);
+}, false, (r) => r.rows[0].departamento_id === depX);
+await espera("colaborador ainda edita nome e foto do próprio perfil", () => como("authenticated", M, `update perfis set nome = 'Colab A Silva', avatar_url = 'https://x/y.webp' where id = '${M}' returning id`), false, (r) => r.rows.length === 1);
+
+// ── fotos: cada um na PRÓPRIA pasta, só a equipe
+await espera("o bucket de fotos existe e é público", () => db.query("select public from storage.buckets where id = 'avatares'"), false, (r) => r.rows[0]?.public === true);
+await espera("a pessoa envia foto na própria pasta", () => como("authenticated", M, `insert into storage.objects (bucket_id, name) values ('avatares', '${M}/1.webp') returning id`), false, (r) => r.rows.length === 1);
+await espera("não envia na pasta de outra pessoa", () => como("authenticated", M, `insert into storage.objects (bucket_id, name) values ('avatares', '${B}/1.webp')`), true);
+await espera("cliente do portal não envia foto", () => como("authenticated", P, `insert into storage.objects (bucket_id, name) values ('avatares', '${P}/1.webp')`), true);
 
 console.log(`\n${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);

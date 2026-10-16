@@ -112,12 +112,12 @@ function Conteudo({ c }: { c: ContratoPipeline }) {
       </SheetHeader>
 
       <Tabs value={abaVisivel} onValueChange={(v) => setAba(v)} className="mt-5">
-        <TabsList className={`grid w-full ${c.cliente ? "grid-cols-5" : "grid-cols-4"}`}>
-          <TabsTrigger value="dados" className="px-1 text-xs sm:text-sm">Contrato</TabsTrigger>
-          {c.cliente && <TabsTrigger value="cliente" className="px-1 text-xs sm:text-sm">Cliente</TabsTrigger>}
-          <TabsTrigger value="historico" className="px-1 text-xs sm:text-sm">Histórico</TabsTrigger>
-          <TabsTrigger value="documentos" className="px-1 text-xs sm:text-sm">Pendências</TabsTrigger>
-          <TabsTrigger value="atendimentos" className="px-1 text-xs sm:text-sm">Chat</TabsTrigger>
+        <TabsList className={`flex w-full sm:grid ${c.cliente ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
+          <TabsTrigger value="dados" className="shrink-0 px-3 text-sm sm:px-1">Contrato</TabsTrigger>
+          {c.cliente && <TabsTrigger value="cliente" className="shrink-0 px-3 text-sm sm:px-1">Cliente</TabsTrigger>}
+          <TabsTrigger value="historico" className="shrink-0 px-3 text-sm sm:px-1">Histórico</TabsTrigger>
+          <TabsTrigger value="documentos" className="shrink-0 px-3 text-sm sm:px-1">Pendências</TabsTrigger>
+          <TabsTrigger value="atendimentos" className="shrink-0 px-3 text-sm sm:px-1">Chat</TabsTrigger>
         </TabsList>
         <TabsContent value="dados"><AbaDados c={c} onEditarCliente={() => setAba("cliente")} /></TabsContent>
         {c.cliente && (

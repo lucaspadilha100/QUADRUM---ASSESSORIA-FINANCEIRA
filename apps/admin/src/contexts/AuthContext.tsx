@@ -16,6 +16,8 @@ export interface Perfil {
   avatar_url: string | null;
   papel: "gestor" | "colaborador";
   ativo: boolean;
+  departamento_id?: string | null;
+  departamento_nome?: string | null;
 }
 
 export const PAPEL_LABEL: Record<Perfil["papel"], string> = {
@@ -61,7 +63,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
     // Falha de consulta NÃO vira "não é da equipe" calado: aparece no console.
     if (error) console.error("[auth] falha ao ler o perfil:", error.message);
-    setPerfil((data as Perfil | null) ?? null);
+    let p = (data as Perfil | null) ?? null;
+    // Departamento à parte: se a coluna ainda não existir no banco, o perfil
+    // continua entrando (só sem o departamento no topo).
+    if (p) {
+      const dep = await supabase.from("perfis").select("departamento_id, departamento:departamentos(nome)").eq("id", userId).maybeSingle();
+      if (!dep.error && dep.data) {
+        const d = dep.data as unknown as { departamento_id: string | null; departamento: { nome: string } | null };
+        p = { ...p, departamento_id: d.departamento_id, departamento_nome: d.departamento?.nome ?? null };
+      }
+    }
+    setPerfil(p);
     const prov = await supabase.rpc("q_senha_provisoria");
     if (prov.error) console.error("[auth] falha ao ler a senha provisória:", prov.error.message);
     setSenhaProvisoria(prov.data === true);

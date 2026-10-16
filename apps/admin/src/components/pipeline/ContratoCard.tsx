@@ -69,7 +69,7 @@ export function ContratoCard({ c, onClick }: { c: ContratoPipeline; onClick?: (c
       <div className="mt-auto flex items-center gap-2 border-t border-border pt-1.5">
         {c.consultor ? (
           <>
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-q-onix text-[9px] font-semibold text-q-gold">
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-q-onix text-[10px] font-semibold text-q-gold">
               {iniciais(c.consultor.nome)}
             </span>
             <span className="truncate text-[11px] text-muted-foreground">{c.consultor.nome}</span>

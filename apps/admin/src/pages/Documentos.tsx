@@ -134,14 +134,14 @@ function Linha({ d, onAbrirContrato }: { d: DocumentoLista; onAbrirContrato: (id
           {d.titulo}
           {d.no_sistema && <span className="ml-2 rounded-full bg-q-onix px-1.5 py-0.5 align-middle text-[10px] font-medium text-q-gold">assina no portal</span>}
         </p>
-        <p className="truncate text-xs text-muted-foreground">
+        <p className="text-xs text-muted-foreground sm:truncate">
           {d.cliente_nome ?? "Cliente de outra carteira"}
           {d.cliente_documento ? ` · ${formatarDocumento(d.cliente_documento)}` : ""}
           {" · "}
           <button type="button" onClick={() => onAbrirContrato(d.contrato_id)} className="q-link">Contrato #{d.contrato_numero}</button>
         </p>
       </div>
-      <div className="text-xs text-muted-foreground sm:w-56">
+      <div className="w-full pl-9 text-xs text-muted-foreground sm:w-56 sm:pl-0">
         {pendente ? (
           <span className={dias >= 7 ? "font-medium text-destructive" : ""}>
             Pendente desde {dataBR(d.created_at)}{dias > 0 ? ` (${dias}d)` : ""}
@@ -151,7 +151,7 @@ function Linha({ d, onAbrirContrato }: { d: DocumentoLista; onAbrirContrato: (id
           <SituacaoDocumento assinado_em={d.assinado_em} cancelado_em={d.cancelado_em} no_sistema={d.no_sistema} />
         )}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex w-full flex-wrap items-center gap-2 pl-9 sm:w-auto sm:pl-0">
         {d.no_sistema ? (
           <Button asChild size="sm" variant="outline"><Link to={`/documentos/${d.id}`}><Eye className="mr-1 h-3.5 w-3.5" /> Ver</Link></Button>
         ) : d.link_assinatura ? (

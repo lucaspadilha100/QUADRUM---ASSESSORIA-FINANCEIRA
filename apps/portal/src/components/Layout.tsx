@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
-import { FileText, KeyRound, Loader2, LogOut, Menu, MessageCircle, X } from "lucide-react";
+import { FileText, KeyRound, Loader2, LogOut, Menu, MessageCircle, Moon, Sun, X } from "lucide-react";
+import { Notificacoes } from "@/components/Notificacoes";
+import { useTema } from "@/hooks/useTema";
 import { TrocarSenha } from "@/components/TrocarSenha";
 import { useSessao } from "@/contexts/Sessao";
 import { formatarDocumento } from "@/lib/formato";
@@ -16,6 +18,12 @@ export function Layout() {
   const [aberto, setAberto] = useState(false);
   const { pathname } = useLocation();
   useEffect(() => setAberto(false), [pathname]);
+  useEffect(() => {
+    if (!aberto) return;
+    const antes = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = antes; };
+  }, [aberto]);
 
   if (carregando) {
     return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>;
@@ -58,6 +66,7 @@ export function Layout() {
         <button onClick={() => setAberto(true)} aria-label="Abrir menu" className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted"><Menu className="h-5 w-5" /></button>
         <img src={simboloQ} alt="" className="h-7 w-auto" />
         <span className="q-titulo-marca text-sm font-semibold">Quadrum</span>
+        <div className="ml-auto flex items-center gap-0.5"><Notificacoes releCada={20_000} /><BotaoTema /></div>
       </header>
       {aberto && (
         <div className="q-escuro fixed inset-0 z-40 flex flex-col bg-background md:hidden">
@@ -68,6 +77,10 @@ export function Layout() {
 
       <main className="relative min-h-screen flex-1 overflow-hidden md:ml-[300px] print:ml-0">
         <img src={simboloQ} alt="" aria-hidden className="q-nao-imprimir pointer-events-none fixed -bottom-24 -right-24 w-[480px] max-w-none select-none opacity-[0.04]" />
+        <div className="q-nao-imprimir sticky top-0 z-20 hidden h-14 items-center justify-end gap-1 border-b border-border bg-card/90 px-8 backdrop-blur md:flex">
+          <Notificacoes releCada={20_000} />
+          <BotaoTema />
+        </div>
         <div className="relative mx-auto max-w-4xl px-4 py-6 sm:px-8 sm:py-10 print:max-w-none print:p-0">
           <Outlet />
         </div>
@@ -105,5 +118,15 @@ function Menu_({ nome, documento, onSair }: { nome: string; documento: string; o
       </nav>
       <p className="px-6 pb-6 text-xs text-muted-foreground">Juntos pelo seu recomeço.</p>
     </div>
+  );
+}
+
+function BotaoTema() {
+  const { tema, alternar } = useTema();
+  return (
+    <button type="button" onClick={alternar} aria-label={tema === "escuro" ? "Tema claro" : "Tema escuro"} title={tema === "escuro" ? "Tema claro" : "Tema escuro"}
+      className="flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+      {tema === "escuro" ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+    </button>
   );
 }

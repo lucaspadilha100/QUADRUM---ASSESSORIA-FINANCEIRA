@@ -31,7 +31,7 @@ export function TextoDocumento({ texto }: { texto: string }) {
           return <h2 key={b} className="pb-2 text-center font-titulo text-base font-bold uppercase tracking-wide">{linhas[0].slice(2)}</h2>;
         }
         return (
-          <p key={b} className="text-justify">
+          <p key={b} className="text-left sm:text-justify print:text-justify">
             {linhas.map((l, i) => (
               <Fragment key={i}>
                 {i > 0 && <br />}

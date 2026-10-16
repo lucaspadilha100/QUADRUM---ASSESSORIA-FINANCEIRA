@@ -66,7 +66,7 @@ export function TrocarSenha({ provisoria, onPronto, rotulo = "Salvar nova senha"
         <div className="relative">
           <Input id="senha-nova" type={tipo} autoComplete="new-password" value={nova} onChange={(e) => setNova(e.target.value)} className="bg-background pr-10" autoFocus={provisoria} />
           <button type="button" onClick={() => setVer((v) => !v)} aria-label={ver ? "Esconder senha" : "Mostrar senha"}
-            className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:text-foreground">
+            className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:text-foreground">
             {ver ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>

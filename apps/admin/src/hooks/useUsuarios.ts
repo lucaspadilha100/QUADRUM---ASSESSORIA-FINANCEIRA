@@ -16,6 +16,8 @@ export interface Usuario {
   papel: "gestor" | "colaborador";
   ativo: boolean;
   created_at: string;
+  avatar_url?: string | null;
+  departamento_id?: string | null;
 }
 
 export function useUsuarios() {
@@ -24,7 +26,7 @@ export function useUsuarios() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("perfis")
-        .select("id, nome, email, telefone, cargo, papel, ativo, created_at")
+        .select("*")
         .order("ativo", { ascending: false }).order("nome", { ascending: true });
       if (error) throw new Error(error.message);
       return (data ?? []) as Usuario[];
@@ -68,7 +70,7 @@ export function useCriarUsuario() {
 export function useAtualizarUsuario() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, campos }: { id: string; campos: Partial<Pick<Usuario, "nome" | "telefone" | "cargo" | "papel" | "ativo">> }) => {
+    mutationFn: async ({ id, campos }: { id: string; campos: Partial<Pick<Usuario, "nome" | "telefone" | "cargo" | "papel" | "ativo" | "departamento_id">> }) => {
       const { error } = await supabase.from("perfis").update(campos).eq("id", id);
       if (error) throw erro(error);
     },

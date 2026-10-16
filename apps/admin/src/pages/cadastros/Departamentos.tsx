@@ -52,8 +52,8 @@ export default function Departamentos() {
         {isLoading ? <Carregando /> : error ? <Falha erro={error as Error} /> : lista.length === 0 ? (
           <Vazio texto="Nenhum departamento cadastrado." />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <table className="w-full min-w-[520px] text-sm">
               <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2.5 font-medium">Nome</th>

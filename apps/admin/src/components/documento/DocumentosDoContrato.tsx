@@ -95,7 +95,7 @@ function ItemDocumento({ d, contratoId }: { d: DocumentoPendente; contratoId: st
           <SituacaoDocumento assinado_em={d.assinado_em} cancelado_em={d.cancelado_em} no_sistema={noSistema} />
         </p>
       </div>
-      <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         {noSistema ? (
           <Button asChild size="sm" variant="outline"><Link to={`/documentos/${d.id}`}><Eye className="mr-1 h-3.5 w-3.5" /> Ver</Link></Button>
         ) : d.link_assinatura ? (
