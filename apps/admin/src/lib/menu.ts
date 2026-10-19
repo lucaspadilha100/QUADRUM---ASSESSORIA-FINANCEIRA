@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, KanbanSquare, MessagesSquare, Users, FileText, PenLine,
-  Landmark, CreditCard, Building2, Network, UserCog, FileSignature, ShieldCheck,
+  Landmark, CreditCard, Building2, Network, UserCog, FileSignature, Activity,
 } from "lucide-react";
 import type { ShellNavSection } from "@/shell";
 
@@ -34,7 +34,14 @@ export const MENU: ShellNavSection[] = [
       { to: "/cadastros/modelos", label: "Modelos de documento", icon: FileSignature },
       { to: "/cadastros/departamentos", label: "Departamentos e setores", icon: Network },
       { to: "/cadastros/usuarios", label: "Usuários", icon: UserCog },
-      { to: "/cadastros/privacidade", label: "Privacidade (LGPD)", icon: ShieldCheck },
     ],
+  },
+];
+
+// Telas que só o ADMINISTRADOR vê (o banco também recusa os outros).
+export const MENU_ADMIN: ShellNavSection[] = [
+  {
+    label: "Administração",
+    items: [{ to: "/admin/acessos", label: "Últimos acessos", icon: Activity }],
   },
 ];

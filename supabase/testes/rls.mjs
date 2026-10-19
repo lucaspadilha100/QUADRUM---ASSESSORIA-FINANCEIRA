@@ -531,5 +531,42 @@ await espera("gestor exporta tudo do cliente (e fica registrado)", async () => {
 await espera("colaborador não exporta (nem cliente da própria carteira)", () => como("authenticated", M, `select q_cliente_exportar('${clienteDoA}')`), true);
 await espera("o cliente não exporta pela função da equipe", () => como("authenticated", P, `select q_cliente_exportar('${clienteDoA}')`), true);
 
+// ── ADMINISTRADOR: acima do gestor, invisível para os outros
+const ADM = "00000000-0000-0000-0000-0000000000ad";
+await espera("o admin nasce pelo SQL Editor (sem usuário na sessão)", async () => {
+  await db.query(`insert into auth.users (id, email, encrypted_password) values ('${ADM}', 'dono@quadrum.com.br', extensions.crypt('x', extensions.gen_salt('bf')))`);
+  return db.query(`insert into perfis (id, nome, email, papel) values ('${ADM}', 'Dono', 'dono@quadrum.com.br', 'admin') returning id`);
+}, false, (r) => r.rows.length === 1);
+await espera("admin vale como gestor (vê a carteira inteira)", () => como("authenticated", ADM, "select q_e_gestor() as g, q_e_admin() as a, (select count(*) from clientes) as n"), false, (r) => r.rows[0].g && r.rows[0].a && Number(r.rows[0].n) > 0);
+await espera("o gestor NÃO vê o admin na lista de perfis", () => como("authenticated", G, `select count(*) as n from perfis where id = '${ADM}'`), false, (r) => Number(r.rows[0].n) === 0);
+await espera("o colaborador também não", () => como("authenticated", M, `select count(*) as n from perfis where id = '${ADM}'`), false, (r) => Number(r.rows[0].n) === 0);
+await espera("o admin vê a si mesmo e a equipe toda", () => como("authenticated", ADM, "select count(*) as n from perfis"), false, (r) => Number(r.rows[0].n) >= 4);
+await espera("gestor não rebaixa nem desativa o admin", async () => {
+  await como("authenticated", G, `update perfis set ativo = false where id = '${ADM}'`);
+  return db.query(`select ativo from perfis where id = '${ADM}'`);
+}, false, (r) => r.rows[0].ativo === true);
+await espera("gestor não dá o nível admin a ninguém", () => como("authenticated", G, `update perfis set papel = 'admin' where id = '${M}'`), true);
+await espera("gestor não cria perfil admin", () => como("authenticated", G, `insert into perfis (id, nome, papel) values ('${B}', 'x', 'admin')`), true);
+await espera("o admin edita o próprio perfil", () => como("authenticated", ADM, `update perfis set nome = 'Dono do Sistema' where id = '${ADM}' returning nome`), false, (r) => r.rows[0]?.nome === "Dono do Sistema");
+
+// ── acessos: cada login fica registrado; só o admin vê
+await espera("o login registra o acesso com IP e navegador (equipe)", async () => {
+  await sql(`reset role; select set_config('request.jwt.claim.sub', '${M}', false); select set_config('request.headers', '{"x-forwarded-for":"177.1.1.1, 10.0.0.1","user-agent":"Chrome Teste"}', false); set role authenticated;`);
+  try { await db.query("select q_registrar_acesso('admin')"); } finally { await sql("reset role; select set_config('request.jwt.claim.sub', '', false); select set_config('request.headers', '', false);"); }
+  return db.query(`select app, ip, user_agent from acessos where user_id = '${M}'`);
+}, false, (r) => r.rows[0]?.app === "admin" && r.rows[0].ip === "177.1.1.1" && r.rows[0].user_agent === "Chrome Teste");
+await espera("o cliente do portal também registra", async () => { await comoCliente("select q_registrar_acesso('portal')"); return db.query(`select count(*) as n from acessos where user_id = '${P}' and app = 'portal'`); }, false, (r) => Number(r.rows[0].n) === 1);
+await espera("app desconhecido é recusado", () => como("authenticated", M, "select q_registrar_acesso('outro')"), true);
+await espera("anon não registra acesso", () => como("anon", null, "select q_registrar_acesso('admin')"), true);
+await espera("ninguém lê a tabela de acessos direto (nem o gestor)", () => como("authenticated", G, "select * from acessos"), true);
+await espera("o admin vê todos, equipe e clientes, com o último acesso", () => como("authenticated", ADM, "select q_acessos_pessoas('', 'todos', 1, 100) as p"), false, (r) => {
+  const p = r.rows[0].p; const m = p.linhas.find((x) => x.user_id === M);
+  return p.contagem.equipe >= 4 && p.contagem.clientes >= 1 && m?.ip === "177.1.1.1" && m.acessos_30d === 1 && p.linhas[0].ultimo_acesso !== null;
+});
+await espera("filtro de clientes e busca sem acento", () => como("authenticated", ADM, "select q_acessos_pessoas('cliente do a', 'clientes', 1, 20) as p"), false, (r) => r.rows[0].p.linhas.length === 1 && r.rows[0].p.linhas[0].tipo === "cliente");
+await espera("os acessos de uma pessoa", () => como("authenticated", ADM, `select q_acessos_de('${M}', 10) as a`), false, (r) => r.rows[0].a.length === 1 && r.rows[0].a[0].ip === "177.1.1.1");
+await espera("o gestor não vê a tela de acessos", () => como("authenticated", G, "select q_acessos_pessoas('', 'todos', 1, 20)"), true);
+await espera("o colaborador também não", () => como("authenticated", M, `select q_acessos_de('${M}', 10)`), true);
+
 console.log(`\n${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);

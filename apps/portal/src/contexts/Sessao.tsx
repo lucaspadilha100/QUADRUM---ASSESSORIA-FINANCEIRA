@@ -45,7 +45,11 @@ export function SessaoProvider({ children }: { children: ReactNode }) {
 
   const entrar = async (documento: string, senha: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email: emailDoDocumento(documento), password: senha });
-    if (!error) return null;
+    if (!error) {
+      // Registro do acesso (o administrador vê). Falha aqui não impede de entrar.
+      supabase.rpc("q_registrar_acesso", { p_app: "portal" }).then(({ error: e }) => { if (e) console.warn("[portal] registro de acesso:", e.message); });
+      return null;
+    }
     const txt = `${(error as { code?: string }).code ?? ""} ${error.message}`;
     if (/invalid.*credentials/i.test(txt)) return "CPF/CNPJ ou senha incorretos.";
     if (/banned/i.test(txt)) return "Acesso bloqueado. Fale com o seu consultor.";

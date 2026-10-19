@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -21,7 +21,7 @@ const Modelos = lazy(() => import("@/pages/cadastros/Modelos"));
 const Bancos = lazy(() => import("@/pages/cadastros/Bancos"));
 const LinhasCredito = lazy(() => import("@/pages/cadastros/LinhasCredito"));
 const Unidades = lazy(() => import("@/pages/cadastros/Unidades"));
-const Privacidade = lazy(() => import("@/pages/cadastros/Privacidade"));
+const Acessos = lazy(() => import("@/pages/admin/Acessos"));
 const DocumentoVer = lazy(() => import("@/pages/DocumentoVer"));
 const DocumentoImprimir = lazy(() => import("@/pages/DocumentoImprimir"));
 
@@ -60,7 +60,8 @@ export default function App() {
                 <Route path="/cadastros/bancos" element={<Bancos />} />
                 <Route path="/cadastros/linhas-de-credito" element={<LinhasCredito />} />
                 <Route path="/cadastros/unidades" element={<Unidades />} />
-                <Route path="/cadastros/privacidade" element={<Privacidade />} />
+                <Route path="/cadastros/privacidade" element={<Navigate to="/cadastros/modelos?modelo=privacidade" replace />} />
+                <Route path="/admin/acessos" element={<Acessos />} />
                 <Route path="*" element={<PaginaNaoEncontrada />} />
               </Route>
             </Routes>

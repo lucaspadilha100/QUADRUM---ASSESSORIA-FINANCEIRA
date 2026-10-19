@@ -13,7 +13,7 @@ export interface Usuario {
   email: string | null;
   telefone: string | null;
   cargo: string | null;
-  papel: "gestor" | "colaborador";
+  papel: "admin" | "gestor" | "colaborador";
   ativo: boolean;
   created_at: string;
   avatar_url?: string | null;

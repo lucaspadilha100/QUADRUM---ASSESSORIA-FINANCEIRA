@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { CheckCircle2, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,14 +13,15 @@ import { useCriarTermo, usePublicarTermo, useTermos, type Termo } from "@/hooks/
 import { dataBR } from "@/lib/formato";
 import { confirmar, useParamUrl } from "@/shell";
 
-export default function Privacidade() {
+/** A Política de Privacidade (LGPD), dentro de Modelos de documento: versões, publicar e o texto. */
+export function TermoPrivacidade() {
   const { isGestor } = useAuth();
   const { data, isLoading, error } = useTermos();
   const publicar = usePublicarTermo();
-  const [abertoId, setAbertoId] = useParamUrl("versao", "");
+  const [versaoId, setVersaoId] = useParamUrl("versao", "");
   const [nova, setNova] = useState(false);
   const termos = data?.termos ?? [];
-  const aberto = termos.find((t) => t.id === abertoId) ?? termos.find((t) => t.ativo) ?? termos[0] ?? null;
+  const aberto = termos.find((t) => t.id === versaoId) ?? termos.find((t) => t.ativo) ?? termos[0] ?? null;
 
   const aoPublicar = async (t: Termo) => {
     if (!(await confirmar({ titulo: `Publicar a versão ${t.versao}?`, mensagem: "Todos os clientes aceitam de novo no próximo acesso ao portal.", confirmar: "Publicar" }))) return;
@@ -29,51 +29,39 @@ export default function Privacidade() {
     catch (e) { toast.error("Não foi possível publicar.", { description: (e as Error).message }); }
   };
   const aoDesativar = async () => {
-    if (!(await confirmar({ titulo: "Tirar o termo de vigor?", mensagem: "O portal deixa de pedir aceite.", confirmar: "Tirar de vigor", perigo: true }))) return;
-    try { await publicar.mutateAsync(null); toast.success("Nenhum termo em vigor."); }
+    if (!(await confirmar({ titulo: "Tirar a política de vigor?", mensagem: "O portal deixa de pedir aceite.", confirmar: "Tirar de vigor", perigo: true }))) return;
+    try { await publicar.mutateAsync(null); toast.success("Nenhuma política em vigor."); }
     catch (e) { toast.error("Não foi possível.", { description: (e as Error).message }); }
   };
 
+  if (isLoading) return <Carregando />;
+  if (error) return <Falha erro={error as Error} />;
+
   return (
-    <div>
-      <PageHeader titulo="Privacidade (LGPD)" acoes={isGestor && <Button onClick={() => setNova(true)}><Plus className="mr-1.5 h-4 w-4" /> Nova versão</Button>} />
-      <div className="grid gap-4 px-4 py-4 sm:px-8 lg:grid-cols-[280px_1fr]">
-        {isLoading ? <Carregando /> : error ? <Falha erro={error as Error} /> : (
-          <>
-            <ul className="space-y-2">
-              {termos.map((t) => (
-                <li key={t.id}>
-                  <button type="button" onClick={() => setAbertoId(t.id)}
-                    className={`w-full rounded-xl border p-3 text-left transition-colors ${aberto?.id === t.id ? "border-q-gold bg-accent" : "border-border bg-card hover:bg-accent/50"}`}>
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-foreground">Versão {t.versao}</span>
-                      {t.ativo
-                        ? <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success"><CheckCircle2 className="h-3 w-3" /> Em vigor</span>
-                        : <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">{t.publicado_em ? "Anterior" : "Rascunho"}</span>}
-                    </span>
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                      {t.publicado_em ? `Publicada em ${dataBR(t.publicado_em)}` : `Criada em ${dataBR(t.created_at)}`} · {data?.aceites[t.id] ?? 0} aceite{(data?.aceites[t.id] ?? 0) === 1 ? "" : "s"}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {aberto && (
-              <article className="rounded-xl border border-border bg-card p-5 sm:p-8">
-                {isGestor && (
-                  <div className="mb-5 flex flex-wrap justify-end gap-2">
-                    {aberto.ativo
-                      ? <Button variant="outline" onClick={aoDesativar} disabled={publicar.isPending}>Tirar de vigor</Button>
-                      : <Button onClick={() => aoPublicar(aberto)} disabled={publicar.isPending}>{publicar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Publicar esta versão</Button>}
-                  </div>
-                )}
-                <TextoDocumento texto={aberto.texto} />
-              </article>
-            )}
-          </>
-        )}
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {termos.map((t) => (
+          <button key={t.id} type="button" onClick={() => setVersaoId(t.id)}
+            className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors sm:min-h-8 ${aberto?.id === t.id ? "border-q-gold bg-accent text-foreground" : "border-border bg-card text-muted-foreground hover:text-foreground"}`}>
+            {t.ativo && <CheckCircle2 className="h-3.5 w-3.5 text-success" />}
+            Versão {t.versao} · {t.ativo ? "em vigor" : t.publicado_em ? "anterior" : "rascunho"} · {data?.aceites[t.id] ?? 0} aceite{(data?.aceites[t.id] ?? 0) === 1 ? "" : "s"}
+          </button>
+        ))}
+        {isGestor && <Button size="sm" variant="outline" className="ml-auto" onClick={() => setNova(true)}><Plus className="mr-1 h-4 w-4" /> Nova versão</Button>}
       </div>
-      <NovaVersao aberto={nova} base={termos[0] ?? null} onFechar={() => setNova(false)} onCriado={(id) => { setNova(false); setAbertoId(id); }} />
+
+      {aberto && (
+        <article className="rounded-xl border border-border bg-card p-5 sm:p-8">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-muted-foreground">{aberto.publicado_em ? `Publicada em ${dataBR(aberto.publicado_em)}` : `Criada em ${dataBR(aberto.created_at)}`}</p>
+            {isGestor && (aberto.ativo
+              ? <Button variant="outline" onClick={aoDesativar} disabled={publicar.isPending}>Tirar de vigor</Button>
+              : <Button onClick={() => aoPublicar(aberto)} disabled={publicar.isPending}>{publicar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Publicar esta versão</Button>)}
+          </div>
+          <TextoDocumento texto={aberto.texto} />
+        </article>
+      )}
+      <NovaVersao aberto={nova} base={aberto} onFechar={() => setNova(false)} onCriado={(id) => { setNova(false); setVersaoId(id); }} />
     </div>
   );
 }
@@ -93,8 +81,8 @@ function NovaVersao({ aberto, base, onFechar, onCriado }: { aberto: boolean; bas
     <Dialog open={aberto} onOpenChange={(o) => !o && onFechar()}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Nova versão do termo</DialogTitle>
-          <DialogDescription className="sr-only">Nova versão do termo de privacidade</DialogDescription>
+          <DialogTitle>Nova versão da política</DialogTitle>
+          <DialogDescription className="sr-only">Nova versão da política de privacidade</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5"><Label htmlFor="t-titulo">Título</Label><Input id="t-titulo" value={titulo} onChange={(e) => setTitulo(e.target.value)} /></div>

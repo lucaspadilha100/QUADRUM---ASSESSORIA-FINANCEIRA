@@ -44,11 +44,14 @@ React 18 + TypeScript + Vite · Tailwind + shadcn/ui · TanStack Query ·
   curto que precise ler inteiro: o PostgREST corta em 1.000 **sem avisar**, e
   paginar exige ordem estável (`id`).
 
-## Acesso — GESTOR e COLABORADOR (sem matriz de telas)
+## Acesso — ADMIN, GESTOR e COLABORADOR (sem matriz de telas)
 Pedido do dono do processo (15/10/2026): cada pessoa tem o seu perfil, e o
 NÍVEL decide o que ela vê. O cliente do portal é usuário comum, sem nível.
 
 ```
+ADMIN        o criador do sistema (19/10/2026): tudo o que o gestor faz
+             (q_e_gestor() é verdadeiro para ele) + telas de Administração;
+             INVISÍVEL para quem não é admin (Usuários, consultor, responsável)
 GESTOR       vê e opera tudo; mantém cadastros, usuários; transfere carteira
 COLABORADOR  vê só a PRÓPRIA carteira: clientes de que é consultor e o que
              pende deles (contratos, histórico, documentos, atendimentos),
@@ -71,6 +74,19 @@ COLABORADOR  vê só a PRÓPRIA carteira: clientes de que é consultor e o que
   colaborador de passar um cliente a outra pessoa.
 - Corpo de função SQL guarda nome de tabela em TEXTO: renomeou tabela,
   recrie as funções que a citam (a 20261015010000 teve de fazer isso).
+- ⚠️ **Admin só nasce pelo SQL Editor** (`20261021000000`): nenhuma tela dá o
+  nível, e quem não é admin não cria, não promove, não rebaixa nem desativa
+  um admin (`q_perfil_protege_acesso`, `trg_perfil_admin_so_pelo_admin`). A
+  regra de leitura de `perfis` o esconde pela COLUNA `papel`. Admin conta como
+  gestor no "sobra um gestor".
+- Tela só do admin: entra em `MENU_ADMIN` (`lib/menu.ts`, seção
+  Administração), barra com `PaginaNaoEncontrada` se `!isAdmin`, e a função do
+  banco recusa quem não é admin (`q_e_admin()`) — a tela é aparência.
+- **Últimos acessos** (`/admin/acessos`): cada login (admin e portal) chama
+  `q_registrar_acesso` logo depois de entrar; IP e navegador vêm dos
+  cabeçalhos. Ninguém lê `acessos` direto: `q_acessos_pessoas` (página, uma
+  linha por pessoa, último acesso = o maior entre o registro e o
+  `last_sign_in_at` do Auth) e `q_acessos_de` (histórico de uma pessoa).
 
 ## Pipeline (kanban) — o CARD É O CONTRATO
 Pedido do dono do processo (15/10/2026): a pipeline do CRM da Carbo (card,
@@ -389,7 +405,10 @@ Migração `20261020000000_linha_do_tempo_e_lgpd.sql`.
   versão de partida nasce inativa (jurídico completa). O portal só pede aceite
   com termo em vigor (`AceitePrivacidade`, depois da troca de senha); o
   aceite guarda IP, navegador e hash do texto (`privacidade_aceites`).
-  Admin: Cadastros → Privacidade (LGPD). Portal: menu Privacidade.
+  Admin: Modelos de documento → "Política de Privacidade (LGPD)", o último
+  item da lista (`documento/TermoPrivacidade.tsx`; pedido do dono do processo,
+  19/10/2026: fora do menu, "polui a barra"). `/cadastros/privacidade`
+  redireciona para lá. Portal: menu Privacidade.
 - Exportar dados do cliente: `q_cliente_exportar` (só gestor, cada exportação
   fica em `lgpd_exportacoes`), botão "Exportar dados (LGPD)" na ficha → JSON.
   Tabela nova com dado do cliente entra nessa função.

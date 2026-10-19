@@ -14,13 +14,14 @@ export interface Perfil {
   telefone: string | null;
   cargo: string | null;
   avatar_url: string | null;
-  papel: "gestor" | "colaborador";
+  papel: "admin" | "gestor" | "colaborador";
   ativo: boolean;
   departamento_id?: string | null;
   departamento_nome?: string | null;
 }
 
 export const PAPEL_LABEL: Record<Perfil["papel"], string> = {
+  admin: "Administrador",
   gestor: "Gestor",
   colaborador: "Colaborador",
 };
@@ -35,7 +36,10 @@ interface AuthContextType {
    * A trava de verdade é a RLS; isto é só a porta da tela.
    */
   perfil: Perfil | null;
+  /** Gestor ou administrador: vê e opera tudo. */
   isGestor: boolean;
+  /** O administrador (criador do sistema): telas de administração. */
+  isAdmin: boolean;
   /** A senha foi gerada por outra pessoa: só entra depois de criar a própria. */
   senhaProvisoria: boolean;
   senhaCriada: () => void;
@@ -105,7 +109,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (!error) return { error: null };
+    if (!error) {
+      // Registro do acesso (Últimos acessos). Falha aqui não impede de entrar.
+      supabase.rpc("q_registrar_acesso", { p_app: "admin" }).then(({ error: e }) => { if (e) console.warn("[auth] registro de acesso:", e.message); });
+      return { error: null };
+    }
     const codigo = (error as { code?: string }).code ?? "";
     const texto = `${codigo} ${error.message}`;
     if (/banned/i.test(texto)) return { error: new Error("Usuário bloqueado. Fale com um gestor.") };
@@ -127,7 +135,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         perfil,
-        isGestor: perfil?.papel === "gestor",
+        isGestor: perfil?.papel === "gestor" || perfil?.papel === "admin",
+        isAdmin: perfil?.papel === "admin",
         senhaProvisoria,
         senhaCriada: () => setSenhaProvisoria(false),
         recarregarPerfil: async () => { if (user) await carregarPerfil(user.id); },

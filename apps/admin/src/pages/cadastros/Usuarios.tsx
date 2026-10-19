@@ -82,7 +82,7 @@ export default function Usuarios() {
                     </p>
                     <p className="break-all text-xs text-muted-foreground sm:truncate sm:break-normal">{[u.email, nomeDep(u.departamento_id), u.cargo, u.telefone].filter(Boolean).join(" · ")}</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${u.papel === "gestor" ? "bg-q-onix text-q-gold" : "bg-muted text-muted-foreground"}`}>
+                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${u.papel !== "colaborador" ? "bg-q-onix text-q-gold" : "bg-muted text-muted-foreground"}`}>
                         {PAPEL_LABEL[u.papel]}
                       </span>
                       {provisorias?.has(u.id) && (
@@ -226,7 +226,9 @@ function EditarUsuario({ usuario, euId, onFechar, onSenha }: {
             <div className="space-y-1.5"><Label htmlFor="e-tel">Telefone</Label><Input id="e-tel" type="tel" value={telefone} onChange={(e) => setTelefone(e.target.value)} /></div>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <NivelSelect valor={papel} onChange={setPapel} />
+            {usuario?.papel === "admin"
+              ? <div className="space-y-1.5"><Label>Nível</Label><p className="flex h-10 items-center text-sm font-medium">{PAPEL_LABEL.admin}</p></div>
+              : <NivelSelect valor={papel} onChange={setPapel} />}
             <div className="space-y-1.5">
               <Label>Departamento</Label>
               <Select value={dep} onValueChange={setDep}>

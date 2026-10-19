@@ -10,7 +10,7 @@ export interface Etapa { id: string; nome: string; ordem: number; cor: string; a
 export interface Banco { id: string; nome: string; codigo: string | null; ativo: boolean }
 export interface LinhaCredito { id: string; nome: string; tem_veiculo: boolean; ativo: boolean }
 export interface Departamento { id: string; nome: string; atende_chat: boolean; urgente: boolean; ativo: boolean; ordem: number }
-export interface PessoaEquipe { id: string; nome: string; avatar_url: string | null; papel: "gestor" | "colaborador"; ativo: boolean }
+export interface PessoaEquipe { id: string; nome: string; avatar_url: string | null; papel: "admin" | "gestor" | "colaborador"; ativo: boolean }
 
 function lista<T>(chave: string, tabela: string, colunas: string, ordem: { col: string; asc?: boolean }[]) {
   return {

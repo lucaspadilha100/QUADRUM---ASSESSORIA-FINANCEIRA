@@ -3,7 +3,8 @@ import { Outlet } from "react-router-dom";
 import { Carregando } from "@/components/Estados";
 import { TopBar } from "@/components/TopBar";
 import { Sidebar, usePaginaAtual } from "@/shell";
-import { MENU } from "@/lib/menu";
+import { MENU, MENU_ADMIN } from "@/lib/menu";
+import { useAuth } from "@/contexts/AuthContext";
 import { useAoVivo } from "@/hooks/useAoVivo";
 import simboloQ from "@/assets/simbolo-q.png";
 
@@ -21,15 +22,17 @@ export function Layout() {
       return n;
     });
 
+  const { isAdmin } = useAuth();
+  const menu = isAdmin ? [...MENU, ...MENU_ADMIN] : MENU;
   const mainRef = useRef<HTMLElement>(null);
-  usePaginaAtual({ appName: "Quadrum Admin", sections: MENU, mainRef });
+  usePaginaAtual({ appName: "Quadrum Admin", sections: menu, mainRef });
   useAoVivo();
 
   return (
     <div className="flex h-screen overflow-hidden bg-background supports-[height:100dvh]:h-dvh">
       <Sidebar
         brand={{ appName: "Quadrum Admin", logoSrc: simboloQ, href: "/" }}
-        sections={MENU}
+        sections={menu}
         collapsed={collapsed}
         onToggleCollapse={toggleCollapsed}
         mobileOpen={mobileOpen}

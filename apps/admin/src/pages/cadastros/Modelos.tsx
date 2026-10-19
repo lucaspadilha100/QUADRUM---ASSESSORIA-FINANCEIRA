@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, FileText, Loader2, Plus, Save } from "lucide-react";
+import { AlertTriangle, FileText, Loader2, Plus, Save, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import { TextoDocumento } from "@/components/documento/DocumentoImpresso";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDocumentoTipos } from "@/hooks/useCadastros";
 import { useCatalogo, useModelos, usePrevia, useSalvarModelo, type Modelo } from "@/hooks/useModelos";
+import { useTermos } from "@/hooks/useLgpd";
+import { TermoPrivacidade } from "@/components/documento/TermoPrivacidade";
 import { useAtrasado } from "@/hooks/usePagina";
 import { confirmar, useParamUrl } from "@/shell";
 
@@ -28,6 +30,7 @@ import { confirmar, useParamUrl } from "@/shell";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const NOVO = "novo";
+const PRIVACIDADE = "privacidade";
 
 export default function Modelos() {
   const { isGestor } = useAuth();
@@ -36,6 +39,8 @@ export default function Modelos() {
   const [abertoId, setAbertoId] = useParamUrl("modelo", "");
   const aberto = abertoId === NOVO ? null : modelos.find((m) => m.id === abertoId) ?? null;
   const nomeTipo = (c: string) => tipos.find((t) => t.codigo === c)?.nome ?? c;
+  const { data: lgpd } = useTermos();
+  const termoEmVigor = lgpd?.termos.find((t) => t.ativo);
 
   return (
     <div>
@@ -63,11 +68,26 @@ export default function Modelos() {
                 </li>
               ))}
               {modelos.length === 0 && <li className="p-4 text-sm text-muted-foreground">Nenhum modelo.</li>}
+              <li>
+                <button type="button" onClick={() => setAbertoId(PRIVACIDADE)}
+                  className={`flex w-full items-start gap-2 p-3 text-left ${abertoId === PRIVACIDADE ? "bg-accent" : "hover:bg-accent/50"}`}>
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-q-petrol" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">Política de Privacidade (LGPD)</span>
+                    <span className="block text-[11px] text-muted-foreground">Aceite no portal{termoEmVigor ? ` · versão ${termoEmVigor.versao}` : ""}</span>
+                  </span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${termoEmVigor ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"}`}>
+                    {termoEmVigor ? "em vigor" : "rascunho"}
+                  </span>
+                </button>
+              </li>
             </ul>
           )}
         </aside>
         <section>
-          {abertoId ? (
+          {abertoId === PRIVACIDADE ? (
+            <TermoPrivacidade />
+          ) : abertoId ? (
             <Editor key={abertoId} modelo={aberto} somenteLeitura={!isGestor} onCriado={setAbertoId} />
           ) : (
             <div className="flex h-60 items-center justify-center rounded-xl border border-dashed border-border bg-card text-sm text-muted-foreground">
