@@ -179,6 +179,8 @@ funções, 3 gatilhos, 2 contas marcadas provisórias). Login de teste
 `20261020000000` (linha do tempo e LGPD) — aplicada e conferida em 16/10/2026
 (2 contratos com linha reconstituída, 2 gatilhos, 6 funções, termo de partida
 como rascunho, `contrato_movimentos` no Realtime).
+`20261022000000` (colunas da Pipeline: Reunião, Em negociação, Enviar link de
+pagamento, Enviado) — aplicada e conferida em 22/10/2026 (9 colunas na ordem).
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
