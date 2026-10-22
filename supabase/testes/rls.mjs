@@ -155,7 +155,8 @@ await espera("contrato novo cai na PRIMEIRA etapa", () => db.query(`select e.nom
 await espera("antes do aceite, data_aceite é nula", () => db.query("select data_aceite from contratos order by numero limit 1"), false, (r) => r.rows[0].data_aceite === null);
 await sql(`update perfis set ativo=true, papel='colaborador' where id in ('${M}','${B}')`);
 await espera("colaborador não cria etapa (cadastro é do gestor)", () => como("authenticated", B, "insert into pipeline_etapas (nome) values ('X')"), true);
-await espera("colaborador LÊ as etapas (7)", () => como("authenticated", B, "select * from pipeline_etapas"), false, n(7));
+await espera("colaborador LÊ as etapas (9)", () => como("authenticated", B, "select * from pipeline_etapas"), false, n(9));
+await espera("as colunas na ordem pedida (22/10)", () => db.query("select string_agg(nome, ' · ' order by ordem) as s from pipeline_etapas where ativo"), false, (r) => r.rows[0].s === "Novo contato · Reunião · Proposta apresentada · Contrato aceito · Em negociação · Enviar link de pagamento · Enviado · Acordo fechado · Concluído");
 const proposta = await etapa("Proposta apresentada");
 const aceito = await etapa("Contrato aceito");
 await espera("A arrasta o próprio card para Proposta", () => como("authenticated", M, `update contratos set etapa_id='${proposta}' where numero=1 returning data_aceite`), false, (r) => r.rows.length === 1 && r.rows[0].data_aceite === null);
@@ -266,7 +267,7 @@ await espera("q_contratos_pagina: B não vê contrato (0)", () => como("authenti
 await espera("q_contratos_pagina: 'por' passa de 100 vira 100 (sem erro)", () => como("authenticated", G, "select jsonb_array_length(q_contratos_pagina('', null, null, 'todos', 1, 100000) -> 'linhas') as n"), false, (r) => r.rows[0].n >= 4);
 const primeira = await etapa("Novo contato");
 await espera("q_pipeline traz N por coluna e o TOTAL", () => como("authenticated", M, "select q_pipeline('', false, 2) as p"), false, (r) => {
-  const c = r.rows[0].p.colunas.find((x) => x.etapa_id === primeira); return r.rows[0].p.colunas.length === 7 && c.total === 3 && c.cards.length === 2;
+  const c = r.rows[0].p.colunas.find((x) => x.etapa_id === primeira); return r.rows[0].p.colunas.length === 9 && c.total === 3 && c.cards.length === 2;
 });
 await espera("q_pipeline: 'carregar mais' aumenta só uma coluna", () => como("authenticated", M, `select q_pipeline('', false, 2, '{"${primeira}": 10}') as p`), false, (r) => r.rows[0].p.colunas.find((x) => x.etapa_id === primeira).cards.length === 3);
 await espera("q_pipeline: B não vê card (0)", () => como("authenticated", B, "select q_pipeline() as p"), false, (r) => r.rows[0].p.colunas.every((c) => c.total === 0));
