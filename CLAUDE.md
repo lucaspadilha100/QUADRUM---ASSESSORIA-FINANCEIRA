@@ -208,6 +208,9 @@ nenhum cliente sem `busca`).
 23/10/2026 (uma assinatura só, com `p_status`; anon não executa).
 `20261026000000` (carteira de cada pessoa em Usuários) — aplicada e conferida
 em 23/10/2026 (anon não executa; a equipe executa, o banco recusa quem não é gestor).
+`20261027000000` (o contrato real e seus campos) — aplicada e conferida em
+23/10/2026 (13 colunas titular/plano, `empresa` com a linha da Quadrum, o
+rascunho virou o contrato real v2 ativo; anon não executa).
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
