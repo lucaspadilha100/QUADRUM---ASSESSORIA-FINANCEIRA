@@ -36,8 +36,13 @@ React 18 + TypeScript + Vite · Tailwind + shadcn/ui · TanStack Query ·
 - ⚠️ **O cliente do portal também é `authenticated`.** Nunca `using (true)` nem
   `auth.uid() is not null`: use `q_e_equipe()` / `q_e_gestor()` / `q_ve_*()`. O acesso do
   cliente entra por funções próprias, quando o portal existir.
-- ⚠️ Função SECURITY DEFINER nova: `revoke execute ... from public, anon` e
-  `grant` explícito — mesmo com os defaults já revogados.
+- ⚠️ **TODA função nova** (DEFINER, INVOKER, pura ou de gatilho): `revoke
+  execute ... from public, anon` e `grant` explícito a quem usa. O Postgres dá
+  EXECUTE a PUBLIC em toda função, e o `alter default privileges in schema`
+  da 20261015000000 NÃO desfaz isso (por schema, só acrescenta) — a auditoria
+  de 23/10/2026 achou 14 assim (`20261024000000` fechou). O teste "anon não
+  executa NENHUMA função" pega a que esquecer, junto com: tabela sem RLS,
+  view sem `security_invoker`, DEFINER sem `search_path`.
 - Documento (CPF/CNPJ) é gravado **só com dígitos** (CHECK garante). É
   OPCIONAL até o portal (23/10/2026, `20261023000000`): o contrato nasce só com
   o NOME, e o banco exige o documento para o card entrar na etapa `aceita` e

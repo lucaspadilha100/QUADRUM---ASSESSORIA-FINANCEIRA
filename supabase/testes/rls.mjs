@@ -83,6 +83,10 @@ async function espera(desc, fn, deveFalhar, conferir) {
 const n = (k) => (r) => r.rows.length === k;
 
 // ── portas de fora
+await espera("anon não executa NENHUMA função do public (nem as puras e de gatilho)", () => db.query("select coalesce(string_agg(p.proname, ', ' order by p.proname), '') as f from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute')"), false, (r) => r.rows[0].f === "");
+await espera("nenhuma view do public ignora a RLS (security_invoker)", () => db.query("select coalesce(string_agg(c.relname, ', '), '') as v from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'v' and not coalesce(c.reloptions @> array['security_invoker=true'], false)"), false, (r) => r.rows[0].v === "");
+await espera("toda tabela do public tem RLS ligada", () => db.query("select coalesce(string_agg(c.relname, ', '), '') as t from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'public' and c.relkind = 'r' and not c.relrowsecurity"), false, (r) => r.rows[0].t === "");
+await espera("toda função SECURITY DEFINER tem search_path fixo", () => db.query("select coalesce(string_agg(p.proname, ', '), '') as f from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prosecdef and not exists (select 1 from unnest(coalesce(p.proconfig, '{}')) x where x like 'search_path=%')"), false, (r) => r.rows[0].f === "");
 await espera("anon não lê clientes", () => como("anon", null, "select * from clientes"), true);
 await espera("anon não executa q_e_equipe()", () => como("anon", null, "select public.q_e_equipe()"), true);
 await espera("cliente do portal não vê perfis (0)", () => como("authenticated", C, "select * from perfis"), false, n(0));
