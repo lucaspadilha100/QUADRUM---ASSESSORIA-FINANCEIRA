@@ -190,6 +190,9 @@ funções, 3 gatilhos, 2 contas marcadas provisórias). Login de teste
 `20261020000000` (linha do tempo e LGPD) — aplicada e conferida em 16/10/2026
 (2 contratos com linha reconstituída, 2 gatilhos, 6 funções, termo de partida
 como rascunho, `contrato_movimentos` no Realtime).
+`20261021000000` (administrador e últimos acessos) — aplicada e conferida em
+23/10/2026 (5 funções, tabela `acessos`); admin: lucas_padilha.100@hotmail.com,
+promovido pelo SQL Editor.
 `20261022000000` (colunas da Pipeline: Reunião, Em negociação, Enviar link de
 pagamento, Enviado) — aplicada e conferida em 22/10/2026 (9 colunas na ordem).
 `20261023000000` (CPF/CNPJ só no portal, coluna "Criar Perfil no Portal") —
