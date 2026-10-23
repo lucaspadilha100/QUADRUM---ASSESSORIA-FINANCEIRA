@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, FileText, Loader2, Plus, Save, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Building2, FileText, Loader2, Plus, Save, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,8 @@ import { useDocumentoTipos } from "@/hooks/useCadastros";
 import { useCatalogo, useModelos, usePrevia, useSalvarModelo, type Modelo } from "@/hooks/useModelos";
 import { useTermos } from "@/hooks/useLgpd";
 import { TermoPrivacidade } from "@/components/documento/TermoPrivacidade";
+import { DadosEmpresa, faltamEmpresa } from "@/components/documento/DadosEmpresa";
+import { useEmpresa } from "@/hooks/useContratoDocumento";
 import { useAtrasado } from "@/hooks/usePagina";
 import { confirmar, useParamUrl } from "@/shell";
 
@@ -31,6 +33,7 @@ import { confirmar, useParamUrl } from "@/shell";
 
 const NOVO = "novo";
 const PRIVACIDADE = "privacidade";
+const EMPRESA = "empresa";
 
 export default function Modelos() {
   const { isGestor } = useAuth();
@@ -41,6 +44,8 @@ export default function Modelos() {
   const nomeTipo = (c: string) => tipos.find((t) => t.codigo === c)?.nome ?? c;
   const { data: lgpd } = useTermos();
   const termoEmVigor = lgpd?.termos.find((t) => t.ativo);
+  const { data: empresa } = useEmpresa();
+  const faltaEmpresa = empresa === undefined ? 0 : faltamEmpresa(empresa);
 
   return (
     <div>
@@ -69,6 +74,19 @@ export default function Modelos() {
               ))}
               {modelos.length === 0 && <li className="p-4 text-sm text-muted-foreground">Nenhum modelo.</li>}
               <li>
+                <button type="button" onClick={() => setAbertoId(EMPRESA)}
+                  className={`flex w-full items-start gap-2 p-3 text-left ${abertoId === EMPRESA ? "bg-accent" : "hover:bg-accent/50"}`}>
+                  <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-q-petrol" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-foreground">Dados da empresa</span>
+                    <span className="block text-[11px] text-muted-foreground">{empresa?.nome ?? "Contratada"}</span>
+                  </span>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${faltaEmpresa ? "bg-warning/15 text-warning" : "bg-success/15 text-success"}`}>
+                    {faltaEmpresa ? `faltam ${faltaEmpresa}` : "completo"}
+                  </span>
+                </button>
+              </li>
+              <li>
                 <button type="button" onClick={() => setAbertoId(PRIVACIDADE)}
                   className={`flex w-full items-start gap-2 p-3 text-left ${abertoId === PRIVACIDADE ? "bg-accent" : "hover:bg-accent/50"}`}>
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-q-petrol" />
@@ -85,7 +103,9 @@ export default function Modelos() {
           )}
         </aside>
         <section>
-          {abertoId === PRIVACIDADE ? (
+          {abertoId === EMPRESA ? (
+            <DadosEmpresa />
+          ) : abertoId === PRIVACIDADE ? (
             <TermoPrivacidade />
           ) : abertoId ? (
             <Editor key={abertoId} modelo={aberto} somenteLeitura={!isGestor} onCriado={setAbertoId} />

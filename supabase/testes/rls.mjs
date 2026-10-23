@@ -284,7 +284,7 @@ await espera("o catálogo de campos é o MESMO dos valores", async () => {
   const val = await db.query("select array_agg(k order by k) as k from jsonb_object_keys(q_documento_variaveis(null)) k");
   return { rows: [cat.rows[0].k.join(","), val.rows[0].k.join(",")] };
 }, false, (r) => r.rows[0] === r.rows[1] && r.rows[0].includes("cliente.qualificacao"));
-await espera("os 4 modelos de partida nascem INATIVOS", () => db.query("select count(*) filter (where not ativo) as n from documento_modelos"), false, (r) => Number(r.rows[0].n) === 4);
+await espera("modelos de partida INATIVOS (3) e o contrato real ATIVO", () => db.query("select count(*) filter (where not ativo) as n, count(*) filter (where ativo and tipo = 'contrato' and corpo like '%{{empresa.nome}}%') as c from documento_modelos"), false, (r) => Number(r.rows[0].n) === 3 && Number(r.rows[0].c) === 1);
 const modProc = (await db.query("select id from documento_modelos where tipo = 'procuracao'")).rows[0].id;
 const modTermo = (await db.query("select id from documento_modelos where tipo = 'termo'")).rows[0].id;
 await espera("modelo inativo não gera", () => como("authenticated", M, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
@@ -616,6 +616,41 @@ await espera("o admin vê a si mesmo e o último acesso de cada um", () => como(
 });
 await espera("o colaborador não vê a carteira da equipe", () => como("authenticated", M, "select q_equipe_carteira()"), true);
 await espera("o cliente do portal também não", () => comoCliente("select q_equipe_carteira()"), true);
+
+
+// ── o contrato real e os campos que ele pede (20261027000000)
+const modContrato = (await db.query("select id, corpo from documento_modelos where tipo = 'contrato'")).rows[0];
+await espera("o contrato real não usa campo inexistente", () => como("authenticated", M, `select q_documento_previa($q$${modContrato.corpo}$q$) as p`), false, (r) => r.rows[0].p.desconhecidas.length === 0);
+await espera("colaborador não altera os dados da empresa (0)", () => como("authenticated", M, "update empresa set cnpj = '11111111111111' returning id"), false, n(0));
+await espera("a empresa tem UMA linha só", () => como("authenticated", G, "insert into empresa (id, nome) values (false, 'X')"), true);
+await espera("gestor preenche os dados da empresa", () => como("authenticated", G, "update empresa set cnpj = '11222333000181', endereco = 'Natal/RN', telefones = '(84) 3000-0000', email = 'contato@quadrum.com.br' returning nome"), false, (r) => r.rows[0]?.nome === "QUADRUM ASSESSORIA FINANCEIRA");
+await espera("a equipe lê a empresa; o cliente do portal não", async () => {
+  const a = await como("authenticated", M, "select count(*) as n from empresa"); const c = await comoCliente("select count(*) as n from empresa");
+  return { rows: [Number(a.rows[0].n), Number(c.rows[0].n)] };
+}, false, (r) => r.rows[0] === 1 && r.rows[1] === 0);
+await sql("insert into unidades (nome, cidade, uf) select 'Matriz', 'Natal', 'RN' where not exists (select 1 from unidades)");
+const ctReal = (await como("authenticated", M, `insert into contratos (cliente_id, banco_id, placa, veiculo, ano_modelo, unidade_id) values ('${clienteDoA}', (select id from bancos limit 1), 'ABC1D23', 'Carro Teste 1.0', '2020/2021', (select id from unidades limit 1)) returning id`)).rows[0].id;
+await espera("parcelas pagas maiores que o total são recusadas", () => como("authenticated", M, `update contratos set qtd_parcelas = 10, parcelas_pagas = 11 where id = '${ctReal}'`), true);
+await sql(`update unidades set cidade = 'Natal', uf = 'RN'; update clientes set sexo = 'Masculino', data_nascimento = '1990-01-15', telefone = '(84) 90000-0000' where id = '${clienteDoA}'`);
+await espera("o contrato preenchido: nada falta, valores e cálculos certos", async () => {
+  await como("authenticated", M, `update contratos set renavam = '12345678900', chassi = '9XXZZZ00000000001', veiculo_no_endereco = true,
+    saldo_devedor = 32375, valor_parcela = 1295, parcela_balao = 0, qtd_parcelas = 48, parcelas_pagas = 23, parcelas_atrasadas = 1,
+    ultima_parcela_paga = (current_date - interval '5 months')::date,
+    plano_valor_total = 2400, plano_entrada = 400, plano_parcelas = 10, plano_valor_parcela = 200, plano_primeiro_vencimento = '2026-11-10', plano_forma = 'Boleto bancário'
+    where id = '${ctReal}'`);
+  return como("authenticated", M, `select q_documento_previa($q$${modContrato.corpo}$q$, '${ctReal}') as p`);
+}, false, (r) => {
+  const p = r.rows[0].p; const t = p.texto;
+  return p.faltando.length === 0 && t.includes("Saldo devedor atual: R$ 32.375,00") && t.includes("Parcela balão: R$ 0,00")
+    && t.includes("parcelas restantes: 25") && t.includes("último pagamento: 5") && t.includes("endereço do financiamento: SIM")
+    && t.includes("Valor total de R$ 2.400,00, sendo entrada de R$ 400,00 e 10 parcelas de R$ 200,00, com primeiro vencimento em 10/11/2026, por boleto bancário.")
+    && t.includes("CNPJ sob o nº 11.222.333/0001-81") && t.includes("- Natal, RN") && t.includes("Nome: Cliente do A\nData de nascimento: 15/01/1990");
+});
+await espera("titular OUTRO: os dados dele entram, e faltando ele RECUSA", async () => {
+  await como("authenticated", M, `update contratos set titular_outro = true, titular_nome = 'Maria Titular', titular_documento = '98765432100' where id = '${ctReal}'`);
+  return como("authenticated", M, `select q_documento_previa($q$${modContrato.corpo}$q$, '${ctReal}') as p`);
+}, false, (r) => { const p = r.rows[0].p; const f = p.faltando.map((x) => x.chave);
+  return p.texto.includes("Nome: Maria Titular") && p.texto.includes("CPF: 987.654.321-00") && f.includes("titular.endereco") && f.includes("titular.rg") && !f.includes("cliente.rg"); });
 
 console.log(`\n${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);

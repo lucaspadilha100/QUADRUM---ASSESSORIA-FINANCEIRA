@@ -21,7 +21,7 @@ const docDe = (d?: Partial<DadosDocumento> | null): Doc =>
 
 // O que os modelos pedem, por tipo de pessoa (é o que a `q_documento_variaveis`
 // junta na qualificação). Contar o que falta AQUI evita descobrir na geração.
-const PEDIDOS_PF: (keyof DadosDocumento)[] = ["nacionalidade", "estado_civil", "profissao", "rg", "logradouro", "cidade", "uf"];
+const PEDIDOS_PF: (keyof DadosDocumento)[] = ["nacionalidade", "estado_civil", "profissao", "sexo", "data_nascimento", "rg", "logradouro", "cidade", "uf"];
 const PEDIDOS_PJ: (keyof DadosDocumento)[] = ["representante_nome", "representante_documento", "logradouro", "cidade", "uf"];
 
 /**
@@ -164,6 +164,17 @@ export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorIn
                   </Select>
                 </div>
                 {campo("profissao", "Profissão")}
+                <div className="space-y-1.5">
+                  <Label>Sexo</Label>
+                  <Select value={doc.sexo || NENHUM} onValueChange={(v) => muda("sexo")(v === NENHUM ? "" : v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={NENHUM}>Não informado</SelectItem>
+                      <SelectItem value="Masculino">Masculino</SelectItem>
+                      <SelectItem value="Feminino">Feminino</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="cli-data_nascimento">Data de nascimento</Label>
                   <CampoData id="cli-data_nascimento" valor={doc.data_nascimento} onChange={muda("data_nascimento")} anoMax={new Date().getFullYear()} />

@@ -502,6 +502,21 @@ documento_eventos      a trilha: gerado, visualizado, senha_incorreta, assinado�
   ⚠️ Procuração para banco/cartório pode exigir ICP-Brasil ou firma
   reconhecida — decisão do jurídico. ⚠️ Segundo fator (código por SMS/e-mail)
   fortaleceria a prova; falta um provedor de envio.
+- **O contrato real** (23/10/2026, `20261027000000`): o contrato que a
+  Quadrum usa (veio da Sete Capital) é o modelo "Contrato de prestação de
+  serviço (intermediação e renegociação)", ATIVO, com a marca trocada por
+  `{{empresa.*}}`. Campos que ele trouxe: `clientes.sexo`; no contrato o
+  TITULAR do financiamento (`titular_outro` + `titular_*`; desligado = o
+  próprio cliente), RENAVAM, chassi, veículo no endereço, financiamento
+  (saldo, parcela, balão, parcelas, pagas, atrasadas, última paga) e o PLANO
+  (valor total, entrada, parcelas, valor, 1º vencimento, forma) — tela:
+  "Dados para o contrato" na aba Contrato (`pipeline/DadosParaContrato.tsx`).
+  Restantes e meses sem pagar são CALCULADOS na geração. `empresa` é cadastro
+  de UMA linha (gestor altera; Modelos → Dados da empresa).
+  ⚠️ O aviso de geração manda cada campo ao seu lugar (`GerarDocumento`):
+  `empresa.*` → Dados da empresa; `contrato.*` e `titular.*` (quando o titular
+  é outra pessoa) → aba Contrato; o resto → ficha do cliente.
+  ⚠️ Nada de dado real de cliente em dica de campo, teste ou migração.
 - Documento de LINK (assinado fora) continua: criar, marcar à mão.
 - Impressão/PDF: `/documentos/:id/imprimir` no admin (fora do layout) e o
   "Imprimir / salvar PDF" do portal (`.q-nao-imprimir` esconde o resto).

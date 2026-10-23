@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TextoDocumento } from "@/components/documento/DocumentoImpresso";
+import { useContratoDocumento } from "@/hooks/useContratoDocumento";
 import { useGerarDocumento, useModelos, usePrevia } from "@/hooks/useModelos";
 import { useAtualizarContrato } from "@/hooks/usePipeline";
 import { NENHUM, SelectBanco } from "@/components/SelectBanco";
@@ -32,10 +33,21 @@ export function GerarDocumento({ contrato, onGerado, onCompletar }: {
   const gerar = useGerarDocumento();
 
   const faltando = previa?.faltando ?? [];
-  // Cada campo que falta mora num lugar: o do CONTRATO (banco, placa…) na aba
-  // Dados do contrato; o resto (cliente, representante) na ficha do cliente.
-  const doContrato = faltando.filter((f) => f.chave.startsWith("contrato."));
-  const doCliente = faltando.filter((f) => !f.chave.startsWith("contrato."));
+  const { data: extra } = useContratoDocumento(contrato.id);
+  // Cada campo que falta mora num lugar: o do CONTRATO (banco, placa, plano…)
+  // na aba Contrato; o da EMPRESA em Modelos → Dados da empresa; o resto
+  // (cliente, representante) na ficha do cliente. O TITULAR do financiamento
+  // é do contrato quando é outra pessoa; senão, são os dados do próprio cliente.
+  const lugar = (chave: string) =>
+    chave.startsWith("empresa.") ? "empresa"
+      : chave.startsWith("contrato.") || (chave.startsWith("titular.") && extra?.titular_outro) ? "contrato"
+      : "cliente";
+  const doContrato = faltando.filter((f) => lugar(f.chave) === "contrato");
+  const daEmpresa = faltando.filter((f) => lugar(f.chave) === "empresa");
+  // Do titular = do cliente: não repete o que o cliente já mostra.
+  const rotulosCliente = new Set(faltando.filter((f) => f.chave.startsWith("cliente.")).map((f) => f.chave.slice(8)));
+  const doCliente = faltando.filter((f) => lugar(f.chave) === "cliente"
+    && !(f.chave.startsWith("titular.") && rotulosCliente.has(f.chave.slice(8).replace("cpf", "documento"))));
   const nomes = (l: typeof faltando) => l.map((f) => f.rotulo ?? f.chave).join(", ");
   // Banco é o que mais falta (e o mais escondido): escolhe-se AQUI, no aviso.
   const faltaBanco = doContrato.some((f) => f.chave === "contrato.banco");
@@ -101,6 +113,12 @@ export function GerarDocumento({ contrato, onGerado, onCompletar }: {
                       {onCompletar
                         ? <button type="button" onClick={() => onCompletar("dados")} className="q-link font-medium">Preencher no contrato</button>
                         : <Link to={`/contratos?contrato=${contrato.id}`} className="q-link">Preencher no contrato</Link>}
+                    </p>
+                  )}
+                  {daEmpresa.length > 0 && (
+                    <p className="mt-1 text-muted-foreground">
+                      Falta nos <strong className="text-foreground">dados da empresa</strong>: <strong className="text-foreground">{nomes(daEmpresa)}</strong>.{" "}
+                      <Link to="/cadastros/modelos?modelo=empresa" className="q-link">Dados da empresa</Link>
                     </p>
                   )}
                   {desconhecidas.length > 0 && (

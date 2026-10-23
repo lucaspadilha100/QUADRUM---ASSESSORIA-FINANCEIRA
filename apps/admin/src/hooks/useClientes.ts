@@ -47,12 +47,13 @@ export interface DadosDocumento {
   cep: string | null; logradouro: string | null; endereco_numero: string | null; complemento: string | null;
   bairro: string | null; cidade: string | null; uf: string | null;
   representante_nome: string | null; representante_documento: string | null;
+  sexo: string | null;
 }
 
 export const CAMPOS_DOCUMENTO: (keyof DadosDocumento)[] = [
   "rg", "rg_orgao", "nacionalidade", "estado_civil", "profissao", "data_nascimento",
   "cep", "logradouro", "endereco_numero", "complemento", "bairro", "cidade", "uf",
-  "representante_nome", "representante_documento",
+  "representante_nome", "representante_documento", "sexo",
 ];
 
 export interface Cliente extends DadosDocumento {
@@ -84,7 +85,11 @@ export function useCliente(id: string | null) {
     queryKey: ["cliente", id],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await supabase.from("clientes").select(COLUNAS).eq("id", id!).maybeSingle();
+      let { data, error } = await supabase.from("clientes").select(COLUNAS).eq("id", id!).maybeSingle();
+      // Sem a migração 20261027000000 a coluna `sexo` não existe: a ficha abre sem ela.
+      if (error && /sexo/.test(error.message)) {
+        ({ data, error } = await supabase.from("clientes").select(COLUNAS.replace(", sexo", "")).eq("id", id!).maybeSingle());
+      }
       if (error) throw new Error(mensagemDeErro(error));
       return data as unknown as Cliente | null;
     },
