@@ -60,7 +60,7 @@ export default function DocumentoVer() {
               {d.titulo ?? d.tipo_info?.nome} · <Link to={`/contratos?contrato=${d.contrato_id}`} className="q-link">contrato #{d.contrato?.numero}</Link>
             </p>
             <p className="mt-1 text-sm text-foreground">
-              {d.contrato?.cliente ? `${d.contrato.cliente.nome} · ${formatarDocumento(d.contrato.cliente.documento)}` : "Cliente de outra carteira"}
+              {d.contrato?.cliente ? [d.contrato.cliente.nome, formatarDocumento(d.contrato.cliente.documento)].filter(Boolean).join(" · ") : "Cliente de outra carteira"}
             </p>
             <p className="mt-2 text-sm">
               {d.cancelado_em ? (

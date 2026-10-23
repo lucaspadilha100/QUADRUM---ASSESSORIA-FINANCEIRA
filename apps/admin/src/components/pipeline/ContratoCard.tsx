@@ -39,7 +39,7 @@ export function ContratoCard({ c, onClick }: { c: ContratoPipeline; onClick?: (c
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-semibold leading-tight text-foreground" title={nome}>{nome}</p>
           <p className="truncate text-xs text-muted-foreground">
-            {c.cliente ? formatarDocumento(c.cliente.documento) : "—"}
+            {c.cliente ? formatarDocumento(c.cliente.documento) || "Sem CPF/CNPJ" : "—"}
           </p>
         </div>
         <span className="shrink-0 font-titulo text-[11px] font-semibold text-muted-foreground">#{c.numero}</span>

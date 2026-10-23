@@ -11,7 +11,7 @@ import { invalidarCarteira } from "@/hooks/usePipeline";
 
 export interface ClienteLista {
   id: string;
-  documento: string;
+  documento: string | null;
   tipo_pessoa: "PF" | "PJ";
   nome: string;
   email: string | null;
@@ -57,7 +57,7 @@ export const CAMPOS_DOCUMENTO: (keyof DadosDocumento)[] = [
 
 export interface Cliente extends DadosDocumento {
   id: string;
-  documento: string;
+  documento: string | null;
   tipo_pessoa: "PF" | "PJ";
   nome: string;
   email: string | null;
@@ -130,7 +130,7 @@ export function useCriarCliente() {
   return useMutation({
     mutationFn: async (v: DadosCliente & { documento: string }) => {
       const { data, error } = await supabase.from("clientes").insert({
-        documento: soDigitos(v.documento),
+        documento: soDigitos(v.documento) || null,
         nome: v.nome.trim(),
         telefone: vazio(v.telefone),
         email: vazio(v.email),
@@ -148,8 +148,10 @@ export function useCriarCliente() {
 export function useAtualizarCliente() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...v }: DadosCliente & { id: string }) => {
+    mutationFn: async ({ id, documento, ...v }: DadosCliente & { id: string; documento?: string }) => {
       const { error } = await supabase.from("clientes").update({
+        // Só vai quando a tela manda: com acesso ao portal ele é o login e não muda.
+        ...(documento !== undefined ? { documento: soDigitos(documento) || null } : {}),
         nome: v.nome.trim(),
         telefone: vazio(v.telefone),
         email: vazio(v.email),

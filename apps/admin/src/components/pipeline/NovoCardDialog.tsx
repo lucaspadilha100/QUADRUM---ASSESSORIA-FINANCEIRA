@@ -69,13 +69,18 @@ export function NovoCardDialog({ aberto, etapaInicial, onFechar }: {
 
   const salvar = async (e: FormEvent) => {
     e.preventDefault();
-    if (!documentoValido(documento)) return toast.error("Informe um CPF (11 dígitos) ou CNPJ (14 dígitos).");
+    // Só o NOME é obrigatório. O CPF/CNPJ, se vier, tem de estar completo — e
+    // é exigido na etapa do portal (o banco recusa sem ele).
+    const doc = soDigitos(documento);
+    if (doc && !documentoValido(doc)) return toast.error("CPF tem 11 dígitos e CNPJ, 14.");
     if (!achado && !nome.trim()) return toast.error("Informe o nome do cliente.");
     if (!etapaId) return toast.error("Escolha a etapa.");
+    const etapa = etapas.find((x) => x.id === etapaId);
+    if (etapa?.aceita && !doc) return toast.error(`Informe o CPF/CNPJ para criar em "${etapa.nome}".`);
     try {
       await criar.mutateAsync({
         clienteId: achado?.id ?? null,
-        documento: soDigitos(documento),
+        documento: doc,
         nome, telefone, email,
         etapaId,
         bancoId: bancoId === NENHUM ? null : bancoId,

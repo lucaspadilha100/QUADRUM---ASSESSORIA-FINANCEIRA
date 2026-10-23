@@ -91,7 +91,7 @@ function Conteudo({ c }: { c: ContratoPipeline }) {
         <p className="font-titulo text-xs font-semibold text-muted-foreground">CONTRATO #{c.numero}</p>
         <SheetTitle className="text-xl">{c.cliente?.nome ?? "Cliente de outra carteira"}</SheetTitle>
         <SheetDescription>
-          {c.cliente ? formatarDocumento(c.cliente.documento) : ""}
+          {c.cliente ? formatarDocumento(c.cliente.documento) || "Sem CPF/CNPJ" : ""}
           {c.cliente?.telefone ? ` · ${c.cliente.telefone}` : ""}
         </SheetDescription>
         {/* O estado que liga ao portal, sempre à vista. */}
@@ -237,7 +237,7 @@ function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
           <p className="font-medium text-foreground">{c.cliente.nome}</p>
           <p className="text-muted-foreground">
-            {formatarDocumento(c.cliente.documento)}
+            {formatarDocumento(c.cliente.documento) || "Sem CPF/CNPJ"}
             {c.cliente.telefone ? ` · ${c.cliente.telefone}` : ""}
             {c.cliente.email ? ` · ${c.cliente.email}` : ""}
           </p>

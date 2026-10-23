@@ -30,7 +30,7 @@ export interface ContratoPipeline {
   banco_id: string | null;
   linha_credito_id: string | null;
   updated_at: string;
-  cliente: { id: string; nome: string; documento: string; telefone: string | null; email: string | null; user_id: string | null } | null;
+  cliente: { id: string; nome: string; documento: string | null; telefone: string | null; email: string | null; user_id: string | null } | null;
   banco: { id: string; nome: string } | null;
   linha: { id: string; nome: string; tem_veiculo: boolean } | null;
   consultor: { id: string; nome: string; avatar_url: string | null } | null;
@@ -187,7 +187,7 @@ export function useCriarCard() {
         const { data, error } = await supabase
           .from("clientes")
           .insert({
-            documento: soDigitos(n.documento),
+            documento: soDigitos(n.documento) || null,
             nome: n.nome.trim(),
             telefone: vazio(n.telefone),
             email: vazio(n.email),

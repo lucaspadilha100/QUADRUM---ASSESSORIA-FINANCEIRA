@@ -102,7 +102,7 @@ export default function Clientes() {
                     <tr key={c.id} onClick={() => setAbertoId(c.id)} className="block cursor-pointer hover:bg-accent/50 md:table-row">
                       <td className="block px-4 pt-3 md:table-cell md:py-3">
                         <p className="font-medium text-foreground">{c.nome}</p>
-                        <p className="text-xs text-muted-foreground">{formatarDocumento(c.documento)} · {c.tipo_pessoa}</p>
+                        <p className="text-xs text-muted-foreground">{c.documento ? `${formatarDocumento(c.documento)} · ${c.tipo_pessoa}` : "Sem CPF/CNPJ"}</p>
                       </td>
                       <td className="block px-4 text-xs text-muted-foreground md:table-cell md:text-sm">{c.telefone ?? "—"}</td>
                       <td className="block px-4 text-xs text-muted-foreground md:table-cell md:text-sm md:text-foreground">
@@ -175,7 +175,7 @@ function NovoCliente({ aberto, onFechar, onCriado }: { aberto: boolean; onFechar
             </div>
           }
           onSalvar={async (d) => {
-            if (!documentoValido(doc)) return toast.error("Informe um CPF (11 dígitos) ou CNPJ (14 dígitos).");
+            if (soDigitos(doc) && !documentoValido(doc)) return toast.error("CPF tem 11 dígitos e CNPJ, 14.");
             if (jaExiste) return toast.error("Este CPF/CNPJ já está cadastrado.");
             try {
               const id = await criar.mutateAsync({ ...d, documento: doc });

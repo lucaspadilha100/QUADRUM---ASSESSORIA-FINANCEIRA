@@ -105,7 +105,7 @@ export interface DocumentoCompleto {
   modelo_versao: number | null;
   created_at: string;
   tipo_info: { nome: string } | null;
-  contrato: { numero: number; cliente: { nome: string; documento: string } | null } | null;
+  contrato: { numero: number; cliente: { nome: string; documento: string | null } | null } | null;
 }
 
 export interface Assinatura {

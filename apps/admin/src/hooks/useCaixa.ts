@@ -19,7 +19,7 @@ export interface ItemCaixa {
   arquivado_em: string | null;
   created_at: string;
   cliente_nome: string;
-  cliente_documento: string;
+  cliente_documento: string | null;
   contrato_numero: number | null;
   setor_nome: string | null;
   responsavel_nome: string | null;

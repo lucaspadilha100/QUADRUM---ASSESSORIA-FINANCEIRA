@@ -10,13 +10,16 @@ import { formatarDocumento } from "@/lib/formato";
 
 // Gera (ou redefine) a senha do Portal do Cliente. A senha aparece UMA vez,
 // para a equipe passar ao cliente — o banco guarda só o hash.
-export function AcessoPortal({ cliente }: { cliente: { id: string; documento: string; user_id: string | null } }) {
+export function AcessoPortal({ cliente }: { cliente: { id: string; documento: string | null; user_id: string | null } }) {
   const definir = useDefinirSenhaPortal();
   const { data: provisorias } = useSenhasProvisorias();
   const provisoria = !!cliente.user_id && !!provisorias?.has(cliente.user_id);
   const [senha, setSenha] = useState<string | null>(null);
   // O portal sai no MESMO deploy, em /portal. VITE_PORTAL_URL só para domínio próprio.
   const portalUrl = (import.meta.env.VITE_PORTAL_URL as string | undefined) || `${window.location.origin}/portal`;
+  // O CPF/CNPJ é o login: sem ele não há acesso (o banco também recusa).
+  const doc = cliente.documento ?? "";
+  const rotuloDoc = doc.length === 14 ? "CNPJ" : "CPF";
 
   const gerar = async () => {
     if (cliente.user_id && !(await confirmar({
@@ -41,9 +44,9 @@ export function AcessoPortal({ cliente }: { cliente: { id: string; documento: st
     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
       <KeyRound className="h-4 w-4 text-q-petrol" />
       <span className="text-xs text-muted-foreground">
-        {!cliente.user_id ? "Sem acesso ao portal." : provisoria ? "Acesso gerado · o cliente ainda não criou a senha dele." : "Tem acesso ao portal."}
+        {!cliente.user_id ? (doc ? "Sem acesso ao portal." : "Sem CPF/CNPJ.") : provisoria ? "Acesso gerado · o cliente ainda não criou a senha dele." : "Tem acesso ao portal."}
       </span>
-      <Button type="button" size="sm" variant="outline" className="ml-auto h-9" onClick={gerar} disabled={definir.isPending}>
+      <Button type="button" size="sm" variant="outline" className="ml-auto h-9" onClick={gerar} disabled={definir.isPending || !doc}>
         {definir.isPending && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
         {cliente.user_id ? "Redefinir senha" : "Gerar acesso"}
       </Button>
@@ -56,7 +59,7 @@ export function AcessoPortal({ cliente }: { cliente: { id: string; documento: st
           </DialogHeader>
           <div className="space-y-2 rounded-lg border border-border bg-muted/40 p-4 text-sm">
             {portalUrl && <p><span className="text-muted-foreground">Endereço:</span> <a className="q-link" href={portalUrl} target="_blank" rel="noreferrer">{portalUrl}</a></p>}
-            <p><span className="text-muted-foreground">{cliente.documento.length === 14 ? "CNPJ" : "CPF"}:</span> <strong>{formatarDocumento(cliente.documento)}</strong></p>
+            <p><span className="text-muted-foreground">{rotuloDoc}:</span> <strong>{formatarDocumento(doc)}</strong></p>
             <p className="flex items-center gap-2">
               <span className="text-muted-foreground">Senha:</span>
               <strong className="font-mono text-base tracking-wider">{senha}</strong>
@@ -65,7 +68,7 @@ export function AcessoPortal({ cliente }: { cliente: { id: string; documento: st
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => copiar(
-              `Portal do Cliente Quadrum${portalUrl ? `\n${portalUrl}` : ""}\n${cliente.documento.length === 14 ? "CNPJ" : "CPF"}: ${formatarDocumento(cliente.documento)}\nSenha: ${senha}`,
+              `Portal do Cliente Quadrum${portalUrl ? `\n${portalUrl}` : ""}\n${rotuloDoc}: ${formatarDocumento(doc)}\nSenha: ${senha}`,
             )}>Copiar tudo</Button>
             <Button type="button" onClick={() => setSenha(null)}>Pronto</Button>
           </DialogFooter>

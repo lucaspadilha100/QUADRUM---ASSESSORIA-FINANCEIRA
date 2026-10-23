@@ -38,7 +38,12 @@ React 18 + TypeScript + Vite · Tailwind + shadcn/ui · TanStack Query ·
   cliente entra por funções próprias, quando o portal existir.
 - ⚠️ Função SECURITY DEFINER nova: `revoke execute ... from public, anon` e
   `grant` explícito — mesmo com os defaults já revogados.
-- Documento (CPF/CNPJ) é gravado **só com dígitos** (CHECK garante).
+- Documento (CPF/CNPJ) é gravado **só com dígitos** (CHECK garante). É
+  OPCIONAL até o portal (23/10/2026, `20261023000000`): o contrato nasce só com
+  o NOME, e o banco exige o documento para o card entrar na etapa `aceita` e
+  para criar o acesso ao portal. Com acesso ao portal ele é o login e não
+  muda; com contrato no portal, não some. Tela: "Sem CPF/CNPJ" onde faltar,
+  e o campo para informar depois fica na ficha / aba Cliente.
 - ⚠️ **Lista de carteira NÃO baixa tudo**: tela de lista pede UMA página ao
   banco (`q_*_pagina`, ver "Escala"). `lib/lerTudo.ts` fica só para cadastro
   curto que precise ler inteiro: o PostgREST corta em 1.000 **sem avisar**, e
@@ -99,6 +104,7 @@ pipeline_etapas (CADASTRO)   colunas; uma com `aceita`
 contratos.etapa_id           a coluna do card (NOT NULL; novo cai na 1ª ativa)
 contratos.etapa_desde        "N dias nesta etapa" — quem grava é o gatilho
 etapa `aceita`               → data_aceite = hoje → o cliente VÊ no portal
+                             (hoje "Criar Perfil no Portal"; exige CPF/CNPJ)
 "Perdido"                    → cancelado_em (NÃO é etapa) → selo CANCELADO
 ```
 

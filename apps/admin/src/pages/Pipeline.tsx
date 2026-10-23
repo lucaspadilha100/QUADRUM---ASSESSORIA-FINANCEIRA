@@ -47,7 +47,7 @@ export default function Pipeline() {
       {
         onSuccess: () => {
           if (destino?.aceita && !c.data_aceite) {
-            toast.success("Contrato aceito.");
+            toast.success("Contrato no portal do cliente.");
           }
         },
         onError: (e) => toast.error("Não foi possível mover. O card voltou.", { description: (e as Error).message }),

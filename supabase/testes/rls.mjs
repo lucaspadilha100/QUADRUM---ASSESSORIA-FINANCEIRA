@@ -156,12 +156,12 @@ await espera("antes do aceite, data_aceite é nula", () => db.query("select data
 await sql(`update perfis set ativo=true, papel='colaborador' where id in ('${M}','${B}')`);
 await espera("colaborador não cria etapa (cadastro é do gestor)", () => como("authenticated", B, "insert into pipeline_etapas (nome) values ('X')"), true);
 await espera("colaborador LÊ as etapas (9)", () => como("authenticated", B, "select * from pipeline_etapas"), false, n(9));
-await espera("as colunas na ordem pedida (22/10)", () => db.query("select string_agg(nome, ' · ' order by ordem) as s from pipeline_etapas where ativo"), false, (r) => r.rows[0].s === "Novo contato · Reunião · Proposta apresentada · Contrato aceito · Em negociação · Enviar link de pagamento · Enviado · Acordo fechado · Concluído");
+await espera("as colunas na ordem pedida (22/10)", () => db.query("select string_agg(nome, ' · ' order by ordem) as s from pipeline_etapas where ativo"), false, (r) => r.rows[0].s === "Novo contato · Reunião · Proposta apresentada · Criar Perfil no Portal · Em negociação · Enviar link de pagamento · Enviado · Acordo fechado · Concluído");
 const proposta = await etapa("Proposta apresentada");
-const aceito = await etapa("Contrato aceito");
+const aceito = await etapa("Criar Perfil no Portal");
 await espera("A arrasta o próprio card para Proposta", () => como("authenticated", M, `update contratos set etapa_id='${proposta}' where numero=1 returning data_aceite`), false, (r) => r.rows.length === 1 && r.rows[0].data_aceite === null);
 await espera("B NÃO move card do A (0)", () => como("authenticated", B, `update contratos set etapa_id='${aceito}' where numero=1 returning id`), false, n(0));
-await espera("chegar em 'Contrato aceito' grava data_aceite = hoje", () => como("authenticated", M, `update contratos set etapa_id='${aceito}' where numero=1 returning data_aceite = current_date as hoje`), false, (r) => r.rows[0].hoje === true);
+await espera("chegar em 'Criar Perfil no Portal' grava data_aceite = hoje", () => como("authenticated", M, `update contratos set etapa_id='${aceito}' where numero=1 returning data_aceite = current_date as hoje`), false, (r) => r.rows[0].hoje === true);
 await espera("voltar de etapa NÃO apaga o aceite", () => como("authenticated", M, `update contratos set etapa_id='${proposta}' where numero=1 returning data_aceite`), false, (r) => r.rows[0].data_aceite !== null);
 await espera("etapa_desde anda na troca de etapa", () => db.query("select etapa_desde >= created_at as andou from contratos where numero=1"), false, (r) => r.rows[0].andou === true);
 await espera("contrato sem etapa é impossível", () => db.query("update contratos set etapa_id = null where numero=1"), true);
@@ -568,6 +568,27 @@ await espera("filtro de clientes e busca sem acento", () => como("authenticated"
 await espera("os acessos de uma pessoa", () => como("authenticated", ADM, `select q_acessos_de('${M}', 10) as a`), false, (r) => r.rows[0].a.length === 1 && r.rows[0].a[0].ip === "177.1.1.1");
 await espera("o gestor não vê a tela de acessos", () => como("authenticated", G, "select q_acessos_pessoas('', 'todos', 1, 20)"), true);
 await espera("o colaborador também não", () => como("authenticated", M, `select q_acessos_de('${M}', 10)`), true);
+
+
+// ── CPF/CNPJ só na entrada do portal (20261023000000)
+await espera("contrato nasce SÓ com o nome (cliente sem documento)", () => como("authenticated", M, "insert into clientes (nome) values ('Sem Documento Souza') returning documento, busca"), false, (r) => r.rows[0].documento === null && r.rows[0].busca.includes("souza"));
+const semDoc = (await db.query("select id from clientes where nome = 'Sem Documento Souza'")).rows[0].id;
+await espera("a busca por nome acha o cliente sem documento", () => como("authenticated", M, "select q_clientes_pagina('documento souza') as p"), false, (r) => r.rows[0].p.linhas.length === 1);
+await espera("dois clientes sem documento convivem (UNIQUE deixa nulos)", () => como("authenticated", M, "insert into clientes (nome) values ('Outro Sem Doc') returning id"), false, n(1));
+const primeiraEtapa = await etapa("Novo contato");
+await espera("contrato do cliente sem documento entra em Novo contato", () => como("authenticated", M, `insert into contratos (cliente_id, etapa_id) values ('${semDoc}', '${primeiraEtapa}') returning numero`), false, n(1));
+const ctSemDoc = (await db.query(`select id from contratos where cliente_id = '${semDoc}'`)).rows[0].id;
+await espera("sem documento, NÃO entra em 'Criar Perfil no Portal'", () => como("authenticated", M, `update contratos set etapa_id='${aceito}' where id='${ctSemDoc}'`), true);
+await espera("sem documento, nem NASCE na etapa do portal", () => como("authenticated", M, `insert into contratos (cliente_id, etapa_id) values ('${semDoc}', '${aceito}')`), true);
+await espera("sem documento, não cria acesso ao portal", () => como("authenticated", M, `select q_portal_definir_senha('${semDoc}', 'segredo123')`), true);
+await espera("as outras etapas seguem livres sem documento", () => como("authenticated", M, `update contratos set etapa_id='${proposta}' where id='${ctSemDoc}' returning id`), false, n(1));
+await espera("informar o documento depois", () => como("authenticated", M, `update clientes set documento='11122233344' where id='${semDoc}' returning tipo_pessoa, busca`), false, (r) => r.rows[0].tipo_pessoa === "PF" && r.rows[0].busca.includes("11122233344"));
+await espera("com documento, entra na etapa do portal (data_aceite)", () => como("authenticated", M, `update contratos set etapa_id='${aceito}' where id='${ctSemDoc}' returning data_aceite is not null as ok`), false, (r) => r.rows[0].ok);
+await espera("com contrato no portal, o documento não some", () => como("authenticated", M, `update clientes set documento=null where id='${semDoc}'`), true);
+await espera("ainda sem acesso ao portal, o documento pode ser CORRIGIDO", () => como("authenticated", M, `update clientes set documento='11122233355' where id='${semDoc}' returning id`), false, n(1));
+await espera("cria o acesso ao portal", () => como("authenticated", M, `select q_portal_definir_senha('${semDoc}', 'segredo123') as email`), false, (r) => r.rows[0].email === "11122233355@portal.quadrum.example");
+await espera("com acesso ao portal, o documento (o login) não muda", () => como("authenticated", G, `update clientes set documento='99988877766' where id='${semDoc}'`), true);
+await espera("mudar outro campo do cliente segue livre", () => como("authenticated", M, `update clientes set telefone='84999990000' where id='${semDoc}' returning id`), false, n(1));
 
 console.log(`\n${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);

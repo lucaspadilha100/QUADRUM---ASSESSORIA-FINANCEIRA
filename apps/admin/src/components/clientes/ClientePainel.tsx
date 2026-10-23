@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronRight, CheckCircle2, Download, KeyRound, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -7,7 +7,9 @@ import { AcessoPortal } from "@/components/AcessoPortal";
 import { Carregando, Falha } from "@/components/Estados";
 import { useEtapas } from "@/hooks/useCadastros";
 import { useAtualizarCliente, useCliente } from "@/hooks/useClientes";
-import { dataBR, dataHoraBR, formatarDocumento } from "@/lib/formato";
+import { dataBR, dataHoraBR, documentoValido, formatarDocumento, mascararDocumento, soDigitos } from "@/lib/formato";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { exportarCliente, useAceiteDoCliente } from "@/hooks/useLgpd";
@@ -23,6 +25,10 @@ import { exportarCliente, useAceiteDoCliente } from "@/hooks/useLgpd";
 export function EdicaoCliente({ clienteId, comPortal = true }: { clienteId: string; comPortal?: boolean }) {
   const { data: cliente, isLoading, error } = useCliente(clienteId);
   const atualizar = useAtualizarCliente();
+  // CPF/CNPJ: opcional até a etapa do portal. Depois do acesso ao portal ele é
+  // o login e fica travado (o banco também recusa mudar).
+  const [doc, setDoc] = useState("");
+  useEffect(() => setDoc(formatarDocumento(cliente?.documento)), [cliente?.documento]);
   if (isLoading) return <Carregando />;
   if (error) return <Falha erro={error as Error} />;
   if (!cliente) return <p className="text-sm text-muted-foreground">Cliente não encontrado — ou é de outra carteira.</p>;
@@ -37,13 +43,23 @@ export function EdicaoCliente({ clienteId, comPortal = true }: { clienteId: stri
       <ClienteForm
         inicial={{ nome: cliente.nome, telefone: cliente.telefone ?? "", email: cliente.email ?? "", observacoes: cliente.observacoes ?? "" }}
         inicialDocumento={cliente}
-        tipoPessoa={cliente.tipo_pessoa}
+        tipoPessoa={soDigitos(doc).length === 14 ? "PJ" : soDigitos(doc).length === 11 ? "PF" : null}
+        antes={
+          <div className="space-y-1.5">
+            <Label htmlFor="cli-doc">CPF ou CNPJ</Label>
+            <Input id="cli-doc" inputMode="numeric" value={doc} disabled={!!cliente.user_id}
+              onChange={(e) => setDoc(mascararDocumento(e.target.value))} placeholder="000.000.000-00" />
+          </div>
+        }
         consultorInicial={cliente.consultor_id}
         rotuloSalvar="Salvar cliente"
         salvando={atualizar.isPending}
         onSalvar={async (d) => {
+          const novo = soDigitos(doc);
+          if (novo && !documentoValido(novo)) return toast.error("CPF tem 11 dígitos e CNPJ, 14.");
+          const mudouDoc = !cliente.user_id && novo !== (cliente.documento ?? "");
           try {
-            await atualizar.mutateAsync({ id: cliente.id, ...d });
+            await atualizar.mutateAsync({ id: cliente.id, ...d, ...(mudouDoc ? { documento: novo } : {}) });
             toast.success("Cliente salvo.");
           } catch (e) {
             toast.error("Não foi possível salvar.", { description: (e as Error).message });
@@ -66,9 +82,9 @@ export function ClientePainel({ clienteId, onAbrirContrato }: { clienteId: strin
   return (
     <>
       <SheetHeader className="pr-8 text-left">
-        <p className="font-titulo text-xs font-semibold text-muted-foreground">CLIENTE · {cliente.tipo_pessoa}</p>
+        <p className="font-titulo text-xs font-semibold text-muted-foreground">CLIENTE{cliente.documento ? ` · ${cliente.tipo_pessoa}` : ""}</p>
         <SheetTitle className="text-xl">{cliente.nome}</SheetTitle>
-        <SheetDescription>{formatarDocumento(cliente.documento)} · cadastrado em {dataBR(cliente.created_at)}</SheetDescription>
+        <SheetDescription>{formatarDocumento(cliente.documento) || "Sem CPF/CNPJ"} · cadastrado em {dataBR(cliente.created_at)}</SheetDescription>
         <Lgpd clienteId={clienteId} documento={cliente.documento} />
       </SheetHeader>
 
@@ -108,13 +124,13 @@ export function ClientePainel({ clienteId, onAbrirContrato }: { clienteId: strin
   );
 }
 
-function Lgpd({ clienteId, documento }: { clienteId: string; documento: string }) {
+function Lgpd({ clienteId, documento }: { clienteId: string; documento: string | null }) {
   const { isGestor } = useAuth();
   const { data: aceite } = useAceiteDoCliente(clienteId);
   const [exportando, setExportando] = useState(false);
   const exportar = async () => {
     setExportando(true);
-    try { await exportarCliente(clienteId, documento); toast.success("Arquivo gerado."); }
+    try { await exportarCliente(clienteId, documento ?? clienteId); toast.success("Arquivo gerado."); }
     catch (e) { toast.error("Não foi possível exportar.", { description: (e as Error).message }); }
     finally { setExportando(false); }
   };
