@@ -564,13 +564,25 @@ await espera("o cliente do portal também registra", async () => { await comoCli
 await espera("app desconhecido é recusado", () => como("authenticated", M, "select q_registrar_acesso('outro')"), true);
 await espera("anon não registra acesso", () => como("anon", null, "select q_registrar_acesso('admin')"), true);
 await espera("ninguém lê a tabela de acessos direto (nem o gestor)", () => como("authenticated", G, "select * from acessos"), true);
-await espera("o admin vê todos, equipe e clientes, com o último acesso", () => como("authenticated", ADM, "select q_acessos_pessoas('', 'todos', 1, 100) as p"), false, (r) => {
+await espera("o admin vê todos, equipe e clientes, com o último acesso", () => como("authenticated", ADM, "select q_acessos_pessoas('', 'todos', 'todos', 1, 100) as p"), false, (r) => {
   const p = r.rows[0].p; const m = p.linhas.find((x) => x.user_id === M);
   return p.contagem.equipe >= 4 && p.contagem.clientes >= 1 && m?.ip === "177.1.1.1" && m.acessos_30d === 1 && p.linhas[0].ultimo_acesso !== null;
 });
-await espera("filtro de clientes e busca sem acento", () => como("authenticated", ADM, "select q_acessos_pessoas('cliente do a', 'clientes', 1, 20) as p"), false, (r) => r.rows[0].p.linhas.length === 1 && r.rows[0].p.linhas[0].tipo === "cliente");
+await espera("filtro de clientes e busca sem acento", () => como("authenticated", ADM, "select q_acessos_pessoas('cliente do a', 'clientes', 'todos', 1, 20) as p"), false, (r) => r.rows[0].p.linhas.length === 1 && r.rows[0].p.linhas[0].tipo === "cliente");
+await espera("o resumo conta quem entrou hoje e os logins do dia", () => como("authenticated", ADM, "select q_acessos_pessoas() as p"), false, (r) => {
+  const p = r.rows[0].p; return p.resumo.hoje >= 2 && p.resumo.logins_hoje >= 2 && p.resumo.d7 >= p.resumo.hoje && p.resumo.d30 >= p.resumo.d7 && p.resumo.pessoas === p.contagem.todos;
+});
+await espera("14 dias de logins, o de hoje por último", () => como("authenticated", ADM, "select q_acessos_pessoas() as p"), false, (r) => {
+  const d = r.rows[0].p.por_dia; return d.length === 14 && d[13].logins >= 2 && d[13].pessoas >= 2 && d[0].logins === 0;
+});
+await espera("filtro 'nunca entrou' e a situação de cada um", () => como("authenticated", ADM, "select q_acessos_pessoas('', 'todos', 'nunca', 1, 100) as p, q_acessos_pessoas('', 'equipe', 'hoje', 1, 100) as h"), false, (r) => {
+  const p = r.rows[0].p, h = r.rows[0].h;
+  return p.linhas.every((x) => x.status === "nunca" && x.ultimo_acesso === null) && p.total === p.resumo.nunca
+    && h.linhas.some((x) => x.user_id === M && x.status === "hoje" && x.user_agent === "Chrome Teste") && h.linhas.every((x) => x.tipo === "equipe");
+});
+await espera("o resumo segue o tipo (equipe não conta cliente)", () => como("authenticated", ADM, "select q_acessos_pessoas('', 'equipe') as e, q_acessos_pessoas('', 'clientes') as c, q_acessos_pessoas() as t"), false, (r) => r.rows[0].e.resumo.pessoas + r.rows[0].c.resumo.pessoas === r.rows[0].t.resumo.pessoas);
 await espera("os acessos de uma pessoa", () => como("authenticated", ADM, `select q_acessos_de('${M}', 10) as a`), false, (r) => r.rows[0].a.length === 1 && r.rows[0].a[0].ip === "177.1.1.1");
-await espera("o gestor não vê a tela de acessos", () => como("authenticated", G, "select q_acessos_pessoas('', 'todos', 1, 20)"), true);
+await espera("o gestor não vê a tela de acessos", () => como("authenticated", G, "select q_acessos_pessoas('', 'todos', 'todos', 1, 20)"), true);
 await espera("o colaborador também não", () => como("authenticated", M, `select q_acessos_de('${M}', 10)`), true);
 
 

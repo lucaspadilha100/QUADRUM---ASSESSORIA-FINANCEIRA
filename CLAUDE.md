@@ -97,6 +97,10 @@ COLABORADOR  vê só a PRÓPRIA carteira: clientes de que é consultor e o que
   cabeçalhos. Ninguém lê `acessos` direto: `q_acessos_pessoas` (página, uma
   linha por pessoa, último acesso = o maior entre o registro e o
   `last_sign_in_at` do Auth) e `q_acessos_de` (histórico de uma pessoa).
+  Desde `20261025000000` a tela é PAINEL: cartões (hoje · 7 dias · 30 dias ·
+  nunca entraram) que filtram a lista (`?status=`), logins por dia (14 dias,
+  dia de Brasília), situação de cada pessoa e dispositivo do último login.
+  Os números do topo seguem o filtro de TIPO e ignoram busca e situação.
 
 ## Pipeline (kanban) — o CARD É O CONTRATO
 Pedido do dono do processo (15/10/2026): a pipeline do CRM da Carbo (card,
