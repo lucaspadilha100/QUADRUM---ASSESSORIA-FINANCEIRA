@@ -606,5 +606,16 @@ await espera("cria o acesso ao portal", () => como("authenticated", M, `select q
 await espera("com acesso ao portal, o documento (o login) não muda", () => como("authenticated", G, `update clientes set documento='99988877766' where id='${semDoc}'`), true);
 await espera("mudar outro campo do cliente segue livre", () => como("authenticated", M, `update clientes set telefone='84999990000' where id='${semDoc}' returning id`), false, n(1));
 
+
+// ── carteira de cada pessoa da equipe (20261026000000)
+await espera("o gestor vê a carteira de cada um", () => como("authenticated", G, "select q_equipe_carteira() as c"), false, (r) => {
+  const c = r.rows[0].c; return c[M] && c[M].clientes >= 1 && c[M].andamento + c[M].portal >= 1 && c[M].ultimo_acesso === null && !c[ADM];
+});
+await espera("o admin vê a si mesmo e o último acesso de cada um", () => como("authenticated", ADM, "select q_equipe_carteira() as c"), false, (r) => {
+  const c = r.rows[0].c; return !!c[ADM] && c[M].ultimo_acesso !== null;
+});
+await espera("o colaborador não vê a carteira da equipe", () => como("authenticated", M, "select q_equipe_carteira()"), true);
+await espera("o cliente do portal também não", () => comoCliente("select q_equipe_carteira()"), true);
+
 console.log(`\n${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);

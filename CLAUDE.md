@@ -311,6 +311,13 @@ setores · Usuários. Bancos, Linhas e Unidades usam o MESMO componente
   `ativo = false`. ⚠️ `trg_perfil_sobra_um_gestor` recusa rebaixar ou
   desativar o ÚLTIMO gestor ativo — sem ele, só o SQL Editor devolveria a gestão.
 - A mesma conta não é equipe e cliente: a função recusa e-mail de cliente.
+- Usuários (23/10/2026) é PAINEL: cartões (equipe ativa · gestores ·
+  colaboradores · senha provisória) que filtram, filtros de nível e
+  departamento na URL, tabela com a CARTEIRA de cada um (`q_equipe_carteira`,
+  contada no banco, só gestor; o último acesso vai só para o admin) e menu de
+  ações na linha (ficha, redefinir senha, desativar/reativar). A edição é uma
+  ficha lateral (`?usuario=`), com atalhos para os clientes e contratos da
+  pessoa. Sem a migração `20261026000000` a carteira só não aparece.
 
 ## Escala — a tela pede UMA página, o banco conta (15/10/2026)
 Pedido do dono do processo: "parece um app que vai atender 10 clientes só".

@@ -86,3 +86,19 @@ export function useRedefinirSenhaUsuario() {
     },
   });
 }
+
+export interface CarteiraPessoa { clientes: number; andamento: number; portal: number; atendimentos: number; ultimo_acesso: string | null }
+
+/** A carteira de cada pessoa, contada no banco (só gestor; o último acesso só
+ *  para o admin). Sem a migração 20261026000000, só não mostra. */
+export function useCarteiraEquipe(ativo: boolean) {
+  return useQuery({
+    queryKey: ["usuarios", "carteira"],
+    enabled: ativo,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("q_equipe_carteira");
+      if (error) return {} as Record<string, CarteiraPessoa>;
+      return (data ?? {}) as Record<string, CarteiraPessoa>;
+    },
+  });
+}
