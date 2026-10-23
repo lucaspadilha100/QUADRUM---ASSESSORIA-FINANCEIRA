@@ -195,6 +195,8 @@ pagamento, Enviado) — aplicada e conferida em 22/10/2026 (9 colunas na ordem).
 `20261023000000` (CPF/CNPJ só no portal, coluna "Criar Perfil no Portal") —
 aplicada e conferida em 23/10/2026 (documento opcional, 2 gatilhos, Postgres 17,
 nenhum cliente sem `busca`).
+`20261024000000` (anon sem função nenhuma) — aplicada e conferida em
+23/10/2026 (a consulta de auditoria de produção voltou sem nenhuma linha).
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
