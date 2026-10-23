@@ -204,6 +204,8 @@ aplicada e conferida em 23/10/2026 (documento opcional, 2 gatilhos, Postgres 17,
 nenhum cliente sem `busca`).
 `20261024000000` (anon sem função nenhuma) — aplicada e conferida em
 23/10/2026 (a consulta de auditoria de produção voltou sem nenhuma linha).
+`20261025000000` (painel de Últimos acessos) — aplicada e conferida em
+23/10/2026 (uma assinatura só, com `p_status`; anon não executa).
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
