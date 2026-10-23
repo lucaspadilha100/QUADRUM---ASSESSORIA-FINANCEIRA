@@ -206,6 +206,8 @@ nenhum cliente sem `busca`).
 23/10/2026 (a consulta de auditoria de produção voltou sem nenhuma linha).
 `20261025000000` (painel de Últimos acessos) — aplicada e conferida em
 23/10/2026 (uma assinatura só, com `p_status`; anon não executa).
+`20261026000000` (carteira de cada pessoa em Usuários) — aplicada e conferida
+em 23/10/2026 (anon não executa; a equipe executa, o banco recusa quem não é gestor).
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
