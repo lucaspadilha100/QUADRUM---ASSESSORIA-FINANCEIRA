@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { CheckCircle2, CircleDollarSign, ExternalLink, Loader2, Undo2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { CheckCircle2, CircleDollarSign, ExternalLink, Loader2, Paperclip, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { pedirTexto } from "@/shell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEquipe } from "@/hooks/useCadastros";
-import { FORMAS_RECEBIMENTO, hojeISO, rotuloParcela, useDesfazerPagamento, useParcelas, usePagarParcela, type Parcela } from "@/hooks/useParcelas";
+import {
+  FORMAS_RECEBIMENTO, abrirComprovante, hojeISO, rotuloParcela, useAnexarComprovante, useDesfazerPagamento, useParcelas,
+  usePagarParcela, type Parcela,
+} from "@/hooks/useParcelas";
 import type { ContratoPipeline } from "@/hooks/usePipeline";
 import { Bloco, Campo } from "@/components/Bloco";
 import { CampoData } from "@/components/CampoData";
@@ -16,8 +19,9 @@ import { Carregando } from "@/components/Estados";
 import { dataBR, dataHoraBR } from "@/lib/formato";
 
 // A aba Pagamentos do card: as parcelas do plano, o que entrou e o que está em
-// atraso. A equipe registra o pagamento (dinheiro, PIX…) e o cliente vê no
-// portal; desfazer é do gestor, com motivo (fica na trilha do banco).
+// atraso. A equipe registra o pagamento (dinheiro, PIX…) com o comprovante
+// (foto reduzida no navegador, ou PDF), e o cliente vê os dois no portal;
+// desfazer é do gestor, com motivo (fica na trilha do banco).
 
 const reais = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -59,7 +63,7 @@ export function AbaPagamentos({ c, onPlano }: { c: ContratoPipeline; onPlano: ()
         </ul>
       </Bloco>
 
-      <RegistrarPagamento parcela={pagando} total={nParcelas} formaPadrao={null} onFechar={() => setPagando(null)} />
+      <RegistrarPagamento parcela={pagando} total={nParcelas} onFechar={() => setPagando(null)} />
     </div>
   );
 }
@@ -118,7 +122,8 @@ function Linha({ p, total, hoje, onPagar, cancelado }: { p: Parcela; total: numb
           </p>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+        {p.pago_em && <Comprovante p={p} />}
         {p.boleto_url && (
           <a href={p.boleto_url} target="_blank" rel="noreferrer" className="q-link inline-flex items-center gap-1 text-xs">Boleto <ExternalLink className="h-3 w-3" /></a>
         )}
@@ -135,52 +140,109 @@ function Linha({ p, total, hoje, onPagar, cancelado }: { p: Parcela; total: numb
   );
 }
 
-function RegistrarPagamento({ parcela, total, formaPadrao, onFechar }: { parcela: Parcela | null; total: number; formaPadrao: string | null; onFechar: () => void }) {
-  const pagar = usePagarParcela();
-  const [data, setData] = useState(hojeISO());
-  const [forma, setForma] = useState(formaPadrao ?? FORMAS_RECEBIMENTO[0]);
-  const [obs, setObs] = useState("");
-  const [aberta, setAberta] = useState<string | null>(null);
-  // Reinicia a cada parcela aberta.
-  if (parcela && parcela.id !== aberta) {
-    setAberta(parcela.id); setData(hojeISO()); setForma(formaPadrao ?? FORMAS_RECEBIMENTO[0]); setObs("");
-  }
-
-  const confirmar = async () => {
-    if (!parcela) return;
+function Comprovante({ p }: { p: Parcela }) {
+  const anexar = useAnexarComprovante();
+  const campo = useRef<HTMLInputElement>(null);
+  const abrir = () => abrirComprovante(p.comprovante_path!).catch((e) => toast.error("Não foi possível abrir.", { description: (e as Error).message }));
+  const escolher = async (arquivo: File | undefined) => {
+    if (!arquivo) return;
     try {
-      await pagar.mutateAsync({ id: parcela.id, pagoEm: data, forma, obs: obs.trim() });
-      toast.success("Pagamento registrado.");
-      onFechar();
+      await anexar.mutateAsync({ parcela: p, arquivo });
+      toast.success("Comprovante anexado.");
     } catch (e) {
-      toast.error("Não foi possível registrar.", { description: (e as Error).message });
+      toast.error("Não foi possível anexar.", { description: (e as Error).message });
+    } finally {
+      if (campo.current) campo.current.value = "";
     }
   };
-
+  if (p.comprovante_path) {
+    return (
+      <Button type="button" size="sm" variant="outline" onClick={abrir}>
+        <Paperclip className="mr-1 h-3.5 w-3.5" /> Comprovante
+      </Button>
+    );
+  }
   return (
-    <Dialog open={!!parcela} onOpenChange={(o) => { if (!o) { setAberta(null); onFechar(); } }}>
+    <>
+      <input ref={campo} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => escolher(e.target.files?.[0])} />
+      <Button type="button" size="sm" variant="outline" onClick={() => campo.current?.click()} disabled={anexar.isPending}>
+        {anexar.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Paperclip className="mr-1 h-3.5 w-3.5" />} Anexar comprovante
+      </Button>
+    </>
+  );
+}
+
+function RegistrarPagamento({ parcela, total, onFechar }: { parcela: Parcela | null; total: number; onFechar: () => void }) {
+  return (
+    <Dialog open={!!parcela} onOpenChange={(o) => { if (!o) onFechar(); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{parcela ? `${rotuloParcela(parcela.numero, total)} · ${reais(Number(parcela.valor))}` : ""}</DialogTitle>
           <DialogDescription className="sr-only">Registrar o pagamento desta parcela.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
-          <Campo rotulo="Pago em"><CampoData valor={data} onChange={setData} anoMax={new Date().getFullYear()} /></Campo>
-          <Campo rotulo="Forma">
-            <Select value={forma} onValueChange={setForma}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{FORMAS_RECEBIMENTO.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
-            </Select>
-          </Campo>
-          <Campo rotulo="Observação interna"><Input value={obs} onChange={(e) => setObs(e.target.value)} /></Campo>
-        </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onFechar}>Cancelar</Button>
-          <Button type="button" onClick={confirmar} disabled={!data || pagar.isPending}>
-            {pagar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Registrar
-          </Button>
-        </div>
+        {/* Formulário novo a cada parcela: nasce com a data de hoje. */}
+        {parcela && <FormPagamento key={parcela.id} parcela={parcela} onFechar={onFechar} />}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function FormPagamento({ parcela, onFechar }: { parcela: Parcela; onFechar: () => void }) {
+  const pagar = usePagarParcela();
+  const anexar = useAnexarComprovante();
+  const [data, setData] = useState(hojeISO);
+  const [forma, setForma] = useState(FORMAS_RECEBIMENTO[0]);
+  const [obs, setObs] = useState("");
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const campo = useRef<HTMLInputElement>(null);
+  const ocupado = pagar.isPending || anexar.isPending;
+
+  const confirmar = async () => {
+    try {
+      await pagar.mutateAsync({ id: parcela.id, pagoEm: data, forma, obs: obs.trim() });
+    } catch (e) {
+      return toast.error("Não foi possível registrar.", { description: (e as Error).message });
+    }
+    if (arquivo) {
+      try {
+        await anexar.mutateAsync({ parcela, arquivo });
+      } catch (e) {
+        onFechar();
+        return toast.error("Pagamento registrado, mas o comprovante não.", { description: (e as Error).message });
+      }
+    }
+    toast.success("Pagamento registrado.");
+    onFechar();
+  };
+
+  return (
+    <>
+      <div className="space-y-3">
+        <Campo rotulo="Pago em"><CampoData valor={data} onChange={setData} anoMax={new Date().getFullYear()} /></Campo>
+        <Campo rotulo="Forma">
+          <Select value={forma} onValueChange={setForma}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>{FORMAS_RECEBIMENTO.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}</SelectContent>
+          </Select>
+        </Campo>
+        <div className="space-y-1.5">
+          <span className="block text-sm font-medium leading-none">Comprovante</span>
+          <input ref={campo} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setArquivo(e.target.files?.[0] ?? null)} />
+          <div className="flex min-h-10 items-center gap-2 rounded-md border border-input bg-background px-1.5">
+            <Button type="button" size="sm" variant="outline" className="h-8 shrink-0" onClick={() => campo.current?.click()}>
+              <Paperclip className="mr-1 h-3.5 w-3.5" /> {arquivo ? "Trocar" : "Escolher arquivo"}
+            </Button>
+            <span className="min-w-0 truncate text-sm text-muted-foreground">{arquivo?.name ?? "Foto ou PDF"}</span>
+          </div>
+        </div>
+        <Campo rotulo="Observação interna"><Input value={obs} onChange={(e) => setObs(e.target.value)} /></Campo>
+      </div>
+      <div className="flex justify-end gap-2 pt-2">
+        <Button type="button" variant="outline" onClick={onFechar}>Cancelar</Button>
+        <Button type="button" onClick={confirmar} disabled={!data || ocupado}>
+          {ocupado && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Registrar
+        </Button>
+      </div>
+    </>
   );
 }

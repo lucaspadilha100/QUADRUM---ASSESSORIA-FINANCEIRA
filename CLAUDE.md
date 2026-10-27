@@ -223,6 +223,7 @@ conferida em 27/10/2026 (empresa TRICONECTA com CNPJ e sede; contrato v3 ativo).
 `20261030000000` (parcelas e pagamentos; unidade e linha padrão) — aplicada e
 conferida em 27/10/2026 (Matriz e Veicular padrão, nenhum contrato sem elas,
 4 funções, parcelas no Realtime, LGPD exporta parcelas, anon não executa nada).
+`20261031000000` (comprovante de pagamento: bucket privado `comprovantes`) — PENDENTE.
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
@@ -404,6 +405,16 @@ portal_pagamentos     o que o cliente vê (sem a obs interna)
   `linhas_credito`, uma de cada; hoje Matriz e Veicular): contrato sem elas
   recebe a padrão (`trg_contrato_padroes`, também se alguém esvaziar). Filial
   nova não muda isso; trocar a padrão é um UPDATE.
+- **Comprovante** (`20261031000000`): bucket PRIVADO `comprovantes`, pasta
+  `<contrato>/<parcela>/<uuid>.<ext>`; foto reduzida no navegador
+  (`comprimirComprovante`: lado maior 1600 px, WEBP 0,75 — uma foto de 2 MB de
+  comprovante virou 26 KB legível), PDF até 3 MB. Sobe no bucket e só então
+  `q_parcela_comprovante` liga à parcela (confere a pasta e que o arquivo
+  existe). Ninguém troca nem apaga arquivo; trocar o comprovante vira evento.
+  A equipe lê/envia só na pasta de contrato que vê; o CLIENTE lê os dos
+  contratos dele no portal (`q_portal_meus_contratos`, pela sessão) — a
+  ÚNICA regra dele em tabela (`storage.objects`). Abrir = link assinado de
+  5 min, numa aba aberta NO CLIQUE (depois do `await` o navegador bloqueia).
 - `useContratoDocumento` lê `*` e a falha SOBE: com a lista de colunas, coluna
   nova quebrava a leitura antes de a migração rodar, e o formulário abria
   VAZIO — salvar gravaria vazio por cima do plano.

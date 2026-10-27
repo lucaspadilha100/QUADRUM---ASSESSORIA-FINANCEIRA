@@ -761,12 +761,53 @@ await espera("anon não chama portal_pagamentos nem q_parcela_pagar", async () =
 }, false, (r) => r.rows[0] === "erro" && r.rows[1] === "erro");
 await espera("exportar os dados do cliente (LGPD) leva as parcelas", () => como("authenticated", G, `select q_cliente_exportar('${clienteDoA}') as j`), false,
   (r) => r.rows[0].j.contratos.some((k) => (k.parcelas ?? []).length === 4));
+// ── comprovante na parcela (20261031000000)
+const p1 = await parc(1);
+await como("authenticated", M, `select q_parcela_pagar('${p1}', '${hoje}', 'PIX')`);
+const pasta1 = `${ctPag}/${p1}`;
+await espera("o bucket de comprovantes é PRIVADO", () => db.query("select public from storage.buckets where id = 'comprovantes'"), false, (r) => r.rows[0]?.public === false);
+await espera("o consultor envia o comprovante na pasta do contrato dele", () => como("authenticated", M, `insert into storage.objects (bucket_id, name) values ('comprovantes', '${pasta1}/a.webp') returning id`), false, n(1));
+await espera("o colaborador de OUTRA carteira não envia nem lê", async () => {
+  const e = await como("authenticated", B, `insert into storage.objects (bucket_id, name) values ('comprovantes', '${pasta1}/b.webp')`).then(() => "ok", () => "erro");
+  const l = await como("authenticated", B, `select count(*) as n from storage.objects where bucket_id = 'comprovantes'`);
+  return { rows: [e, Number(l.rows[0].n)] };
+}, false, (r) => r.rows[0] === "erro" && r.rows[1] === 0);
+await espera("o cliente não envia comprovante", () => comoCliente(`insert into storage.objects (bucket_id, name) values ('comprovantes', '${pasta1}/c.webp')`), true);
+await espera("ninguém troca nem apaga o arquivo", async () => {
+  const u = await como("authenticated", G, `update storage.objects set name = name || 'x' where bucket_id = 'comprovantes' returning id`);
+  const d = await como("authenticated", G, `delete from storage.objects where bucket_id = 'comprovantes' returning id`);
+  return { rows: [u.rows.length, d.rows.length] };
+}, false, (r) => r.rows[0] === 0 && r.rows[1] === 0);
+await espera("anexar arquivo de FORA da pasta da parcela é recusado", () => como("authenticated", M, `select q_parcela_comprovante('${p1}', '${ctPag}/outra/a.webp')`), true);
+await espera("anexar arquivo que não está no bucket é recusado", () => como("authenticated", M, `select q_parcela_comprovante('${p1}', '${pasta1}/nao-existe.webp')`), true);
+await espera("o consultor anexa, e fica na trilha", async () => {
+  await como("authenticated", M, `select q_parcela_comprovante('${p1}', '${pasta1}/a.webp')`);
+  return db.query(`select p.comprovante_path, (select count(*) from parcela_eventos e where e.parcela_id = p.id and e.tipo = 'comprovante') as ev from contrato_parcelas p where p.id = '${p1}'`);
+}, false, (r) => r.rows[0].comprovante_path === `${pasta1}/a.webp` && Number(r.rows[0].ev) === 1);
+await espera("o colaborador B não anexa na parcela do A", () => como("authenticated", B, `select q_parcela_comprovante('${p1}', '${pasta1}/a.webp')`), true);
+await espera("o portal mostra o comprovante, e o cliente lê o arquivo dele", async () => {
+  const pg = await comoCliente("select portal_pagamentos() as p");
+  const l = await comoCliente(`select count(*) as n from storage.objects where bucket_id = 'comprovantes'`);
+  const k = pg.rows[0].p.find((x) => x.contrato_id === ctPag);
+  return { rows: [k.parcelas.find((x) => x.numero === 1).comprovante, Number(l.rows[0].n)] };
+}, false, (r) => r.rows[0] === `${pasta1}/a.webp` && r.rows[1] === 1);
+await espera("o cliente não lê comprovante de contrato de OUTRO cliente", async () => {
+  const outro = (await db.query(`select k.id from contratos k where k.cliente_id <> '${clienteDoA}' limit 1`)).rows[0]?.id;
+  await sql(`insert into storage.objects (bucket_id, name) values ('comprovantes', '${outro}/x/y.webp')`);
+  return comoCliente(`select count(*) as n from storage.objects where bucket_id = 'comprovantes' and name like '${outro}/%'`);
+}, false, (r) => Number(r.rows[0].n) === 0);
+await espera("anon não lê comprovante nem anexa", async () => {
+  const a = await como("anon", null, "select count(*) as n from storage.objects where bucket_id = 'comprovantes'").then((r) => Number(r.rows[0].n), () => 0);
+  const b = await como("anon", null, `select q_parcela_comprovante('${p1}', '${pasta1}/a.webp')`).then(() => "ok", () => "erro");
+  return { rows: [a, b] };
+}, false, (r) => r.rows[0] === 0 && r.rows[1] === "erro");
 await espera("contrato perdido não recebe plano", async () => {
   await sql(`update contratos set cancelado_em = now(), motivo_cancelamento = 'teste' where id = '${ctPag}'`);
   return como("authenticated", M, plano([]));
 }, true);
 await espera("rodar a migração das parcelas de novo não muda nada", async () => {
   await db.exec(readFileSync(pasta + "20261030000000_parcelas_e_pagamentos.sql", "utf8"));
+  await db.exec(readFileSync(pasta + "20261031000000_comprovantes.sql", "utf8"));
   return db.query("select (select count(*) from unidades where padrao) as u, (select count(*) from contrato_parcelas) as p");
 }, false, (r) => Number(r.rows[0].u) === 1 && Number(r.rows[0].p) === 4);
 

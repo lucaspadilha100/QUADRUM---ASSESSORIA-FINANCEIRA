@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { mensagemDeErro } from "@/lib/formato";
+import { comprimirComprovante } from "@/lib/comprimirImagem";
 
 // As parcelas do plano (migração 20261030000000). Só se escreve pelas funções
 // do banco: definir o plano, pagar, desfazer pagamento (gestor).
@@ -19,6 +20,7 @@ export interface Parcela {
   boleto_url: string | null;
   boleto_linha_digitavel: string | null;
   pix_copia_cola: string | null;
+  comprovante_path?: string | null;
 }
 
 export interface ItemParcela { numero: number; valor: number; vencimento: string }
@@ -63,6 +65,36 @@ export const useDefinirParcelas = () =>
 export const usePagarParcela = () =>
   useRpc<{ id: string; pagoEm: string; forma: string; obs: string }>("q_parcela_pagar",
     (v) => ({ p_parcela: v.id, p_pago_em: v.pagoEm, p_forma: v.forma, p_obs: v.obs || null }));
+
+/**
+ * O comprovante: reduz a foto no navegador, sobe para o bucket privado na
+ * pasta <contrato>/<parcela>/ e liga à parcela (o banco confere a pasta).
+ * Nome novo a cada envio: nada é sobrescrito.
+ */
+export function useAnexarComprovante() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ parcela, arquivo }: { parcela: Pick<Parcela, "id" | "contrato_id">; arquivo: File }) => {
+      const blob = await comprimirComprovante(arquivo);
+      const ext = blob.type === "application/pdf" ? "pdf" : blob.type === "image/webp" ? "webp" : "jpg";
+      const caminho = `${parcela.contrato_id}/${parcela.id}/${crypto.randomUUID()}.${ext}`;
+      const { error: e1 } = await supabase.storage.from("comprovantes").upload(caminho, blob, { contentType: blob.type, upsert: false });
+      if (e1) throw new Error(e1.message);
+      const { error: e2 } = await supabase.rpc("q_parcela_comprovante", { p_parcela: parcela.id, p_path: caminho });
+      if (e2) throw new Error(mensagemDeErro(e2));
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["contrato"] }),
+  });
+}
+
+/** Abre o comprovante numa aba nova (link que vale 5 minutos: o bucket é privado). */
+export async function abrirComprovante(caminho: string) {
+  // A aba abre NO CLIQUE: aberta depois do await, o navegador a bloquearia.
+  const aba = window.open("", "_blank");
+  const { data, error } = await supabase.storage.from("comprovantes").createSignedUrl(caminho, 300);
+  if (error || !data) { aba?.close(); throw new Error(error?.message ?? "Comprovante indisponível."); }
+  if (aba) aba.location.href = data.signedUrl; else window.location.href = data.signedUrl;
+}
 
 export const useDesfazerPagamento = () =>
   useRpc<{ id: string; motivo: string }>("q_parcela_desfazer_pagamento", (v) => ({ p_parcela: v.id, p_motivo: v.motivo }));

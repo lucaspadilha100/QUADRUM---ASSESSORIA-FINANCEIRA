@@ -1,10 +1,11 @@
-import { AlertTriangle, CheckCircle2, Copy, ExternalLink, Loader2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, ExternalLink, Loader2, Paperclip } from "lucide-react";
 import { toast } from "sonner";
-import { usePagamentos, type PagamentosContrato, type ParcelaPortal } from "@/lib/portal";
+import { abrirComprovante, usePagamentos, type PagamentosContrato, type ParcelaPortal } from "@/lib/portal";
 import { dataBR } from "@/lib/formato";
 
 // Pagamentos: as parcelas de cada contrato, o que já foi pago e o que vence.
-// Boleto e PIX aparecem na parcela quando o banco for integrado.
+// Boleto e PIX aparecem na parcela quando o banco for integrado; o
+// comprovante, quando a equipe anexar.
 
 const reais = (v: number) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const hoje = () => {
@@ -99,6 +100,12 @@ function Linha({ p, total, hoje: h }: { p: ParcelaPortal; total: number; hoje: s
           )}
         </div>
       </div>
+      {p.pago_em && p.comprovante && (
+        <button type="button" className={botao}
+          onClick={() => abrirComprovante(p.comprovante!).catch(() => toast.error("Não foi possível abrir o comprovante."))}>
+          <Paperclip className="h-4 w-4" /> Ver comprovante
+        </button>
+      )}
       {!p.pago_em && (p.boleto_url || p.boleto_linha_digitavel || p.pix_copia_cola) && (
         <div className="flex flex-wrap gap-2">
           {p.boleto_url && <a href={p.boleto_url} target="_blank" rel="noreferrer" className={`${botao} no-underline`}><ExternalLink className="h-4 w-4" /> Ver boleto</a>}
