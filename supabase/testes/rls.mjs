@@ -801,6 +801,65 @@ await espera("anon não lê comprovante nem anexa", async () => {
   const b = await como("anon", null, `select q_parcela_comprovante('${p1}', '${pasta1}/a.webp')`).then(() => "ok", () => "erro");
   return { rows: [a, b] };
 }, false, (r) => r.rows[0] === 0 && r.rows[1] === "erro");
+// ── anexos e documento assinado fora com arquivo (20261101000000)
+const ctA = contrato1;
+const pastaCli = `cliente/${clienteDoA}`, pastaCt = `contrato/${ctA}`;
+await espera("o bucket de anexos é PRIVADO", () => db.query("select public from storage.buckets where id = 'anexos'"), false, (r) => r.rows[0]?.public === false);
+await espera("o consultor envia na pasta do cliente e do contrato dele", async () => {
+  await como("authenticated", M, `insert into storage.objects (bucket_id, name) values ('anexos', '${pastaCli}/rg.webp')`);
+  await como("authenticated", M, `insert into storage.objects (bucket_id, name) values ('anexos', '${pastaCt}/crlv.webp')`);
+  return como("authenticated", M, `insert into storage.objects (bucket_id, name) values ('anexos', '${pastaCt}/assinado.pdf') returning id`);
+}, false, n(1));
+await espera("o colaborador B não envia nem lê na carteira do A", async () => {
+  const e = await como("authenticated", B, `insert into storage.objects (bucket_id, name) values ('anexos', '${pastaCli}/x.webp')`).then(() => "ok", () => "erro");
+  const l = await como("authenticated", B, "select count(*) as n from storage.objects where bucket_id = 'anexos'");
+  return { rows: [e, Number(l.rows[0].n)] };
+}, false, (r) => r.rows[0] === "erro" && r.rows[1] === 0);
+await espera("o cliente do portal não envia anexo", () => comoCliente(`insert into storage.objects (bucket_id, name) values ('anexos', '${pastaCli}/y.webp')`), true);
+let anexoRg;
+await espera("registrar o RG do cliente (tipo do cliente, pasta do cliente)", async () => {
+  const r = await como("authenticated", M, `select q_anexo_registrar('rg_cnh', '${clienteDoA}', null, '${pastaCli}/rg.webp', 'rg.jpg', 'image/webp', 1234) as id`);
+  anexoRg = r.rows[0].id; return db.query(`select cliente_id, contrato_id from anexos where id = '${anexoRg}'`);
+}, false, (r) => r.rows[0].cliente_id === clienteDoA && r.rows[0].contrato_id === null);
+await espera("registrar o CRLV (tipo do contrato) liga ao contrato e ao cliente", async () => {
+  const r = await como("authenticated", M, `select q_anexo_registrar('crlv', null, '${ctA}', '${pastaCt}/crlv.webp', 'crlv.pdf', 'image/webp', 1) as id`);
+  return db.query(`select cliente_id, contrato_id from anexos where id = '${r.rows[0].id}'`);
+}, false, (r) => r.rows[0].cliente_id === clienteDoA && r.rows[0].contrato_id === ctA);
+await espera("arquivo de outra pasta é recusado", () => como("authenticated", M, `select q_anexo_registrar('rg_cnh', '${clienteDoA}', null, '${pastaCt}/crlv.webp', 'x', 'image/webp', 1)`), true);
+await espera("arquivo que não está no bucket é recusado", () => como("authenticated", M, `select q_anexo_registrar('rg_cnh', '${clienteDoA}', null, '${pastaCli}/nao.webp', 'x', 'image/webp', 1)`), true);
+await espera("B não registra anexo na carteira do A", () => como("authenticated", B, `select q_anexo_registrar('rg_cnh', '${clienteDoA}', null, '${pastaCli}/rg.webp', 'x', 'image/webp', 1)`), true);
+await espera("ninguém grava anexo direto na tabela", () => como("authenticated", G, `insert into anexos (cliente_id, tipo, path) values ('${clienteDoA}', 'rg_cnh', '${pastaCli}/rg2.webp')`), true);
+await espera("o A vê os 2 anexos; o B nenhum; o cliente do portal nenhum", async () => {
+  const a = await como("authenticated", M, "select count(*) as n from anexos");
+  const b = await como("authenticated", B, "select count(*) as n from anexos");
+  const c = await comoCliente("select count(*) as n from anexos");
+  return { rows: [Number(a.rows[0].n), Number(b.rows[0].n), Number(c.rows[0].n)] };
+}, false, (r) => r.rows[0] === 2 && r.rows[1] === 0 && r.rows[2] === 0);
+await espera("remover = desativar (a linha fica)", async () => {
+  await como("authenticated", M, `select q_anexo_desativar('${anexoRg}')`);
+  return db.query(`select desativado_em is not null as d from anexos where id = '${anexoRg}'`);
+}, false, (r) => r.rows[0].d === true);
+let docFora;
+await espera("documento assinado fora COM o arquivo: nasce assinado, sem aviso de 'assinar' ao cliente, e vira evento", async () => {
+  const antes = (await notif(P)).itens.filter((i) => i.tipo === "documento_novo").length;
+  docFora = (await como("authenticated", M, `insert into contrato_documentos (contrato_id, tipo, arquivo_path, assinado_em) values ('${ctA}', 'declaracao', '${pastaCt}/assinado.pdf', now()) returning id`)).rows[0].id;
+  const depois = (await notif(P)).itens.filter((i) => i.tipo === "documento_novo").length;
+  const ev = await db.query(`select string_agg(tipo, ',' order by tipo) as t from documento_eventos where documento_id = '${docFora}'`);
+  return { rows: [antes === depois, ev.rows[0].t] };
+}, false, (r) => r.rows[0] === true && r.rows[1] === "arquivo_anexado,marcado_assinado");
+await espera("arquivo de fora da pasta do contrato é recusado no documento", () => como("authenticated", M, `insert into contrato_documentos (contrato_id, tipo, arquivo_path) values ('${ctA}', 'declaracao', '${pastaCli}/rg.webp')`), true);
+await espera("o portal diz que o documento tem arquivo, e o cliente lê SÓ esse arquivo", async () => {
+  const k = (await comoCliente("select portal_contratos() as c")).rows[0].c.find((x) => x.id === ctA);
+  const d = k.documentos.find((x) => x.id === docFora);
+  const l = await comoCliente("select name from storage.objects where bucket_id = 'anexos' order by name");
+  return { rows: [d.arquivo, l.rows.map((x) => x.name)] };
+}, false, (r) => r.rows[0] === `${pastaCt}/assinado.pdf` && JSON.stringify(r.rows[1]) === JSON.stringify([`${pastaCt}/assinado.pdf`]));
+await espera("exportar os dados do cliente (LGPD) leva os anexos", () => como("authenticated", G, `select q_cliente_exportar('${clienteDoA}') as j`), false, (r) => (r.rows[0].j.anexos ?? []).length === 2);
+await espera("anon não lê anexos nem registra", async () => {
+  const a = await como("anon", null, "select count(*) as n from storage.objects where bucket_id = 'anexos'").then((r) => Number(r.rows[0].n), () => 0);
+  const b = await como("anon", null, `select q_anexo_registrar('rg_cnh', '${clienteDoA}', null, '${pastaCli}/rg.webp', 'x', 'image/webp', 1)`).then(() => "ok", () => "erro");
+  return { rows: [a, b] };
+}, false, (r) => r.rows[0] === 0 && r.rows[1] === "erro");
 await espera("contrato perdido não recebe plano", async () => {
   await sql(`update contratos set cancelado_em = now(), motivo_cancelamento = 'teste' where id = '${ctPag}'`);
   return como("authenticated", M, plano([]));
@@ -808,6 +867,7 @@ await espera("contrato perdido não recebe plano", async () => {
 await espera("rodar a migração das parcelas de novo não muda nada", async () => {
   await db.exec(readFileSync(pasta + "20261030000000_parcelas_e_pagamentos.sql", "utf8"));
   await db.exec(readFileSync(pasta + "20261031000000_comprovantes.sql", "utf8"));
+  await db.exec(readFileSync(pasta + "20261101000000_anexos.sql", "utf8"));
   return db.query("select (select count(*) from unidades where padrao) as u, (select count(*) from contrato_parcelas) as p");
 }, false, (r) => Number(r.rows[0].u) === 1 && Number(r.rows[0].p) === 4);
 

@@ -2,10 +2,11 @@ import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertTriangle, Archive, CheckCircle2, FileSignature, Loader2, MessageCircle, PenLine } from "lucide-react";
+import { AlertTriangle, Archive, CheckCircle2, FileSignature, Loader2, MessageCircle, Paperclip, PenLine } from "lucide-react";
+import { toast } from "sonner";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { marcarHistoricoLido, useAvisos, useContratos, type ContratoPortal } from "@/lib/portal";
+import { abrirArquivo, marcarHistoricoLido, useAvisos, useContratos, type ContratoPortal } from "@/lib/portal";
 import { dataHoraBR } from "@/lib/formato";
 
 // "Segunda-Feira, 1 de Março de 2021", como no portal antigo. Data-só montada
@@ -169,6 +170,16 @@ function PainelContrato({ c }: { c: ContratoPortal }) {
                           <span className="block text-xs text-muted-foreground">Assinado em {dataHoraBR(d.assinado_em)}</span>
                         </span>
                       </Link>
+                    ) : d.arquivo ? (
+                      <button type="button" onClick={() => abrirArquivo("anexos", d.arquivo!).catch(() => toast.error("Não foi possível abrir o documento."))}
+                        className="flex w-full items-center gap-3 p-3 text-left text-foreground hover:bg-accent/50">
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm sm:truncate">{d.nome}</span>
+                          <span className="block text-xs text-muted-foreground">Assinado em {dataHoraBR(d.assinado_em)}</span>
+                        </span>
+                        <Paperclip className="h-4 w-4 shrink-0 text-q-petrol" />
+                      </button>
                     ) : (
                       <div className="flex items-center gap-3 p-3">
                         <CheckCircle2 className="h-4 w-4 shrink-0 text-success" />

@@ -30,6 +30,7 @@ import { LinhaDoTempo } from "@/components/pipeline/LinhaDoTempo";
 import { useDadosContrato } from "@/components/pipeline/DadosParaContrato";
 import { EdicaoCliente } from "@/components/clientes/ClientePainel";
 import { Bloco, Campo } from "@/components/Bloco";
+import { Anexos } from "@/components/Anexos";
 import { Carregando } from "@/components/Estados";
 import { dataBR, dataHoraBR, formatarDocumento } from "@/lib/formato";
 
@@ -365,11 +366,13 @@ function FormContrato({ c, d, parcelas }: { c: ContratoPipeline; d: DadosContrat
               <Campo rotulo="Placa"><Input value={placa} onChange={(e) => setPlaca(e.target.value.toUpperCase())} /></Campo>
               {dc.veiculo}
             </div>
+            <Anexos secao="veiculo" contratoId={c.id} />
           </Bloco>
         )}
 
         <Bloco titulo="Financiamento" icone={icone(Wallet)} faltam={dc.faltam.financiamento} className="lg:col-span-2">
           {dc.financiamento}
+          <Anexos secao="financiamento" contratoId={c.id} />
         </Bloco>
 
         <Bloco titulo="Plano escolhido" icone={icone(FileSignature)} faltam={dc.faltam.plano} className="lg:col-span-2">

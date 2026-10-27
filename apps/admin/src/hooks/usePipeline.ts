@@ -308,6 +308,7 @@ export interface DocumentoPendente {
   cancelado_em: string | null;
   created_at: string;
   conteudo_hash: string | null;   // preenchido = documento do SISTEMA (assina no portal)
+  arquivo_path?: string | null;   // o arquivo do documento assinado FORA (bucket `anexos`)
   tipo_info: { nome: string } | null;
 }
 
@@ -318,7 +319,8 @@ export function useDocumentos(contratoId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contrato_documentos")
-        .select("id, tipo, titulo, link_assinatura, assinado_em, cancelado_em, created_at, conteudo_hash, tipo_info:documento_tipos(nome)")
+        // "*": `arquivo_path` (20261101000000) entra sem quebrar a lista antes de a migração rodar.
+        .select("*, tipo_info:documento_tipos(nome)")
         .eq("contrato_id", contratoId!)
         .order("created_at", { ascending: false })
         .order("id", { ascending: true });

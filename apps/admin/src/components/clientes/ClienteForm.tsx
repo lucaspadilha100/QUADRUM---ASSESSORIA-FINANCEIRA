@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Contact, IdCard, Loader2, MapPin, NotebookPen } from "lucide-react";
 import { Bloco } from "@/components/Bloco";
+import { Anexos } from "@/components/Anexos";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,7 +35,7 @@ const PEDIDOS_ENDERECO: (keyof DadosDocumento)[] = ["logradouro", "cidade", "uf"
  * o que falta para os modelos (procuração, contrato…). `largo`: duas colunas
  * no computador e o Salvar fixo no rodapé (o painel do contrato e a ficha).
  */
-export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorInicial, onSalvar, salvando, rotuloSalvar, antes, largo = false }: {
+export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorInicial, onSalvar, salvando, rotuloSalvar, antes, largo = false, clienteId }: {
   inicial?: Partial<DadosCliente>;
   inicialDocumento?: Partial<DadosDocumento> | null;
   tipoPessoa: "PF" | "PJ" | null;
@@ -44,6 +45,8 @@ export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorIn
   rotuloSalvar: string;
   antes?: React.ReactNode;
   largo?: boolean;
+  /** Com o cliente já gravado: os anexos (RG, comprovante de residência…) aparecem nas seções. */
+  clienteId?: string;
 }) {
   const { isGestor, perfil } = useAuth();
   const { data: equipe = [] } = useEquipe();
@@ -158,6 +161,7 @@ export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorIn
               {campo("rg_orgao", "Órgão emissor", { placeholder: "SSP/RN" })}
             </div>
           )}
+          <Anexos secao="identificacao" clienteId={clienteId} />
         </Bloco>
 
         <Bloco titulo={isGestor ? "Contato e carteira" : "Contato"} icone={icone(Contact)}>
@@ -206,6 +210,7 @@ export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorIn
             {campo("cidade", "Cidade")}
             {campo("uf", "UF", { maxLength: 2, className: "uppercase" })}
           </div>
+          <Anexos secao="endereco" clienteId={clienteId} />
         </Bloco>
 
         <Bloco titulo="Observações internas" icone={icone(NotebookPen)} className={largo ? "lg:col-span-2" : ""}>

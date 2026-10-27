@@ -225,6 +225,7 @@ conferida em 27/10/2026 (Matriz e Veicular padrão, nenhum contrato sem elas,
 4 funções, parcelas no Realtime, LGPD exporta parcelas, anon não executa nada).
 `20261031000000` (comprovante de pagamento: bucket privado `comprovantes`) — aplicada
 e conferida em 27/10/2026 (bucket privado, 3 regras, 3 colunas, anon não executa nada).
+`20261101000000` (anexos do cliente e do contrato; arquivo do documento assinado fora) — PENDENTE.
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
@@ -623,6 +624,23 @@ documento_eventos      a trilha: gerado, visualizado, senha_incorreta, assinado�
   eletrônica) nem o título com o nº — os dois ficam no modelo, de propósito.
   Erros de digitação do .docx ("al", "CONTRADADA", "tiene", "RENAVAN") não
   entram.
-- Documento de LINK (assinado fora) continua: criar, marcar à mão.
+- Documento **assinado fora** (27/10/2026, pedido do dono do processo:
+  "dificilmente seria um link"): o normal é a FOTO/PDF do documento assinado
+  (`contrato_documentos.arquivo_path`, bucket `anexos`, pasta do contrato) —
+  ele já nasce assinado, sem o aviso "novo documento para assinar" ao cliente,
+  e vira evento (`arquivo_anexado`, `marcado_assinado`). O link ficou opcional
+  ("+ Link para assinar"), e só ele deixa pendente. O cliente abre o arquivo
+  em Meus Contratos → Documentos.
+- **Anexos de cadastro** (`20261101000000`): a foto/PDF do RG/CNH, CPF,
+  comprovante de residência, CRLV, contrato do financiamento… guardados junto
+  dos dados, "como outra fonte". `anexo_tipos` é CADASTRO (`de` cliente|contrato,
+  `secao` = o bloco onde aparece: identificacao, endereco, veiculo,
+  financiamento). `components/Anexos.tsx` entra no bloco (`secao`) e sobe na
+  hora, sem esperar o Salvar. Bucket PRIVADO `anexos`, pastas `cliente/<id>/`
+  e `contrato/<id>/`; a equipe só vê/envia no que é da carteira
+  (`q_anexo_pasta_minha`); o CLIENTE só lê arquivo de documento ASSINADO do
+  contrato dele (`q_portal_arquivo_visivel`) — anexo de cadastro é da equipe.
+  Remover = desativar (`q_anexo_desativar`); entra no export LGPD. PDF até
+  8 MB, foto reduzida (`comprimirAnexo`). Tipo novo é INSERT em `anexo_tipos`.
 - Impressão/PDF: `/documentos/:id/imprimir` no admin (fora do layout) e o
   "Imprimir / salvar PDF" do portal (`.q-nao-imprimir` esconde o resto).

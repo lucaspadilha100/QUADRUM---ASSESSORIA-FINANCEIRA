@@ -25,11 +25,17 @@ export async function comprimirFoto(arquivo: File, lado = 256): Promise<Blob> {
 // Comprovante de pagamento: mantém a proporção, lado maior até 1600 px (ainda
 // legível: valor, data, código), WEBP (JPEG onde não há WEBP). Uma foto de
 // celular de 3–5 MB vira ~150–300 KB. PDF não se mexe: até 3 MB.
+// Anexo de cadastro (RG, CRLV, contrato do financiamento, documento assinado):
+// mesma redução para foto; PDF até 8 MB (contrato de banco tem muitas páginas).
 export const LIMITE_PDF = 3 * 1024 * 1024;
+export const LIMITE_PDF_ANEXO = 8 * 1024 * 1024;
 
-export async function comprimirComprovante(arquivo: File): Promise<Blob> {
+export const comprimirComprovante = (arquivo: File) => comprimirArquivo(arquivo, LIMITE_PDF);
+export const comprimirAnexo = (arquivo: File) => comprimirArquivo(arquivo, LIMITE_PDF_ANEXO);
+
+async function comprimirArquivo(arquivo: File, limitePdf: number): Promise<Blob> {
   if (arquivo.type === "application/pdf") {
-    if (arquivo.size > LIMITE_PDF) throw new Error("PDF acima de 3 MB. Envie uma foto ou um PDF menor.");
+    if (arquivo.size > limitePdf) throw new Error(`PDF acima de ${limitePdf / 1024 / 1024} MB. Envie uma foto ou um PDF menor.`);
     return arquivo;
   }
   if (!arquivo.type.startsWith("image/")) throw new Error("Envie uma foto ou um PDF.");

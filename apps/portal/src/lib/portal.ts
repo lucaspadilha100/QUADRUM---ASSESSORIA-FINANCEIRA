@@ -25,7 +25,8 @@ export interface ContratoPortal {
   urgente_nao_lido: boolean;
   // `no_sistema`: assina AQUI no portal (documento gerado de modelo); senão, pelo link.
   pendencias: { id: string; tipo: string; nome: string; link: string | null; no_sistema: boolean }[];
-  documentos: { id: string; nome: string; assinado_em: string; no_sistema: boolean }[];
+  // `arquivo`: o documento assinado FORA tem a foto/PDF guardada (bucket `anexos`).
+  documentos: { id: string; nome: string; assinado_em: string; no_sistema: boolean; arquivo?: string | null }[];
   atendimentos: { id: string; numero: number; titulo: string; arquivado: boolean }[];
 }
 
@@ -209,10 +210,13 @@ export const usePagamentos = () =>
   useQuery({ queryKey: ["portal", "pagamentos"], queryFn: () => rpc<PagamentosContrato[]>("portal_pagamentos"), refetchInterval: 20_000 });
 
 /** Abre o comprovante (link de 5 minutos: o bucket é privado, e só os contratos DESTE cliente são lidos). */
-export async function abrirComprovante(caminho: string) {
+export const abrirComprovante = (caminho: string) => abrirArquivo("comprovantes", caminho);
+
+/** Abre um arquivo de bucket privado — o banco só deixa ler o que é do cliente logado. */
+export async function abrirArquivo(bucket: "comprovantes" | "anexos", caminho: string) {
   // A aba abre NO CLIQUE: aberta depois do await, o navegador a bloquearia.
   const aba = window.open("", "_blank");
-  const { data, error } = await supabase.storage.from("comprovantes").createSignedUrl(caminho, 300);
-  if (error || !data) { aba?.close(); throw new Error(error?.message ?? "Comprovante indisponível."); }
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(caminho, 300);
+  if (error || !data) { aba?.close(); throw new Error(error?.message ?? "Arquivo indisponível."); }
   if (aba) aba.location.href = data.signedUrl; else window.location.href = data.signedUrl;
 }

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Ban, CheckCircle2, ExternalLink, Eye, Link2, Loader2 } from "lucide-react";
+import { Ban, CheckCircle2, ExternalLink, Eye, Link2, Loader2, Paperclip, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,10 +11,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDocumentoTipos } from "@/hooks/useCadastros";
 import { useCancelarDocumento, useDocumentos, useSalvarDocumento, type ContratoPipeline, type DocumentoPendente } from "@/hooks/usePipeline";
 import { GerarDocumento } from "@/components/documento/GerarDocumento";
+import { abrirArquivo, subirAnexo } from "@/hooks/useAnexos";
 import { dataHoraBR } from "@/lib/formato";
 
 // A aba "Documentos" do card: gerar documento do MODELO (assina no portal),
-// ou registrar um assinado FORA (link), e a lista do que já foi. O que está
+// ou registrar um assinado FORA — com a foto/PDF do documento assinado (o
+// normal) ou um link para assinar (raro) —, e a lista do que já foi. O que está
 // pendente aparece para o cliente em "Pendências do contrato".
 
 export function DocumentosDoContrato({ contrato, onCompletar }: { contrato: ContratoPipeline; onCompletar?: (onde: "cliente" | "dados") => void }) {
@@ -100,6 +102,11 @@ function ItemDocumento({ d, contratoId }: { d: DocumentoPendente; contratoId: st
       <div className="flex flex-wrap items-center gap-1.5">
         {noSistema ? (
           <Button asChild size="sm" variant="outline"><Link to={`/documentos/${d.id}`}><Eye className="mr-1 h-3.5 w-3.5" /> Ver</Link></Button>
+        ) : d.arquivo_path ? (
+          <Button type="button" size="sm" variant="outline"
+            onClick={() => abrirArquivo("anexos", d.arquivo_path!).catch((e) => toast.error("Não foi possível abrir.", { description: (e as Error).message }))}>
+            <Paperclip className="mr-1 h-3.5 w-3.5" /> Ver
+          </Button>
         ) : d.link_assinatura ? (
           <a href={d.link_assinatura} target="_blank" rel="noreferrer" className="q-link inline-flex items-center gap-1 text-xs">link <ExternalLink className="h-3 w-3" /></a>
         ) : null}
@@ -116,38 +123,67 @@ function ItemDocumento({ d, contratoId }: { d: DocumentoPendente; contratoId: st
   );
 }
 
+/** Documento assinado FORA do sistema: o arquivo assinado (foto/PDF) já o registra como assinado; só o link deixa pendente. */
 export function NovoLink({ contratoId, onCriado }: { contratoId: string; onCriado?: () => void }) {
   const { data: tipos = [] } = useDocumentoTipos();
   const salvar = useSalvarDocumento();
   const [tipo, setTipo] = useState("");
+  const [arquivo, setArquivo] = useState<File | null>(null);
   const [link, setLink] = useState("");
+  const [comLink, setComLink] = useState(false);
+  const [subindo, setSubindo] = useState(false);
+  const campo = useRef<HTMLInputElement>(null);
+  const ocupado = subindo || salvar.isPending;
 
   const adicionar = async () => {
     if (!tipo) return;
     try {
-      await salvar.mutateAsync({ contratoId, campos: { tipo, link_assinatura: link.trim() || null } });
-      setTipo(""); setLink("");
-      toast.success("Pendência criada.");
+      let arquivo_path: string | null = null;
+      if (arquivo) {
+        setSubindo(true);
+        arquivo_path = (await subirAnexo(`contrato/${contratoId}`, arquivo)).caminho;
+      }
+      await salvar.mutateAsync({ contratoId, campos: {
+        tipo,
+        link_assinatura: !arquivo && link.trim() ? link.trim() : null,
+        ...(arquivo_path ? { arquivo_path, assinado_em: new Date().toISOString() } : {}),
+      } });
+      setTipo(""); setLink(""); setArquivo(null); setComLink(false);
+      toast.success(arquivo_path ? "Documento assinado registrado." : "Pendência criada.");
       onCriado?.();
     } catch (e) {
-      toast.error("Não foi possível criar.", { description: (e as Error).message });
+      toast.error("Não foi possível registrar.", { description: (e as Error).message });
+    } finally {
+      setSubindo(false);
     }
   };
 
   return (
-    <div className="space-y-2">
-      <div className="grid gap-2">
-        <Select value={tipo} onValueChange={setTipo}>
-          <SelectTrigger><SelectValue placeholder="Documento" /></SelectTrigger>
-          <SelectContent>
-            {tipos.filter((t) => t.ativo).map((t) => <SelectItem key={t.codigo} value={t.codigo}>{t.nome}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Link para assinar (opcional)" />
-        <Button type="button" onClick={adicionar} disabled={!tipo || salvar.isPending}>
-          {salvar.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="mr-1 h-4 w-4" />} Adicionar
+    <div className="grid gap-2">
+      <Select value={tipo} onValueChange={setTipo}>
+        <SelectTrigger><SelectValue placeholder="Documento" /></SelectTrigger>
+        <SelectContent>
+          {tipos.filter((t) => t.ativo).map((t) => <SelectItem key={t.codigo} value={t.codigo}>{t.nome}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <input ref={campo} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setArquivo(e.target.files?.[0] ?? null)} />
+      <div className="flex min-h-10 items-center gap-2 rounded-md border border-input bg-background px-1.5">
+        <Button type="button" size="sm" variant="outline" className="h-8 shrink-0" onClick={() => campo.current?.click()}>
+          <Paperclip className="mr-1 h-3.5 w-3.5" /> {arquivo ? "Trocar" : "Arquivo assinado"}
         </Button>
+        <span className="min-w-0 truncate text-sm text-muted-foreground">{arquivo?.name ?? "Foto ou PDF"}</span>
       </div>
+      {!arquivo && (comLink ? (
+        <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="Link para assinar" autoFocus />
+      ) : (
+        <button type="button" onClick={() => setComLink(true)} className="q-link inline-flex w-fit items-center gap-1 text-xs">
+          <Plus className="h-3 w-3" /> Link para assinar
+        </button>
+      ))}
+      <Button type="button" onClick={adicionar} disabled={!tipo || ocupado}>
+        {ocupado ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : arquivo ? <CheckCircle2 className="mr-1 h-4 w-4" /> : <Link2 className="mr-1 h-4 w-4" />}
+        {arquivo ? "Registrar assinado" : "Adicionar"}
+      </Button>
     </div>
   );
 }

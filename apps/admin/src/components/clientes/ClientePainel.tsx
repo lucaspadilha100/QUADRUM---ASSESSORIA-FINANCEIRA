@@ -55,6 +55,7 @@ export function EdicaoCliente({ clienteId, comPortal = true, largo = false }: { 
         consultorInicial={cliente.consultor_id}
         rotuloSalvar="Salvar cliente"
         largo={largo}
+        clienteId={cliente.id}
         salvando={atualizar.isPending}
         onSalvar={async (d) => {
           const novo = soDigitos(doc);
