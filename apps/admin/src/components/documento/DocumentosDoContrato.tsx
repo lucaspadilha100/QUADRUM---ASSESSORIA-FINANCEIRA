@@ -13,19 +13,19 @@ import { useCancelarDocumento, useDocumentos, useSalvarDocumento, type ContratoP
 import { GerarDocumento } from "@/components/documento/GerarDocumento";
 import { dataHoraBR } from "@/lib/formato";
 
-// A aba "Pendências" do card: gerar documento do MODELO (assina no portal),
-// ou registrar um assinado FORA (link). O que está pendente aparece para o
-// cliente em "Pendências do contrato".
+// A aba "Documentos" do card: gerar documento do MODELO (assina no portal),
+// ou registrar um assinado FORA (link), e a lista do que já foi. O que está
+// pendente aparece para o cliente em "Pendências do contrato".
 
 export function DocumentosDoContrato({ contrato, onCompletar }: { contrato: ContratoPipeline; onCompletar?: (onde: "cliente" | "dados") => void }) {
   const { data: docs = [], isLoading, error } = useDocumentos(contrato.id);
   return (
-    <div className="space-y-4 pt-2">
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,420px)_1fr]">
       {!contrato.cancelado_em && (
-        <Tabs defaultValue="modelo" className="rounded-lg border border-border p-3">
+        <Tabs defaultValue="modelo" className="min-w-0 rounded-xl border border-border bg-card p-4">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="modelo">Gerar do modelo</TabsTrigger>
-            <TabsTrigger value="link">Assinado fora (link)</TabsTrigger>
+            <TabsTrigger value="link">Assinado fora</TabsTrigger>
           </TabsList>
           <TabsContent value="modelo" className="pt-2">
             <GerarDocumento contrato={{ id: contrato.id, numero: contrato.numero, cliente_id: contrato.cliente?.id, data_aceite: contrato.data_aceite }} onCompletar={onCompletar} />
@@ -34,17 +34,19 @@ export function DocumentosDoContrato({ contrato, onCompletar }: { contrato: Cont
         </Tabs>
       )}
 
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Carregando…</p>
-      ) : error ? (
-        <p className="text-sm text-destructive">Não foi possível carregar: {(error as Error).message}</p>
-      ) : docs.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">Nenhum documento.</p>
-      ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border">
-          {docs.map((d) => <ItemDocumento key={d.id} d={d} contratoId={contrato.id} />)}
-        </ul>
-      )}
+      <div className={`min-w-0 ${contrato.cancelado_em ? "lg:col-span-2" : ""}`}>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : error ? (
+          <p className="text-sm text-destructive">Não foi possível carregar: {(error as Error).message}</p>
+        ) : docs.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">Nenhum documento.</p>
+        ) : (
+          <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+            {docs.map((d) => <ItemDocumento key={d.id} d={d} contratoId={contrato.id} />)}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
@@ -134,7 +136,7 @@ export function NovoLink({ contratoId, onCriado }: { contratoId: string; onCriad
 
   return (
     <div className="space-y-2">
-      <div className="grid gap-2 sm:grid-cols-[160px_1fr_auto]">
+      <div className="grid gap-2">
         <Select value={tipo} onValueChange={setTipo}>
           <SelectTrigger><SelectValue placeholder="Documento" /></SelectTrigger>
           <SelectContent>

@@ -318,8 +318,8 @@ setores · Usuários. Bancos, Linhas e Unidades usam o MESMO componente
   gestor. A Unidade do contrato (que o portal mostra) fica na aba Contrato.
 - O painel do contrato (`ContratoDetalhe`/`ContratoPainel`) é UM só: abre na
   Pipeline, em Contratos, em Documentos e DENTRO da ficha do cliente (com
-  "← Voltar para o cliente"). Abas: Contrato · Cliente · Histórico ·
-  Pendências · Chat. ⚠️ **Nada dentro do painel manda para outra tela**
+  "← Voltar para o cliente"). Abas: Contrato · Cliente · Documentos ·
+  Histórico · Chat. ⚠️ **Nada dentro do painel manda para outra tela**
   (pedido do dono do processo, 15/10/2026: "abre outra barra lateral e não
   tem como voltar"): o "falta RG / falta banco" troca de ABA; os dados do
   cliente se editam na aba Cliente (`EdicaoCliente`, a mesma da ficha).
@@ -328,6 +328,23 @@ setores · Usuários. Bancos, Linhas e Unidades usam o MESMO componente
   "Voltar fecha o diálogo" (`shell/voltarFecha.ts`), e confirmar qualquer coisa
   no painel passava a FECHAR o painel inteiro (medido no teste).
   `?painel=cliente` só ABRE o painel numa aba.
+- **O painel é LARGO** (27/10/2026, pedido do dono do processo: "muito no
+  canto, perdemos o restante da tela"): `PAINEL_LARGO` (ContratoDetalhe) até
+  `max-w-6xl`, o mesmo em Pipeline, Contratos, Documentos e Clientes; seções em
+  `components/Bloco.tsx` (título, ícone, "faltam N"), duas colunas a partir de
+  `lg`, uma no celular (`grid-cols-1`: grade sem coluna cresce com o conteúdo e
+  o campo sai da seção). Só a barra das ABAS é fixa no topo — o cabeçalho
+  inteiro fixo tomava meia tela no celular. Salvar fica fixo no rodapé.
+  - **Contrato** = só o contrato, num Salvar: Andamento, Dívida, Veículo,
+    Financiamento, Plano, Titular, Observações e a Linha do tempo. Os campos
+    do contrato definitivo vêm de `useDadosContrato` (DadosParaContrato.tsx),
+    que devolve as seções e os campos para gravar junto com os do card.
+  - **Cliente** = TUDO do cliente (`ClienteForm` com `largo`): Portal do
+    Cliente (acesso + LGPD), Identificação, Contato e carteira, Endereço,
+    Observações — os "dados para documentos" deixaram de ser um bloco recolhido.
+  - **Documentos** (era "Pendências"): gerar do modelo / assinado fora à
+    esquerda, a lista à direita. "Pendências do contrato" continua sendo o
+    nome que o CLIENTE vê no portal.
 - Banco no contrato: `SelectBanco`, com "+ Cadastrar banco…" para o gestor. O aviso de geração separa o que falta no
   CLIENTE do que falta no CONTRATO. A conversa (`components/atendimento/Conversa.tsx`) é a mesma no
   card e na caixa de Atendimentos; o acesso ao portal (`AcessoPortal.tsx`), o

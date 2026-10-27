@@ -17,6 +17,7 @@ export interface DadosContratoDocumento {
   ultima_parcela_paga: string | null;
   plano_valor_total: number | null; plano_entrada: number | null; plano_parcelas: number | null;
   plano_valor_parcela: number | null; plano_primeiro_vencimento: string | null; plano_forma: string | null;
+  unidade_id: string | null;
 }
 
 export const COLUNAS_DOCUMENTO = [
@@ -24,6 +25,7 @@ export const COLUNAS_DOCUMENTO = [
   "renavam", "chassi", "veiculo_no_endereco",
   "saldo_devedor", "valor_parcela", "parcela_balao", "qtd_parcelas", "parcelas_pagas", "parcelas_atrasadas", "ultima_parcela_paga",
   "plano_valor_total", "plano_entrada", "plano_parcelas", "plano_valor_parcela", "plano_primeiro_vencimento", "plano_forma",
+  "unidade_id",
 ] as const;
 
 /** Sem a migração, volta nulo (a tela só não mostra a seção). */

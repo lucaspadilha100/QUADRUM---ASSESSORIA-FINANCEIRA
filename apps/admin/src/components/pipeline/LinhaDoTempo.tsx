@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, CirclePlus, RotateCcw, XCircle } from "lucide-react";
+import { ArrowRight, CirclePlus, History, RotateCcw, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useEquipe, useEtapas } from "@/hooks/useCadastros";
 import { dataHoraBR } from "@/lib/formato";
+import { Bloco } from "@/components/Bloco";
 
 // Quem moveu o card, de onde para onde, quando — e quanto tempo ficou em cada
 // etapa. Quem grava é o banco (contrato_movimentos, migração 20261020000000).
@@ -21,7 +22,7 @@ function duracao(ms: number) {
   return `${d} dia${d === 1 ? "" : "s"}`;
 }
 
-export function LinhaDoTempo({ contratoId }: { contratoId: string }) {
+export function LinhaDoTempo({ contratoId, className }: { contratoId: string; className?: string }) {
   const { data: etapas = [] } = useEtapas();
   const { data: equipe = [] } = useEquipe();
   const { data = [], error } = useQuery({
@@ -44,9 +45,8 @@ export function LinhaDoTempo({ contratoId }: { contratoId: string }) {
   const ultimo = [...data].reverse().find((m) => m.tipo !== "perdido") ?? data[data.length - 1];
 
   return (
-    <section className="border-t border-border pt-4">
-      <h3 className="mb-3 text-sm font-semibold text-foreground">Linha do tempo</h3>
-      <p className="mb-3 text-xs text-muted-foreground">Na etapa atual há {duracao(Date.now() - new Date(ultimo.created_at).getTime())}</p>
+    <Bloco titulo="Linha do tempo" icone={<History className="h-4 w-4 text-q-petrol" />} className={className}>
+      <p className="text-xs text-muted-foreground">Na etapa atual há {duracao(Date.now() - new Date(ultimo.created_at).getTime())}</p>
       <ol className="space-y-3 border-l border-border pl-4">
         {itens.map(({ m, ficou }) => {
           const Icone = m.tipo === "criado" ? CirclePlus : m.tipo === "perdido" ? XCircle : m.tipo === "reaberto" ? RotateCcw : ArrowRight;
@@ -67,6 +67,6 @@ export function LinhaDoTempo({ contratoId }: { contratoId: string }) {
           );
         })}
       </ol>
-    </section>
+    </Bloco>
   );
 }

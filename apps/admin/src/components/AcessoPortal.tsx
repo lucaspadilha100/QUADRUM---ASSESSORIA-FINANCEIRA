@@ -41,7 +41,7 @@ export function AcessoPortal({ cliente }: { cliente: { id: string; documento: st
   };
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+    <div className="flex flex-wrap items-center gap-2">
       <KeyRound className="h-4 w-4 text-q-petrol" />
       <span className="text-xs text-muted-foreground">
         {!cliente.user_id ? (doc ? "Sem acesso ao portal." : "Sem CPF/CNPJ.") : provisoria ? "Acesso gerado · o cliente ainda não criou a senha dele." : "Tem acesso ao portal."}

@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { Archive, ArrowLeft, Bell, Eye, Globe, Loader2, MessageSquare, RotateCcw, UserPen, XCircle } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import {
+  Archive, ArrowLeft, Bell, Car, Eye, FileSignature, Globe, Landmark, Loader2, MessageSquare, NotebookPen,
+  RotateCcw, UserRound, Wallet, Workflow, XCircle,
+} from "lucide-react";
 import { toast } from "sonner";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,22 +20,29 @@ import {
   LIMITE_HISTORICO, useAtendimentosDoContrato, useAtualizarContrato, useContrato, useHistorico,
   useLancarOcorrencia, type ContratoPipeline,
 } from "@/hooks/usePipeline";
+import { useContratoDocumento, type DadosContratoDocumento } from "@/hooks/useContratoDocumento";
 import { DocumentosDoContrato } from "@/components/documento/DocumentosDoContrato";
 import { Conversa } from "@/components/atendimento/Conversa";
 import { SelectBanco } from "@/components/SelectBanco";
-import { AcessoPortal } from "@/components/AcessoPortal";
 import { LinhaDoTempo } from "@/components/pipeline/LinhaDoTempo";
-import { DadosParaContrato } from "@/components/pipeline/DadosParaContrato";
+import { useDadosContrato } from "@/components/pipeline/DadosParaContrato";
 import { EdicaoCliente } from "@/components/clientes/ClientePainel";
+import { Bloco, Campo } from "@/components/Bloco";
+import { Carregando } from "@/components/Estados";
 import { dataBR, dataHoraBR, formatarDocumento } from "@/lib/formato";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// O card aberto. As abas são as MESMAS do Portal do Cliente (Dados, Histórico,
-// Atendimentos) mais as Pendências — porque tudo o que o cliente lê lá é
-// escrito aqui. Cada aba diz, na própria tela, o que o cliente vai ver.
+// O card aberto. Abas: Contrato (tudo do contrato, um Salvar) · Cliente (tudo
+// do cliente) · Histórico e Chat (o que o cliente lê no portal) · Documentos
+// (gerar do modelo, assinado fora, e o que já foi). Painel LARGO no computador
+// (cabeçalho e abas fixos no topo, seções em duas colunas) e tela cheia no
+// celular.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const NENHUM = "nenhum";
+
+// Largura do painel: a mesma em Pipeline, Contratos, Documentos e Clientes.
+export const PAINEL_LARGO = "w-full overflow-y-auto p-0 sm:max-w-3xl lg:max-w-5xl xl:max-w-6xl";
 
 // O painel lê o contrato pelo ID, direto do banco: a lista ao lado é uma
 // PÁGINA, e o link direto (?contrato=…) tem de abrir mesmo fora dela.
@@ -48,55 +56,62 @@ export function ContratoDetalhe({ contratoId, onFechar }: { contratoId: string |
   const [, setPainel] = useParamUrl("painel", "dados");
   return (
     <Sheet open={!!contratoId} onOpenChange={(o) => { if (!o) { setPainel(null); onFechar(); } }}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetContent side="right" className={PAINEL_LARGO}>
         {contratoId && <ContratoPainel contratoId={contratoId} />}
       </SheetContent>
     </Sheet>
   );
 }
 
-/** O contrato inteiro, para morar dentro de uma barra lateral. `voltar` põe o "← Voltar" no topo. */
+/** O contrato inteiro, para morar dentro de uma barra lateral larga (`PAINEL_LARGO`). `voltar` põe o "← Voltar" no topo. */
 export function ContratoPainel({ contratoId, voltar }: { contratoId: string; voltar?: { rotulo: string; onClick: () => void } }) {
   const { data: contrato, isLoading, error } = useContrato(contratoId);
+  const botaoVoltar = voltar && (
+    <button type="button" onClick={voltar.onClick}
+      className="mb-3 inline-flex min-h-9 items-center gap-1 text-sm font-medium text-q-petrol hover:underline">
+      <ArrowLeft className="h-4 w-4" /> {voltar.rotulo}
+    </button>
+  );
+  if (contrato) return <Conteudo key={contrato.id} c={contrato} voltar={botaoVoltar} />;
   return (
-    <>
-      {voltar && (
-        <button type="button" onClick={voltar.onClick}
-          className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-q-petrol hover:underline">
-          <ArrowLeft className="h-4 w-4" /> {voltar.rotulo}
-        </button>
-      )}
+    <div className="px-4 py-5 sm:px-6">
+      {botaoVoltar}
       {isLoading ? (
         <p className="flex items-center gap-2 pt-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Carregando…</p>
       ) : error ? (
         <p className="pt-10 text-sm text-destructive">Não foi possível abrir o contrato: {(error as Error).message}</p>
-      ) : contrato ? (
-        <Conteudo key={contrato.id} c={contrato} />
       ) : (
         <p className="pt-10 text-sm text-muted-foreground">Contrato não encontrado — ou é de outra carteira.</p>
       )}
-    </>
+    </div>
   );
 }
 
-function Conteudo({ c }: { c: ContratoPipeline }) {
+const ABA = "shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-3 pb-2.5 pt-2 text-sm data-[state=active]:border-q-gold data-[state=active]:bg-transparent data-[state=active]:shadow-none sm:px-4";
+
+function Conteudo({ c, voltar }: { c: ContratoPipeline; voltar?: ReactNode }) {
   const { data: etapas = [] } = useEtapas();
-  const etapaAceite = etapas.find((e) => e.aceita && e.ativo);
   const [painelUrl] = useParamUrl("painel", "dados");
-  const [aba, setAba] = useState(painelUrl);
+  const [aba, setAba] = useState(painelUrl === "pendencias" ? "documentos" : painelUrl);
   // Sem o cliente (é de outra carteira), não há aba Cliente para abrir.
   const abaVisivel = aba === "cliente" && !c.cliente ? "dados" : aba;
+  const etapa = etapas.find((e) => e.id === c.etapa_id);
+  const dias = Math.max(0, Math.floor((Date.now() - new Date(c.etapa_desde).getTime()) / 86_400_000));
   return (
-    <>
-      <SheetHeader className="pr-8 text-left">
-        <p className="font-titulo text-xs font-semibold text-muted-foreground">CONTRATO #{c.numero}</p>
-        <SheetTitle className="text-xl">{c.cliente?.nome ?? "Cliente de outra carteira"}</SheetTitle>
-        <SheetDescription>
-          {c.cliente ? formatarDocumento(c.cliente.documento) || "Sem CPF/CNPJ" : ""}
-          {c.cliente?.telefone ? ` · ${c.cliente.telefone}` : ""}
-        </SheetDescription>
-        {/* O estado que liga ao portal, sempre à vista. */}
-        <div className="pt-1">
+    <Tabs value={abaVisivel} onValueChange={(v) => setAba(v)} className="flex min-h-full flex-col">
+      <div className="px-4 pt-4 sm:px-6 sm:pt-5">
+        {voltar}
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:gap-4 sm:pr-10">
+          <div className="min-w-0 pr-10 sm:flex-1 sm:pr-0">
+            <p className="font-titulo text-xs font-semibold text-muted-foreground">CONTRATO #{c.numero}</p>
+            <SheetTitle className="break-words text-xl sm:text-2xl">{c.cliente?.nome ?? "Cliente de outra carteira"}</SheetTitle>
+            <SheetDescription className="break-words">
+              {c.cliente ? formatarDocumento(c.cliente.documento) || "Sem CPF/CNPJ" : ""}
+              {c.cliente?.telefone ? ` · ${c.cliente.telefone}` : ""}
+              {c.cliente?.email ? ` · ${c.cliente.email}` : ""}
+            </SheetDescription>
+          </div>
+          {/* O estado que liga ao portal, sempre à vista. */}
           {c.cancelado_em ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
               <XCircle className="h-3.5 w-3.5" /> Perdido em {dataBR(c.cancelado_em)}
@@ -111,39 +126,80 @@ function Conteudo({ c }: { c: ContratoPipeline }) {
             </span>
           )}
         </div>
-      </SheetHeader>
-
-      <Tabs value={abaVisivel} onValueChange={(v) => setAba(v)} className="mt-5">
-        <TabsList className={`flex w-full sm:grid ${c.cliente ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
-          <TabsTrigger value="dados" className="shrink-0 px-3 text-sm sm:px-1">Contrato</TabsTrigger>
-          {c.cliente && <TabsTrigger value="cliente" className="shrink-0 px-3 text-sm sm:px-1">Cliente</TabsTrigger>}
-          <TabsTrigger value="historico" className="shrink-0 px-3 text-sm sm:px-1">Histórico</TabsTrigger>
-          <TabsTrigger value="documentos" className="shrink-0 px-3 text-sm sm:px-1">Pendências</TabsTrigger>
-          <TabsTrigger value="atendimentos" className="shrink-0 px-3 text-sm sm:px-1">Chat</TabsTrigger>
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:flex sm:flex-wrap sm:gap-x-8">
+          <Fato rotulo="Etapa" valor={etapa?.nome ?? "—"} extra={`${dias} dia${dias === 1 ? "" : "s"}`} cor={etapa?.cor} />
+          <Fato rotulo="Consultor" valor={c.consultor?.nome ?? "Sem consultor"} />
+          <Fato rotulo="Banco" valor={c.banco?.nome ?? "—"} />
+          <Fato rotulo="Linha" valor={c.linha?.nome ?? "—"} />
+        </dl>
+      </div>
+      {/* Só as abas ficam fixas no topo: no celular o cabeçalho inteiro tomaria metade da tela. */}
+      <div className="sticky top-0 z-10 mt-2 border-b border-border bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:px-5">
+        <TabsList className="flex h-auto w-full justify-start gap-1 rounded-none bg-transparent p-0">
+          <TabsTrigger value="dados" className={ABA}>Contrato</TabsTrigger>
+          {c.cliente && <TabsTrigger value="cliente" className={ABA}>Cliente</TabsTrigger>}
+          <TabsTrigger value="documentos" className={ABA}>Documentos</TabsTrigger>
+          <TabsTrigger value="historico" className={ABA}>Histórico</TabsTrigger>
+          <TabsTrigger value="atendimentos" className={ABA}>Chat</TabsTrigger>
         </TabsList>
-        <TabsContent value="dados"><AbaDados c={c} onEditarCliente={() => setAba("cliente")} /></TabsContent>
+      </div>
+
+      <div className="flex-1 px-4 pt-5 sm:px-6">
+        <TabsContent value="dados" className="mt-0"><AbaContrato c={c} /></TabsContent>
         {c.cliente && (
-          <TabsContent value="cliente" className="pt-2">
-            <EdicaoCliente clienteId={c.cliente.id} />
+          <TabsContent value="cliente" className="mt-0">
+            <EdicaoCliente clienteId={c.cliente.id} largo />
           </TabsContent>
         )}
-        <TabsContent value="historico"><AbaHistorico contratoId={c.id} /></TabsContent>
-        <TabsContent value="documentos">
+        <TabsContent value="documentos" className="mt-0 pb-6">
           <DocumentosDoContrato contrato={c} onCompletar={(onde) => setAba(onde === "cliente" ? "cliente" : "dados")} />
         </TabsContent>
-        <TabsContent value="atendimentos"><AbaAtendimentos contratoId={c.id} /></TabsContent>
-      </Tabs>
-    </>
+        <TabsContent value="historico" className="mt-0 pb-6"><AbaHistorico contratoId={c.id} /></TabsContent>
+        <TabsContent value="atendimentos" className="mt-0 pb-6"><AbaAtendimentos contratoId={c.id} /></TabsContent>
+      </div>
+    </Tabs>
   );
 }
 
-// ── Dados ────────────────────────────────────────────────────────────────────
+function Fato({ rotulo, valor, extra, cor }: { rotulo: string; valor: string; extra?: string; cor?: string | null }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{rotulo}</dt>
+      <dd className="flex items-center gap-1.5 truncate text-sm font-medium text-foreground">
+        {cor && <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: cor }} />}
+        <span className="truncate">{valor}</span>
+        {extra && <span className="shrink-0 text-xs font-normal text-muted-foreground">· {extra}</span>}
+      </dd>
+    </div>
+  );
+}
 
-function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente: () => void }) {
+// ── Contrato: o card + o que o contrato definitivo pede, num Salvar só ───────
+
+const SEM_DADOS: DadosContratoDocumento = {
+  titular_outro: false, titular_nome: null, titular_documento: null, titular_rg: null, titular_nascimento: null,
+  titular_sexo: null, titular_endereco: null, renavam: null, chassi: null, veiculo_no_endereco: null,
+  saldo_devedor: null, valor_parcela: null, parcela_balao: null, qtd_parcelas: null, parcelas_pagas: null,
+  parcelas_atrasadas: null, ultima_parcela_paga: null, plano_valor_total: null, plano_entrada: null,
+  plano_parcelas: null, plano_valor_parcela: null, plano_primeiro_vencimento: null, plano_forma: null, unidade_id: null,
+};
+
+function AbaContrato({ c }: { c: ContratoPipeline }) {
+  const { data, isLoading } = useContratoDocumento(c.id);
+  if (isLoading) return <Carregando />;
+  const d = data ?? SEM_DADOS;
+  // ⚠️ Reinicia pelos VALORES gravados, nunca pelo objeto: a tela relê sozinha
+  // (ao vivo) e um objeto novo com os mesmos dados apagaria o que está sendo digitado.
+  const chave = JSON.stringify([d, c.etapa_id, c.banco_id, c.linha_credito_id, c.veiculo, c.ano_modelo, c.placa, c.consultor_id, c.observacoes]);
+  return <FormContrato key={chave} c={c} d={d} />;
+}
+
+function FormContrato({ c, d }: { c: ContratoPipeline; d: DadosContratoDocumento }) {
   const { isGestor, perfil } = useAuth();
   const { data: etapas = [] } = useEtapas();
   const { data: linhas = [] } = useLinhasCredito();
   const { data: equipe = [] } = useEquipe();
+  const { data: unidades = [] } = useUnidades();
   const atualizar = useAtualizarContrato();
 
   const [etapaId, setEtapaId] = useState(c.etapa_id);
@@ -153,34 +209,21 @@ function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente
   const [anoModelo, setAnoModelo] = useState(c.ano_modelo ?? "");
   const [placa, setPlaca] = useState(c.placa ?? "");
   const [consultorId, setConsultorId] = useState(c.consultor_id ?? NENHUM);
+  const [unidadeId, setUnidadeId] = useState(d.unidade_id ?? NENHUM);
   const [observacoes, setObservacoes] = useState(c.observacoes ?? "");
-  const { data: unidades = [] } = useUnidades();
-  // A unidade não vem na lista (é um campo só do card): lê-se à parte.
-  const { data: unidadeAtual } = useQuery({
-    queryKey: ["contrato", c.id, "unidade"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("contratos").select("unidade_id").eq("id", c.id).maybeSingle();
-      if (error) throw new Error(error.message);
-      return (data?.unidade_id as string | null) ?? null;
-    },
-  });
-  const [unidadeId, setUnidadeId] = useState(NENHUM);
-  useEffect(() => { setUnidadeId(unidadeAtual ?? NENHUM); }, [unidadeAtual]);
-
-  useEffect(() => {
-    setEtapaId(c.etapa_id); setBancoId(c.banco_id ?? NENHUM); setLinhaId(c.linha_credito_id ?? NENHUM);
-    setVeiculo(c.veiculo ?? ""); setAnoModelo(c.ano_modelo ?? ""); setPlaca(c.placa ?? "");
-    setConsultorId(c.consultor_id ?? NENHUM); setObservacoes(c.observacoes ?? "");
-    // ⚠️ Pelos VALORES, não pelo objeto: a tela relê sozinha (ao vivo) e um
-    // objeto novo com os mesmos dados apagaria o que a pessoa está digitando.
-  }, [c.id, c.etapa_id, c.banco_id, c.linha_credito_id, c.veiculo, c.ano_modelo, c.placa, c.consultor_id, c.observacoes]);
 
   const linha = linhas.find((l) => l.id === linhaId);
+  const comVeiculo = !!(linha?.tem_veiculo || veiculo.trim() || placa.trim());
+  const dc = useDadosContrato(d, { comVeiculo, nomeCliente: c.cliente?.nome });
+  const faltam = dc.faltam.titular + dc.faltam.veiculo + dc.faltam.financiamento + dc.faltam.plano;
   const vazio = (s: string) => s.trim() || null;
   const opc = (v: string) => (v === NENHUM ? null : v);
 
   const salvar = async () => {
+    const extra = dc.campos();
+    if (typeof extra === "string") return toast.error(extra);
     const campos: Record<string, unknown> = {
+      ...extra,
       etapa_id: etapaId,
       banco_id: opc(bancoId),
       linha_credito_id: opc(linhaId),
@@ -232,95 +275,106 @@ function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente
     }
   };
 
+  const icone = (I: typeof Car) => <I className="h-4 w-4 text-q-petrol" />;
+
   return (
-    <div className="space-y-4 pt-2">
-      {c.cliente && (
-        <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
-          <p className="font-medium text-foreground">{c.cliente.nome}</p>
-          <p className="text-muted-foreground">
-            {formatarDocumento(c.cliente.documento) || "Sem CPF/CNPJ"}
-            {c.cliente.telefone ? ` · ${c.cliente.telefone}` : ""}
-            {c.cliente.email ? ` · ${c.cliente.email}` : ""}
-          </p>
-          <AcessoPortal cliente={c.cliente} />
-          <button type="button" onClick={onEditarCliente} className="q-link mt-2 inline-flex items-center gap-1 text-xs font-medium">
-            <UserPen className="h-3.5 w-3.5" /> Editar dados do cliente
-          </button>
-        </div>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Campo rotulo="Etapa">
-          <Select value={etapaId} onValueChange={setEtapaId}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {etapas.filter((e) => e.ativo || e.id === c.etapa_id).map((e) => (
-                <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Campo>
-        <Campo rotulo="Consultor">
-          {isGestor ? (
-            <Select value={consultorId} onValueChange={setConsultorId}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NENHUM}>Sem consultor</SelectItem>
-                {equipe.filter((p) => p.ativo || p.id === c.consultor_id).map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : (
-            <Input value={c.consultor?.nome ?? "Sem consultor"} disabled />
-          )}
-        </Campo>
-        <Campo rotulo="Banco">
-          <SelectBanco valor={bancoId} onChange={setBancoId} manterId={c.banco_id} />
-        </Campo>
-        <Campo rotulo="Unidade">
-          <Select value={unidadeId} onValueChange={setUnidadeId}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NENHUM}>Sem unidade</SelectItem>
-              {unidades.filter((u) => u.ativo || u.id === unidadeAtual).map((u) => (
-                <SelectItem key={u.id} value={u.id}>{u.nome}{u.cidade ? ` — ${u.cidade}${u.uf ? `/${u.uf}` : ""}` : ""}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Campo>
-        <Campo rotulo="Linha de crédito">
-          <Select value={linhaId} onValueChange={setLinhaId}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NENHUM}>Não informada</SelectItem>
-              {linhas.filter((l) => l.ativo || l.id === c.linha_credito_id).map((l) => (
-                <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Campo>
-      </div>
-
-      {(linha?.tem_veiculo || c.placa || c.veiculo) && (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Campo rotulo="Veículo"><Input value={veiculo} onChange={(e) => setVeiculo(e.target.value)} /></Campo>
-          <Campo rotulo="Ano/modelo"><Input value={anoModelo} onChange={(e) => setAnoModelo(e.target.value)} /></Campo>
-          <Campo rotulo="Placa"><Input value={placa} onChange={(e) => setPlaca(e.target.value.toUpperCase())} /></Campo>
-        </div>
-      )}
-
-      <Campo rotulo="Observações internas">
-        <Textarea rows={3} value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
-      </Campo>
-
+    <div>
       {c.cancelado_em && c.motivo_cancelamento && (
-        <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-foreground">
+        <p className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-foreground">
           <span className="font-medium">Motivo da perda:</span> {c.motivo_cancelamento}
         </p>
       )}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Bloco titulo="Andamento" icone={icone(Workflow)}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Campo rotulo="Etapa">
+              <Select value={etapaId} onValueChange={setEtapaId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {etapas.filter((e) => e.ativo || e.id === c.etapa_id).map((e) => (
+                    <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Campo>
+            <Campo rotulo="Consultor">
+              {isGestor ? (
+                <Select value={consultorId} onValueChange={setConsultorId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NENHUM}>Sem consultor</SelectItem>
+                    {equipe.filter((p) => p.ativo || p.id === c.consultor_id).map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={c.consultor?.nome ?? "Sem consultor"} disabled />
+              )}
+            </Campo>
+            <Campo rotulo="Unidade" className="sm:col-span-2">
+              <Select value={unidadeId} onValueChange={setUnidadeId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NENHUM}>Sem unidade</SelectItem>
+                  {unidades.filter((u) => u.ativo || u.id === d.unidade_id).map((u) => (
+                    <SelectItem key={u.id} value={u.id}>{u.nome}{u.cidade ? ` — ${u.cidade}${u.uf ? `/${u.uf}` : ""}` : ""}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Campo>
+          </div>
+        </Bloco>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+        <Bloco titulo="Dívida" icone={icone(Landmark)}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Campo rotulo="Banco"><SelectBanco valor={bancoId} onChange={setBancoId} manterId={c.banco_id} /></Campo>
+            <Campo rotulo="Linha de crédito">
+              <Select value={linhaId} onValueChange={setLinhaId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NENHUM}>Não informada</SelectItem>
+                  {linhas.filter((l) => l.ativo || l.id === c.linha_credito_id).map((l) => (
+                    <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Campo>
+          </div>
+        </Bloco>
+
+        {comVeiculo && (
+          <Bloco titulo="Veículo" icone={icone(Car)} faltam={dc.faltam.veiculo} className="lg:col-span-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Campo rotulo="Marca e modelo"><Input value={veiculo} onChange={(e) => setVeiculo(e.target.value)} /></Campo>
+              <Campo rotulo="Ano/modelo"><Input value={anoModelo} onChange={(e) => setAnoModelo(e.target.value)} /></Campo>
+              <Campo rotulo="Placa"><Input value={placa} onChange={(e) => setPlaca(e.target.value.toUpperCase())} /></Campo>
+              {dc.veiculo}
+            </div>
+          </Bloco>
+        )}
+
+        <Bloco titulo="Financiamento" icone={icone(Wallet)} faltam={dc.faltam.financiamento} className="lg:col-span-2">
+          {dc.financiamento}
+        </Bloco>
+
+        <Bloco titulo="Plano escolhido" icone={icone(FileSignature)} faltam={dc.faltam.plano} className="lg:col-span-2">
+          {dc.plano}
+        </Bloco>
+
+        <Bloco titulo="Titular do financiamento" icone={icone(UserRound)} faltam={dc.faltam.titular}>
+          {dc.titular}
+        </Bloco>
+
+        <Bloco titulo="Observações internas" icone={icone(NotebookPen)}>
+          <Textarea rows={4} aria-label="Observações internas" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
+        </Bloco>
+
+        <LinhaDoTempo contratoId={c.id} className="lg:col-span-2" />
+      </div>
+
+      {/* Fixo no rodapé do painel: salvar não exige rolar até o fim. */}
+      <div className="sticky bottom-0 -mx-4 mt-5 flex flex-wrap items-center gap-2 border-t border-border bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:-mx-6 sm:px-6">
         {c.cancelado_em ? (
           <Button type="button" variant="outline" onClick={reabrir}><RotateCcw className="mr-2 h-4 w-4" /> Reabrir</Button>
         ) : (
@@ -328,13 +382,14 @@ function AbaDados({ c, onEditarCliente }: { c: ContratoPipeline; onEditarCliente
             <XCircle className="mr-2 h-4 w-4" /> Marcar como perdido
           </Button>
         )}
+        <span className={`ml-auto text-xs ${faltam ? "text-warning" : "text-success"}`}>
+          {faltam ? `faltam ${faltam} para o contrato` : "contrato completo"}
+        </span>
         <Button type="button" onClick={salvar} disabled={atualizar.isPending}>
           {atualizar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Salvar
         </Button>
       </div>
-      <DadosParaContrato contratoId={c.id} nomeCliente={c.cliente?.nome} comVeiculo={!!(linha?.tem_veiculo || c.placa || c.veiculo)} />
-      <LinhaDoTempo contratoId={c.id} />
     </div>
   );
 }
@@ -361,8 +416,8 @@ function AbaHistorico({ contratoId }: { contratoId: string }) {
   };
 
   return (
-    <div className="space-y-4 pt-2">
-      <div className="space-y-2 rounded-lg border border-border p-3">
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,380px)_1fr]">
+      <div className="space-y-2 rounded-xl border border-border bg-card p-4">
         <Label htmlFor="ocorrencia">Nova ocorrência</Label>
         <Textarea id="ocorrencia" rows={3} value={texto} onChange={(e) => setTexto(e.target.value)}
           placeholder="Ex.: Proposta enviada ao banco. Aguardando retorno em até 5 dias úteis." />
@@ -383,12 +438,13 @@ function AbaHistorico({ contratoId }: { contratoId: string }) {
         </div>
       </div>
 
+      <div className="min-w-0 space-y-2">
       {isLoading ? (
         <p className="text-sm text-muted-foreground">Carregando…</p>
       ) : error ? (
         <p className="text-sm text-destructive">Não foi possível carregar o histórico: {(error as Error).message}</p>
       ) : ocorrencias.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma ocorrência lançada.</p>
+        <p className="rounded-xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">Nenhuma ocorrência lançada.</p>
       ) : (
         <ul className="space-y-2">
           {ocorrencias.map((o) => (
@@ -411,6 +467,7 @@ function AbaHistorico({ contratoId }: { contratoId: string }) {
       {ocorrencias.length >= LIMITE_HISTORICO && (
         <p className="text-center text-[11px] text-muted-foreground">Mostrando as {LIMITE_HISTORICO} ocorrências mais recentes.</p>
       )}
+      </div>
     </div>
   );
 }
@@ -424,16 +481,18 @@ function AbaAtendimentos({ contratoId }: { contratoId: string }) {
 
   if (aberto) {
     return (
+      <div className="mx-auto max-w-3xl">
       <Conversa
         atendimento={{ id: aberto.id, numero: aberto.numero, arquivado_em: aberto.arquivado_em, setorNome: aberto.setor?.nome ?? null, titulo: aberto.titulo }}
         onVoltar={() => setAbertoId(null)}
       />
+      </div>
     );
   }
   if (isLoading) return <p className="pt-2 text-sm text-muted-foreground">Carregando…</p>;
   if (error) return <p className="pt-2 text-sm text-destructive">Não foi possível carregar: {(error as Error).message}</p>;
   return (
-    <div className="space-y-3 pt-2">
+    <div className="mx-auto max-w-3xl space-y-3">
       {lista.length === 0 ? (
         // Mesmo texto que o cliente vê na aba Atendimentos do portal.
         <p className="py-6 text-center text-sm text-muted-foreground">Nenhum atendimento encontrado!</p>
@@ -455,15 +514,6 @@ function AbaAtendimentos({ contratoId }: { contratoId: string }) {
           ))}
         </ul>
       )}
-    </div>
-  );
-}
-
-function Campo({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <Label>{rotulo}</Label>
-      {children}
     </div>
   );
 }

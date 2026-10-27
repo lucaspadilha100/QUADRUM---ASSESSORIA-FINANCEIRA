@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, CheckCircle2, Download, KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { ChevronRight, CheckCircle2, Download, FileText, KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { Bloco } from "@/components/Bloco";
 import { toast } from "sonner";
 import { SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ClienteForm } from "@/components/clientes/ClienteForm";
@@ -22,7 +23,7 @@ import { exportarCliente, useAceiteDoCliente } from "@/hooks/useLgpd";
 //     havia como voltar ao contrato.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function EdicaoCliente({ clienteId, comPortal = true }: { clienteId: string; comPortal?: boolean }) {
+export function EdicaoCliente({ clienteId, comPortal = true, largo = false }: { clienteId: string; comPortal?: boolean; largo?: boolean }) {
   const { data: cliente, isLoading, error } = useCliente(clienteId);
   const atualizar = useAtualizarCliente();
   // CPF/CNPJ: opcional até a etapa do portal. Depois do acesso ao portal ele é
@@ -33,12 +34,12 @@ export function EdicaoCliente({ clienteId, comPortal = true }: { clienteId: stri
   if (error) return <Falha erro={error as Error} />;
   if (!cliente) return <p className="text-sm text-muted-foreground">Cliente não encontrado — ou é de outra carteira.</p>;
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {comPortal && (
-        <section className="rounded-lg border border-border bg-muted/40 p-3">
-          <p className="flex items-center gap-1.5 text-sm font-semibold"><KeyRound className="h-4 w-4 text-q-petrol" /> Portal do Cliente</p>
+        <Bloco titulo="Portal do Cliente" icone={<KeyRound className="h-4 w-4 text-q-petrol" />}>
           <AcessoPortal cliente={cliente} />
-        </section>
+          <Lgpd clienteId={clienteId} documento={cliente.documento} />
+        </Bloco>
       )}
       <ClienteForm
         inicial={{ nome: cliente.nome, telefone: cliente.telefone ?? "", email: cliente.email ?? "", observacoes: cliente.observacoes ?? "" }}
@@ -53,6 +54,7 @@ export function EdicaoCliente({ clienteId, comPortal = true }: { clienteId: stri
         }
         consultorInicial={cliente.consultor_id}
         rotuloSalvar="Salvar cliente"
+        largo={largo}
         salvando={atualizar.isPending}
         onSalvar={async (d) => {
           const novo = soDigitos(doc);
@@ -80,27 +82,24 @@ export function ClientePainel({ clienteId, onAbrirContrato }: { clienteId: strin
   if (!cliente) return <p className="pt-10 text-sm text-muted-foreground">Cliente não encontrado — ou é de outra carteira.</p>;
 
   return (
-    <>
+    <div className="px-4 pt-4 sm:px-6 sm:pt-5">
       <SheetHeader className="pr-8 text-left">
         <p className="font-titulo text-xs font-semibold text-muted-foreground">CLIENTE{cliente.documento ? ` · ${cliente.tipo_pessoa}` : ""}</p>
-        <SheetTitle className="text-xl">{cliente.nome}</SheetTitle>
+        <SheetTitle className="break-words text-xl sm:text-2xl">{cliente.nome}</SheetTitle>
         <SheetDescription>{formatarDocumento(cliente.documento) || "Sem CPF/CNPJ"} · cadastrado em {dataBR(cliente.created_at)}</SheetDescription>
-        <Lgpd clienteId={clienteId} documento={cliente.documento} />
       </SheetHeader>
 
-      <section className="mt-5">
-        <h3 className="mb-2 text-sm font-semibold">Contratos</h3>
+      <div className="mt-5">
+        <Bloco titulo="Contratos" icone={<FileText className="h-4 w-4 text-q-petrol" />}>
         {cliente.contratos.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border p-3 text-sm text-muted-foreground">
-            Nenhum contrato.
-          </p>
+          <p className="text-sm text-muted-foreground">Nenhum contrato.</p>
         ) : (
-          <ul className="divide-y divide-border rounded-lg border border-border">
+          <ul className="-mx-4 -my-4 divide-y divide-border">
             {[...cliente.contratos].sort((a, b) => b.numero - a.numero).map((k) => (
               <li key={k.id}>
                 {/* Abre o contrato AQUI, na mesma barra, com "voltar para o cliente". */}
                 <button type="button" onClick={() => onAbrirContrato(k.id)}
-                  className="flex w-full items-center gap-3 p-3 text-left text-sm text-foreground hover:bg-accent/50">
+                  className="flex min-h-11 w-full items-center gap-3 px-4 py-2.5 text-left text-sm text-foreground hover:bg-accent/50">
                   <span className="font-titulo font-semibold">#{k.numero}</span>
                   <span className="min-w-0 flex-1 truncate text-muted-foreground">{etapaNome(k.etapa_id)}</span>
                   {k.cancelado_em ? (
@@ -114,13 +113,13 @@ export function ClientePainel({ clienteId, onAbrirContrato }: { clienteId: strin
             ))}
           </ul>
         )}
-      </section>
+        </Bloco>
+      </div>
 
-      <section className="mt-5 border-t border-border pt-4">
-        <h3 className="mb-3 text-sm font-semibold">Dados</h3>
-        <EdicaoCliente clienteId={clienteId} />
-      </section>
-    </>
+      <div className="mt-4">
+        <EdicaoCliente clienteId={clienteId} largo />
+      </div>
+    </div>
   );
 }
 
@@ -135,7 +134,7 @@ function Lgpd({ clienteId, documento }: { clienteId: string; documento: string |
     finally { setExportando(false); }
   };
   return (
-    <div className="flex flex-wrap items-center gap-2 pt-1">
+    <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3 empty:hidden">
       {aceite && (
         <span className={`inline-flex items-center gap-1 text-xs ${aceite.termo.ativo ? "text-success" : "text-muted-foreground"}`}>
           <ShieldCheck className="h-3.5 w-3.5" /> Privacidade v{aceite.termo.versao} aceita em {dataHoraBR(aceite.aceito_em)}

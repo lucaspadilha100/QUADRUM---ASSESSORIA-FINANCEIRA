@@ -10,7 +10,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ClienteForm } from "@/components/clientes/ClienteForm";
 import { ClientePainel } from "@/components/clientes/ClientePainel";
-import { ContratoPainel } from "@/components/pipeline/ContratoDetalhe";
+import { ContratoPainel, PAINEL_LARGO } from "@/components/pipeline/ContratoDetalhe";
 import { Chips } from "@/components/Chips";
 import { Carregando, Falha, Vazio } from "@/components/Estados";
 import { Paginacao, usePaginacaoUrl } from "@/components/Paginacao";
@@ -201,7 +201,7 @@ function ClienteDetalhe({ clienteId, onFechar }: { clienteId: string | null; onF
   useEffect(() => setContratoId(null), [clienteId]);
   return (
     <Sheet open={!!clienteId} onOpenChange={(o) => !o && onFechar()}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-xl">
+      <SheetContent side="right" className={PAINEL_LARGO}>
         {clienteId && (contratoId ? (
           <ContratoPainel contratoId={contratoId}
             voltar={{ rotulo: "Voltar para o cliente", onClick: () => setContratoId(null) }} />
