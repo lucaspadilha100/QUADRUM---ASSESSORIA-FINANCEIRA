@@ -220,7 +220,9 @@ robô sem "Quadrum", nenhum modelo com o nome antigo, termo v2 em rascunho).
 `20261029000000` (o contrato editado pela TriConecta: "sediada na", assinatura
 da empresa com CNPJ; Dados da empresa com CNPJ e sede do contrato) — aplicada e
 conferida em 27/10/2026 (empresa TRICONECTA com CNPJ e sede; contrato v3 ativo).
-`20261030000000` (parcelas e pagamentos; unidade e linha padrão) — PENDENTE.
+`20261030000000` (parcelas e pagamentos; unidade e linha padrão) — aplicada e
+conferida em 27/10/2026 (Matriz e Veicular padrão, nenhum contrato sem elas,
+4 funções, parcelas no Realtime, LGPD exporta parcelas, anon não executa nada).
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
