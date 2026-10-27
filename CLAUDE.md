@@ -263,7 +263,11 @@ alta, espaçado: `.q-titulo-marca`), Inter no texto.
   `assets/simbolo.png` (o T dourado, serve no claro e no escuro) e
   `assets/logotipo.png` (símbolo + "TriConecta ASSESSORIA", texto CLARO: só em
   fundo escuro — o login) são recortes do PNG, nos dois apps; o favicon é o
-  símbolo num quadrado escuro. Trocar pelos SVG oficiais quando chegarem.
+  símbolo num quadrado escuro (`public/favicon-triconecta.png` + `favicon.ico`).
+  Trocar pelos SVG oficiais quando chegarem.
+- ⚠️ O navegador guarda o favicon pelo ENDEREÇO: trocar o arquivo com o mesmo
+  nome não muda o ícone de quem já abriu o sistema. Favicon novo = arquivo com
+  NOME novo (e o `index.html` dos dois apps apontando para ele).
 - O logotipo já TEM o símbolo: não pôr o símbolo solto em cima dele.
 - ⚠️ **Chave interna continua "quadrum", de propósito**: o e-mail sintético
   do portal (`<doc>@portal.quadrum.example` — é o LOGIN de quem já tem acesso;
