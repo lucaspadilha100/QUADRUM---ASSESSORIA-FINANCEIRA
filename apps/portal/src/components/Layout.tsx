@@ -8,7 +8,7 @@ import { TrocarSenha } from "@/components/TrocarSenha";
 import { useSessao } from "@/contexts/Sessao";
 import { formatarDocumento } from "@/lib/formato";
 import { useAvisos, usePrivacidade } from "@/lib/portal";
-import simboloQ from "@/assets/simbolo-q.png";
+import simbolo from "@/assets/simbolo.png";
 
 // Duas colunas, como no portal antigo: menu fixo escuro à esquerda e o
 // conteúdo sobre Off White com a marca d'água do Q. No celular o menu vira
@@ -36,7 +36,7 @@ export function Layout() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
         <h1 className="text-xl font-semibold">Esta conta não é de cliente</h1>
-        <p className="max-w-sm text-sm text-muted-foreground">O Portal do Cliente é para quem tem contrato com a Quadrum. A equipe usa o sistema administrativo.</p>
+        <p className="max-w-sm text-sm text-muted-foreground">O Portal do Cliente é para quem tem contrato com a TriConecta. A equipe usa o sistema administrativo.</p>
         <button onClick={sair} className="rounded-md border border-border px-4 py-2 text-sm">Sair</button>
       </div>
     );
@@ -46,7 +46,7 @@ export function Layout() {
     return (
       <div className="q-escuro flex min-h-screen items-center justify-center bg-background px-4 py-10">
         <div className="w-full max-w-sm">
-          <img src={simboloQ} alt="" className="mx-auto mb-6 h-14 w-auto" />
+          <img src={simbolo} alt="" className="mx-auto mb-6 h-14 w-auto" />
           <div className="rounded-xl border border-border bg-[hsl(var(--q-graphite))] p-6 shadow-2xl">
             <h1 className="q-titulo-marca text-sm font-semibold text-foreground">Crie a sua senha</h1>
             <p className="mb-5 mt-1 text-sm text-muted-foreground">Olá, {cliente.nome.split(" ")[0]}. Troque a senha que você recebeu.</p>
@@ -71,8 +71,8 @@ export function Layout() {
 
       <header className="q-escuro q-nao-imprimir sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-border bg-background px-4 md:hidden">
         <button onClick={() => setAberto(true)} aria-label="Abrir menu" className="flex h-9 w-9 items-center justify-center rounded-md hover:bg-muted"><Menu className="h-5 w-5" /></button>
-        <img src={simboloQ} alt="" className="h-7 w-auto" />
-        <span className="q-titulo-marca text-sm font-semibold">Quadrum</span>
+        <img src={simbolo} alt="" className="h-7 w-auto" />
+        <span className="q-titulo-marca text-sm font-semibold">TriConecta</span>
         <div className="ml-auto flex items-center gap-0.5"><Notificacoes releCada={20_000} /><BotaoTema /></div>
       </header>
       {aberto && (
@@ -83,7 +83,7 @@ export function Layout() {
       )}
 
       <main className="relative min-h-screen flex-1 overflow-hidden md:ml-[300px] print:ml-0">
-        <img src={simboloQ} alt="" aria-hidden className="q-nao-imprimir pointer-events-none fixed -bottom-24 -right-24 w-[480px] max-w-none select-none opacity-[0.04]" />
+        <img src={simbolo} alt="" aria-hidden className="q-nao-imprimir pointer-events-none fixed -bottom-24 -right-24 w-[480px] max-w-none select-none opacity-[0.04]" />
         <div className="q-nao-imprimir sticky top-0 z-20 hidden h-14 items-center justify-end gap-1 border-b border-border bg-card/90 px-8 backdrop-blur md:flex">
           <Notificacoes releCada={20_000} />
           <BotaoTema />
@@ -104,9 +104,9 @@ function Menu_({ nome, documento, onSair }: { nome: string; documento: string; o
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-3 border-b border-border px-6 py-6">
-        <img src={simboloQ} alt="" className="h-10 w-auto" />
+        <img src={simbolo} alt="" className="h-10 w-auto" />
         <div>
-          <p className="q-titulo-marca text-sm font-semibold text-foreground">Quadrum</p>
+          <p className="q-titulo-marca text-sm font-semibold text-foreground">TriConecta</p>
           <p className="text-[10px] uppercase tracking-[0.2em] text-q-gold">Portal do Cliente</p>
         </div>
       </div>

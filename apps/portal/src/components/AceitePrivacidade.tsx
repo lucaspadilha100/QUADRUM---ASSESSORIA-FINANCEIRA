@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TextoDocumento } from "@/components/documento/DocumentoImpresso";
 import { useAceitarPrivacidade, type TermoPrivacidade } from "@/lib/portal";
-import simboloQ from "@/assets/simbolo-q.png";
+import simbolo from "@/assets/simbolo.png";
 
 export function AceitePrivacidade({ termo, onSair }: { termo: TermoPrivacidade; onSair: () => void }) {
   const aceitar = useAceitarPrivacidade();
@@ -16,7 +16,7 @@ export function AceitePrivacidade({ termo, onSair }: { termo: TermoPrivacidade; 
   return (
     <div className="flex min-h-screen flex-col items-center bg-background px-4 py-8">
       <div className="w-full max-w-2xl">
-        <img src={simboloQ} alt="" className="mx-auto mb-5 h-12 w-auto" />
+        <img src={simbolo} alt="" className="mx-auto mb-5 h-12 w-auto" />
         <article className="max-h-[58dvh] overflow-y-auto rounded-xl border border-border bg-card p-5 shadow-sm sm:p-8">
           <TextoDocumento texto={termo.texto} />
         </article>

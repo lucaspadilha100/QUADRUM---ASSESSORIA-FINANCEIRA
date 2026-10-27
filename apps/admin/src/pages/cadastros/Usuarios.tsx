@@ -536,7 +536,7 @@ function CredencialDialog({ dados, onFechar }: { dados: Credencial | null; onFec
           </p>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => dados && copiar(`Quadrum Admin\n${endereco}\nE-mail: ${dados.email}\nSenha: ${dados.senha}`)}>Copiar tudo</Button>
+          <Button type="button" variant="outline" onClick={() => dados && copiar(`TriConecta Admin\n${endereco}\nE-mail: ${dados.email}\nSenha: ${dados.senha}`)}>Copiar tudo</Button>
           <Button type="button" onClick={onFechar}>Pronto</Button>
         </DialogFooter>
       </DialogContent>

@@ -47,7 +47,7 @@ export interface ChatPortal {
   mensagens: MensagemPortal[];
 }
 
-export const NOME_ROBO = "Assistente Quadrum";
+export const NOME_ROBO = "Assistente TriConecta";
 
 async function rpc<T>(fn: string, args?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.rpc(fn, args);

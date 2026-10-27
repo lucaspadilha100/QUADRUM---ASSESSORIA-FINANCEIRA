@@ -12,4 +12,4 @@ import { soDigitos } from "./formato";
 export const emailDoDocumento = (documento: string) => `${soDigitos(documento)}@portal.quadrum.example`;
 
 /** Como o cliente obtém a senha (o portal não tem cadastro nem "esqueci a senha"). */
-export const CONTATO_SENHA = "Para obter ou redefinir sua senha, fale com o seu consultor Quadrum.";
+export const CONTATO_SENHA = "Para obter ou redefinir sua senha, fale com o seu consultor TriConecta.";

@@ -27,7 +27,7 @@ export default function DocumentoImprimir() {
         <Button size="sm" onClick={() => window.print()}><Printer className="mr-1 h-4 w-4" /> Imprimir / salvar PDF</Button>
       </div>
       <main className="mx-auto max-w-[800px] px-6 py-10 text-black">
-        <p className="mb-8 text-center font-titulo text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">Quadrum Assessoria Financeira</p>
+        <p className="mb-8 text-center font-titulo text-xs font-semibold uppercase tracking-[0.3em] text-neutral-500">TriConecta Assessoria</p>
         <TextoDocumento texto={d.conteudo} />
         {data?.assinatura && <ManifestoAssinatura m={manifestoDe(d, data.assinatura)} integro={integro} />}
         {!data?.assinatura && <p className="mt-10 text-center text-xs text-neutral-500">Documento ainda não assinado.</p>}

@@ -12,7 +12,7 @@ export default function Unidades() {
       linhas={data} carregando={isLoading} erro={error} salvando={salvar.isPending}
       onSalvar={(id, campos) => salvar.mutateAsync({ id, campos })}
       campos={[
-        { chave: "nome", rotulo: "Nome", obrigatorio: true, placeholder: "Ex.: Quadrum Natal" },
+        { chave: "nome", rotulo: "Nome", obrigatorio: true, placeholder: "Ex.: TriConecta Natal" },
         { chave: "cidade", rotulo: "Cidade", placeholder: "Natal" },
         { chave: "uf", rotulo: "UF", placeholder: "RN", maxLength: 2, maiusculo: true },
       ]}

@@ -39,7 +39,7 @@ export default function Documento() {
 
       <article className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-8 print:border-0 print:p-0 print:shadow-none">
         <p className="mb-6 text-center font-titulo text-[11px] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-          Quadrum Assessoria Financeira · contrato #{d.contrato_numero}
+          TriConecta Assessoria · contrato #{d.contrato_numero}
         </p>
         {d.conteudo ? <TextoDocumento texto={d.conteudo} /> : (
           <p className="text-sm text-muted-foreground">Este documento é assinado fora do portal.{" "}

@@ -68,7 +68,7 @@ export function AcessoPortal({ cliente }: { cliente: { id: string; documento: st
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => copiar(
-              `Portal do Cliente Quadrum${portalUrl ? `\n${portalUrl}` : ""}\n${rotuloDoc}: ${formatarDocumento(doc)}\nSenha: ${senha}`,
+              `Portal do Cliente TriConecta${portalUrl ? `\n${portalUrl}` : ""}\n${rotuloDoc}: ${formatarDocumento(doc)}\nSenha: ${senha}`,
             )}>Copiar tudo</Button>
             <Button type="button" onClick={() => setSenha(null)}>Pronto</Button>
           </DialogFooter>

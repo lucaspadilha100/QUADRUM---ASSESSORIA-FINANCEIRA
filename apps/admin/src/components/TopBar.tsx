@@ -7,7 +7,7 @@ import { Avatar } from "@/components/Avatar";
 import { Notificacoes } from "@/components/Notificacoes";
 import { PAPEL_LABEL, useAuth } from "@/contexts/AuthContext";
 import { useTema } from "@/hooks/useTema";
-import simboloQ from "@/assets/simbolo-q.png";
+import simbolo from "@/assets/simbolo.png";
 
 export function TopBar({ onMenu }: { onMenu: () => void }) {
   const { perfil, signOut } = useAuth();
@@ -21,8 +21,8 @@ export function TopBar({ onMenu }: { onMenu: () => void }) {
         <Menu className="h-5 w-5" />
       </button>
       <Link to="/" className="flex items-center gap-2 md:hidden">
-        <img src={simboloQ} alt="" className="h-7 w-auto" />
-        <span className="q-titulo-marca text-sm font-semibold">Quadrum</span>
+        <img src={simbolo} alt="" className="h-7 w-auto" />
+        <span className="q-titulo-marca text-sm font-semibold">TriConecta</span>
       </Link>
 
       <div className="ml-auto flex items-center gap-0.5 sm:gap-1">

@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────────────
-   Identidade Quadrum (docs/marca/paleta-quadrum.png).
+   Identidade TriConecta (até 23/10/2026: Quadrum; paleta em docs/marca/paleta-quadrum.png).
    As variáveis são TRIPLETOS HSL, para o Tailwind montar `hsl(var(--x) / a)`.
    ⚠️ Por isso `background: var(--x)` cru é cor INVÁLIDA, descartada calada:
    fora do Tailwind, use sempre `hsl(var(--x))`.

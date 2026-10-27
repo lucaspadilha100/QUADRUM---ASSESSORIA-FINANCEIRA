@@ -116,7 +116,7 @@ export function ManifestoAssinatura({ m, integro }: { m: DadosManifesto; integro
           : <span className="inline-flex items-center gap-1 font-medium text-destructive"><XCircle className="h-4 w-4" /> O texto NÃO confere com o assinado</span>)}
       </dl>
       <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
-        Assinatura eletrônica registrada no Portal do Cliente da Quadrum Assessoria Financeira. Os dados acima
+        Assinatura eletrônica registrada no Portal do Cliente da TriConecta Assessoria. Os dados acima
         (data e hora do servidor, IP e navegador) foram gravados no momento da assinatura e não podem ser
         alterados. Qualquer alteração no texto muda o hash SHA-256 e é detectada.
       </p>

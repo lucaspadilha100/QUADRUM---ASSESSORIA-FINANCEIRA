@@ -1,6 +1,7 @@
-# Quadrum — instruções para o Claude
+# TriConecta (ex-Quadrum) — instruções para o Claude
 
-Sistema da **Quadrum Assessoria Financeira** (Natal-RN): negociação de dívidas,
+Sistema da **TriConecta Assessoria** (Natal-RN; até 27/10/2026, Quadrum
+Assessoria Financeira — o repositório guarda o nome antigo): negociação de dívidas,
 redução de juros, proteção do nome, planejamento financeiro.
 
 **Todos os commits são neste repositório.** O `carbohub-gestao` serve só de
@@ -15,7 +16,7 @@ testar algo fora da produção).
 1. **Admin** (`apps/admin`) — back-office da equipe. Vem PRIMEIRO porque tudo o
    que o cliente vê nasce aqui.
 2. **Portal do Cliente** (`apps/portal`) — recriação do portal da Sete Capital
-   com a marca Quadrum. Especificação: `docs/mapeamento-portal-cliente.md`.
+   com a marca TriConecta. Especificação: `docs/mapeamento-portal-cliente.md`.
 
 ## Stack
 React 18 + TypeScript + Vite · Tailwind + shadcn/ui · TanStack Query ·
@@ -211,6 +212,9 @@ em 23/10/2026 (anon não executa; a equipe executa, o banco recusa quem não é 
 `20261027000000` (o contrato real e seus campos) — aplicada e conferida em
 23/10/2026 (13 colunas titular/plano, `empresa` com a linha da Quadrum, o
 rascunho virou o contrato real v2 ativo; anon não executa).
+`20261028000000` (TriConecta: nome da empresa, falas do robô, modelos de
+partida com `{{empresa.*}}`, termo de privacidade v-nova em RASCUNHO, senha
+fraca) — PENDENTE de aplicar.
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
@@ -249,8 +253,22 @@ alta, espaçado: `.q-titulo-marca`), Inter no texto.
 - ⚠️ Botão dourado leva texto **Preto Onix**, nunca branco (sem contraste).
 - Vermelho só para erro/alerta. Azul Petróleo para link e foco.
 - `.q-escuro` escurece qualquer bloco (menu, login) sem mudar componente.
-- ⚠️ `simbolo-q.png`/`logotipo.png` são RECORTES provisórios do manual, feitos
-  para fundo escuro. Trocar pelos SVG oficiais quando chegarem.
+- **TriConecta desde 27/10/2026** (pedido do dono do processo). Originais em
+  `docs/marca/logo-triconecta.png` e `selo-triconecta-*.png`; `manual-marca-quadrum`
+  e `paleta-quadrum` ficam como a referência das CORES, que não mudaram.
+  `assets/simbolo.png` (o T dourado, serve no claro e no escuro) e
+  `assets/logotipo.png` (símbolo + "TriConecta ASSESSORIA", texto CLARO: só em
+  fundo escuro — o login) são recortes do PNG, nos dois apps; o favicon é o
+  símbolo num quadrado escuro. Trocar pelos SVG oficiais quando chegarem.
+- O logotipo já TEM o símbolo: não pôr o símbolo solto em cima dele.
+- ⚠️ **Chave interna continua "quadrum", de propósito**: o e-mail sintético
+  do portal (`<doc>@portal.quadrum.example` — é o LOGIN de quem já tem acesso;
+  trocar derruba todos), as chaves de sessão (`quadrum-admin-auth`,
+  `quadrum-portal-auth`: trocar desloga todo mundo), `quadrum-tema`, nomes de
+  pacote. O nome que a pessoa VÊ é TriConecta.
+- O nome nos DOCUMENTOS vem de Dados da empresa (`{{empresa.nome}}`), não do
+  código: os modelos de partida também passaram a usar `{{empresa.*}}`
+  (`20261028000000`), então geram só com CNPJ e sede preenchidos.
 
 ## Verificar de verdade
 Dentro de `apps/admin`: `npm run typecheck` (`tsc -b --force` — o `tsc

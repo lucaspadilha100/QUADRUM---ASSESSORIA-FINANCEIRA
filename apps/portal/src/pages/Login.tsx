@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logotipo from "@/assets/logotipo.png";
-import simboloQ from "@/assets/simbolo-q.png";
+import simbolo from "@/assets/simbolo.png";
 
 // Login por CPF/CNPJ + senha. Sem cadastro e sem "esqueci a senha": quem gera
 // a senha é a equipe (manual da marca: fundo Preto Onix, card Cinza Grafite).
@@ -34,17 +34,15 @@ export default function Login() {
 
   return (
     <div className="q-escuro relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
-      <img src={simboloQ} alt="" aria-hidden className="pointer-events-none absolute -right-24 -top-16 w-[520px] max-w-none select-none opacity-[0.05]" />
+      <img src={simbolo} alt="" aria-hidden className="pointer-events-none absolute -right-24 -top-16 w-[520px] max-w-none select-none opacity-[0.05]" />
       <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <img src={simboloQ} alt="" className="mb-4 h-16 w-auto" />
-          <img src={logotipo} alt="Quadrum Assessoria Financeira" className="w-64 max-w-full" />
-          <p className="q-titulo-marca mt-5 text-[11px] leading-relaxed text-muted-foreground">Menos dívidas.<br />Mais possibilidades.</p>
-          <span className="mt-4 h-px w-12 bg-q-gold" />
+          <img src={logotipo} alt="TriConecta Assessoria" className="w-72 max-w-full" />
+          <span className="mt-6 h-px w-12 bg-q-gold" />
         </div>
 
         <form onSubmit={enviar} className="space-y-4 rounded-xl border border-border bg-[hsl(var(--q-graphite))] p-6 shadow-2xl">
-          <h1 className="q-titulo-marca text-sm font-semibold text-foreground">Portal do Cliente Quadrum</h1>
+          <h1 className="q-titulo-marca text-sm font-semibold text-foreground">Portal do Cliente TriConecta</h1>
 
           {!supabaseConfigurado && (
             <div className="flex gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs">

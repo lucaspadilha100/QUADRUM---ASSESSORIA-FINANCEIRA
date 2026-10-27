@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import logotipo from "@/assets/logotipo.png";
-import simboloQ from "@/assets/simbolo-q.png";
+import simbolo from "@/assets/simbolo.png";
 
 export default function Login() {
   const { user, signIn } = useAuth();
@@ -31,7 +31,7 @@ export default function Login() {
     <div className="q-escuro relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
       {/* Marca d'água do símbolo, em baixa opacidade (manual da marca). */}
       <img
-        src={simboloQ}
+        src={simbolo}
         alt=""
         aria-hidden
         className="pointer-events-none absolute -right-24 -top-16 w-[520px] max-w-none select-none opacity-[0.05]"
@@ -39,12 +39,8 @@ export default function Login() {
 
       <div className="relative w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center text-center">
-          <img src={simboloQ} alt="" className="mb-4 h-16 w-auto" />
-          <img src={logotipo} alt="Quadrum Assessoria Financeira" className="w-64 max-w-full" />
-          <p className="q-titulo-marca mt-5 text-[11px] leading-relaxed text-muted-foreground">
-            Menos dívidas.<br />Mais possibilidades.
-          </p>
-          <span className="mt-4 h-px w-12 bg-q-gold" />
+          <img src={logotipo} alt="TriConecta Assessoria" className="w-72 max-w-full" />
+          <span className="mt-6 h-px w-12 bg-q-gold" />
         </div>
 
         <form

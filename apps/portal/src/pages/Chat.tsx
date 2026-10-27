@@ -20,7 +20,7 @@ import { useQueryClient } from "@tanstack/react-query";
 // ─────────────────────────────────────────────────────────────────────────────
 
 const ROBO = {
-  ola: "Olá. Seja bem-vindo ao atendimento da Quadrum.",
+  ola: "Olá. Seja bem-vindo ao atendimento da TriConecta.",
   contrato: "Para qual contrato você deseja atendimento?",
   setor: "E com qual setor você deseja falar?",
   pedido: "Por favor, nos fale resumidamente como podemos ajudá-lo?",
@@ -220,7 +220,7 @@ function Escolha({ rotulo, valor, onChange, opcoes, onConfirmar }: {
 // padrão do portal antigo, na cor da marca.
 function Balao({ m }: { m: MensagemPortal }) {
   const doCliente = m.autor_tipo === "cliente";
-  const autor = m.autor_tipo === "robo" ? NOME_ROBO : (m.autor || (doCliente ? "Você" : "Equipe Quadrum"));
+  const autor = m.autor_tipo === "robo" ? NOME_ROBO : (m.autor || (doCliente ? "Você" : "Equipe TriConecta"));
   return (
     <div className={`flex items-end gap-2 ${doCliente ? "justify-end" : "justify-start"}`}>
       {!doCliente && (

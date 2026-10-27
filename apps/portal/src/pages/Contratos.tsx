@@ -149,7 +149,7 @@ function PainelContrato({ c }: { c: ContratoPortal }) {
                 {c.historico.map((h) => (
                   <li key={h.id} className="rounded-lg bg-[hsl(var(--q-gold)/0.1)] p-4">
                     <p className="whitespace-pre-wrap text-sm text-foreground">{h.texto}</p>
-                    <p className="mt-2 text-xs text-muted-foreground">{h.autor ?? "Equipe Quadrum"} em {dataHoraBR(h.created_at)}</p>
+                    <p className="mt-2 text-xs text-muted-foreground">{h.autor ?? "Equipe TriConecta"} em {dataHoraBR(h.created_at)}</p>
                   </li>
                 ))}
               </ul>

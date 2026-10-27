@@ -289,7 +289,7 @@ const modProc = (await db.query("select id from documento_modelos where tipo = '
 const modTermo = (await db.query("select id from documento_modelos where tipo = 'termo'")).rows[0].id;
 await espera("modelo inativo não gera", () => como("authenticated", M, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
 await espera("colaborador não altera modelo (0)", () => como("authenticated", M, `update documento_modelos set ativo = true where id = '${modProc}' returning id`), false, n(0));
-await espera("gestor edita o modelo: versão sobe", () => como("authenticated", G, `update documento_modelos set ativo = true, corpo = corpo || ' ' where id = '${modProc}' returning versao`), false, (r) => r.rows[0].versao === 2);
+await espera("gestor edita o modelo: versão sobe", () => como("authenticated", G, `update documento_modelos set ativo = true, corpo = corpo || ' ' where id = '${modProc}' returning versao`), false, (r) => r.rows[0].versao === 3);  // 1 → 2 na troca de nome (20261028)
 await sql(`update documento_modelos set ativo = true where id = '${modTermo}'`);
 await espera("prévia sem contrato mostra os campos como [rótulo] e acusa campo inexistente", () => como("authenticated", M, "select q_documento_previa('Eu, {{cliente.nome}}, {{cliente.xyz}}') as p"), false, (r) => r.rows[0].p.texto.startsWith("Eu, [Nome / razão social]") && r.rows[0].p.desconhecidas[0] === "cliente.xyz");
 await espera("gerar com cadastro incompleto RECUSA e diz o que falta", () => como("authenticated", M, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
@@ -298,11 +298,13 @@ await sql(`update clientes set nacionalidade='brasileira', estado_civil='casado(
 await sql(`update bancos set nome = 'Banco X'; update contratos set banco_id = (select id from bancos limit 1), linha_credito_id = (select id from linhas_credito limit 1) where id = '${contrato1}'`);
 await espera("B não gera documento em contrato do A", () => como("authenticated", B, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
 let docProc;
+// A OUTORGADA vem de Dados da empresa (20261028): sem CNPJ e sede, não gera.
+await sql("update empresa set cnpj = '11222333000181', endereco = 'Natal/RN'");
 await espera("A gera a procuração preenchida, com hash", async () => {
   const r = await como("authenticated", M, `select q_documento_gerar('${contrato1}', '${modProc}') as id`);
   docProc = r.rows[0].id;
   return db.query(`select conteudo, conteudo_hash = encode(extensions.digest(convert_to(conteudo, 'UTF8'), 'sha256'), 'hex') as hash_ok, modelo_versao from contrato_documentos where id = '${docProc}'`);
-}, false, (r) => r.rows[0].hash_ok && r.rows[0].modelo_versao === 2 && !r.rows[0].conteudo.includes("{{") && r.rows[0].conteudo.includes("Cliente do A, brasileira, casado(a), motorista, portador(a) do RG nº 1234567 SSP/RN, inscrito(a) no CPF sob o nº 123.456.789-01, residente e domiciliado(a) em Rua das Flores 10, Centro, Natal/RN, CEP 59000-000") && r.rows[0].conteudo.includes("Banco X"));
+}, false, (r) => r.rows[0].hash_ok && r.rows[0].modelo_versao === 3 && !r.rows[0].conteudo.includes("{{") && r.rows[0].conteudo.includes("Cliente do A, brasileira, casado(a), motorista, portador(a) do RG nº 1234567 SSP/RN, inscrito(a) no CPF sob o nº 123.456.789-01, residente e domiciliado(a) em Rua das Flores 10, Centro, Natal/RN, CEP 59000-000") && r.rows[0].conteudo.includes("Banco X"));
 await espera("o evento 'gerado' fica registrado", () => db.query(`select count(*) as n from documento_eventos where documento_id = '${docProc}' and tipo = 'gerado' and ator_id = '${M}'`), false, (r) => Number(r.rows[0].n) === 1);
 await espera("segundo do mesmo tipo pendente é recusado", () => como("authenticated", M, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
 await espera("ninguém grava documento com texto por fora da geração", () => como("authenticated", M, `insert into contrato_documentos (contrato_id, tipo, conteudo) values ('${contrato1}', 'termo', 'texto forjado')`), true);
@@ -623,7 +625,7 @@ const modContrato = (await db.query("select id, corpo from documento_modelos whe
 await espera("o contrato real não usa campo inexistente", () => como("authenticated", M, `select q_documento_previa($q$${modContrato.corpo}$q$) as p`), false, (r) => r.rows[0].p.desconhecidas.length === 0);
 await espera("colaborador não altera os dados da empresa (0)", () => como("authenticated", M, "update empresa set cnpj = '11111111111111' returning id"), false, n(0));
 await espera("a empresa tem UMA linha só", () => como("authenticated", G, "insert into empresa (id, nome) values (false, 'X')"), true);
-await espera("gestor preenche os dados da empresa", () => como("authenticated", G, "update empresa set cnpj = '11222333000181', endereco = 'Natal/RN', telefones = '(84) 3000-0000', email = 'contato@quadrum.com.br' returning nome"), false, (r) => r.rows[0]?.nome === "QUADRUM ASSESSORIA FINANCEIRA");
+await espera("gestor preenche os dados da empresa", () => como("authenticated", G, "update empresa set cnpj = '11222333000181', endereco = 'Natal/RN', telefones = '(84) 3000-0000', email = 'contato@quadrum.com.br' returning nome"), false, (r) => r.rows[0]?.nome === "TRICONECTA ASSESSORIA");
 await espera("a equipe lê a empresa; o cliente do portal não", async () => {
   const a = await como("authenticated", M, "select count(*) as n from empresa"); const c = await comoCliente("select count(*) as n from empresa");
   return { rows: [Number(a.rows[0].n), Number(c.rows[0].n)] };
@@ -651,6 +653,30 @@ await espera("titular OUTRO: os dados dele entram, e faltando ele RECUSA", async
   return como("authenticated", M, `select q_documento_previa($q$${modContrato.corpo}$q$, '${ctReal}') as p`);
 }, false, (r) => { const p = r.rows[0].p; const f = p.faltando.map((x) => x.chave);
   return p.texto.includes("Nome: Maria Titular") && p.texto.includes("CPF: 987.654.321-00") && f.includes("titular.endereco") && f.includes("titular.rg") && !f.includes("cliente.rg"); });
+
+
+// ── a empresa virou TriConecta (20261028000000)
+await espera("o robô fala TriConecta, e Quadrum nenhuma", () => db.query("select pg_get_functiondef('portal_abrir_atendimento(uuid, uuid, text)'::regprocedure) as d"), false,
+  (r) => r.rows[0].d.includes("atendimento da TriConecta.") && r.rows[0].d.includes("contato com a TriConecta.") && !r.rows[0].d.includes("Quadrum"));
+await espera("o robô continua fechado para anon", () => como("anon", null, `select portal_abrir_atendimento('${contrato1}', '${setor}', 'x')`), true);
+await espera("nenhum modelo cita a Quadrum, e todos usam só campos que existem", async () => {
+  const m = (await db.query("select corpo from documento_modelos")).rows;
+  const prev = await Promise.all(m.map((x) => como("authenticated", G, `select q_documento_previa($q$${x.corpo}$q$) as p`)));
+  return { rows: [m.some((x) => /quadrum/i.test(x.corpo)), prev.every((p) => p.rows[0].p.desconhecidas.length === 0)] };
+}, false, (r) => r.rows[0] === false && r.rows[1] === true);
+await espera("a procuração preenche a OUTORGADA com os Dados da empresa", async () => {
+  const c = (await db.query("select corpo from documento_modelos where tipo = 'procuracao'")).rows[0].corpo;
+  return como("authenticated", G, `select q_documento_previa($q$${c}$q$, '${ctReal}') as p`);
+}, false, (r) => r.rows[0].p.texto.includes("TRICONECTA ASSESSORIA, inscrita no CNPJ sob o nº 11.222.333/0001-81, com sede em Natal/RN"));
+await espera("termo de privacidade: versão NOVA, rascunho, com o nome novo", () => db.query("select texto, ativo from privacidade_termos where texto like '%TRICONECTA%'"), false,
+  (r) => r.rows.length === 1 && r.rows[0].ativo === false && r.rows[0].texto.includes("A TRICONECTA ASSESSORIA") && r.rows[0].texto.includes('("TriConecta")') && !/quadrum/i.test(r.rows[0].texto));
+await espera("a versão antiga do termo não mudou", () => db.query("select count(*) filter (where texto like '%QUADRUM%') as n from privacidade_termos"), false, (r) => Number(r.rows[0].n) === 1);
+await espera("triconecta123 é senha fraca", () => db.query("select q_senha_fraca('triconecta123') as m"), false, (r) => r.rows[0].m?.includes("comum"));
+await espera("rodar a migração de novo não muda nada", async () => {
+  const antes = (await db.query("select count(*) as n from privacidade_termos")).rows[0].n;
+  await db.exec(readFileSync(pasta + "20261028000000_triconecta.sql", "utf8"));
+  return { rows: [antes, (await db.query("select count(*) as n from privacidade_termos")).rows[0].n] };
+}, false, (r) => r.rows[0] === r.rows[1]);
 
 console.log(`\n${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);

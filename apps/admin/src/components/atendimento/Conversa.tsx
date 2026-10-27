@@ -86,7 +86,7 @@ export function Conversa({ atendimento, onVoltar, cheia = false }: {
               <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${doCliente ? "bg-[hsl(var(--q-gold)/0.15)]" : "border border-border bg-card"}`}>
                 <p className="mb-0.5 flex flex-wrap items-center gap-x-1 text-[11px] font-semibold text-muted-foreground">
                   {m.autor_tipo === "robo" && <Bot className="h-3 w-3" />}
-                  {doCliente ? "Cliente" : m.autor_tipo === "robo" ? "Assistente Quadrum" : nomeEquipe(m.autor_id)}
+                  {doCliente ? "Cliente" : m.autor_tipo === "robo" ? "Assistente TriConecta" : nomeEquipe(m.autor_id)}
                   <span className="font-normal">em {dataHoraBR(m.created_at)}</span>
                 </p>
                 <p className="whitespace-pre-wrap text-foreground">{m.corpo}</p>

@@ -6,7 +6,7 @@ import { Sidebar, usePaginaAtual } from "@/shell";
 import { MENU, MENU_ADMIN } from "@/lib/menu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAoVivo } from "@/hooks/useAoVivo";
-import simboloQ from "@/assets/simbolo-q.png";
+import simbolo from "@/assets/simbolo.png";
 
 const CHAVE_RECOLHIDO = "quadrum:sidebar:recolhido";
 
@@ -25,13 +25,13 @@ export function Layout() {
   const { isAdmin } = useAuth();
   const menu = isAdmin ? [...MENU, ...MENU_ADMIN] : MENU;
   const mainRef = useRef<HTMLElement>(null);
-  usePaginaAtual({ appName: "Quadrum Admin", sections: menu, mainRef });
+  usePaginaAtual({ appName: "TriConecta Admin", sections: menu, mainRef });
   useAoVivo();
 
   return (
     <div className="flex h-screen overflow-hidden bg-background supports-[height:100dvh]:h-dvh">
       <Sidebar
-        brand={{ appName: "Quadrum Admin", logoSrc: simboloQ, href: "/" }}
+        brand={{ appName: "TriConecta Admin", logoSrc: simbolo, href: "/" }}
         sections={menu}
         collapsed={collapsed}
         onToggleCollapse={toggleCollapsed}
