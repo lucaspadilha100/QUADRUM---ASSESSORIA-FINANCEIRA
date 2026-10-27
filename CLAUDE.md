@@ -225,7 +225,9 @@ conferida em 27/10/2026 (Matriz e Veicular padrão, nenhum contrato sem elas,
 4 funções, parcelas no Realtime, LGPD exporta parcelas, anon não executa nada).
 `20261031000000` (comprovante de pagamento: bucket privado `comprovantes`) — aplicada
 e conferida em 27/10/2026 (bucket privado, 3 regras, 3 colunas, anon não executa nada).
-`20261101000000` (anexos do cliente e do contrato; arquivo do documento assinado fora) — PENDENTE.
+`20261101000000` (anexos do cliente e do contrato; arquivo do documento assinado fora) —
+aplicada e conferida em 27/10/2026 (bucket privado, 8 tipos, 3 regras, portal e LGPD
+com arquivo/anexos, anon não executa nada).
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
