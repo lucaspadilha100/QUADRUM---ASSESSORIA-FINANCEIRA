@@ -216,6 +216,8 @@ rascunho virou o contrato real v2 ativo; anon não executa).
 partida com `{{empresa.*}}`, termo de privacidade v-nova em RASCUNHO, senha
 fraca) — aplicada e conferida em 27/10/2026 (empresa TRICONECTA ASSESSORIA,
 robô sem "Quadrum", nenhum modelo com o nome antigo, termo v2 em rascunho).
+`20261029000000` (o contrato editado pela TriConecta: "sediada na", assinatura
+da empresa com CNPJ; Dados da empresa com CNPJ e sede do contrato) — PENDENTE.
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
@@ -539,6 +541,13 @@ documento_eventos      a trilha: gerado, visualizado, senha_incorreta, assinado�
   `empresa.*` → Dados da empresa; `contrato.*` e `titular.*` (quando o titular
   é outra pessoa) → aba Contrato; o resto → ficha do cliente.
   ⚠️ Nada de dado real de cliente em dica de campo, teste ou migração.
+  **Versão TriConecta** (27/10/2026, `20261029000000`, do `contrato_triconecta.docx`):
+  cláusulas iguais às da v2; mudou a CONTRATADA ("sediada na {{empresa.endereco}}")
+  e entrou a assinatura da empresa (`{{empresa.nome}}` + CNPJ) antes da do
+  contratante. ⚠️ O .docx é para PAPEL: não traz a 13.3 (aceite da assinatura
+  eletrônica) nem o título com o nº — os dois ficam no modelo, de propósito.
+  Erros de digitação do .docx ("al", "CONTRADADA", "tiene", "RENAVAN") não
+  entram.
 - Documento de LINK (assinado fora) continua: criar, marcar à mão.
 - Impressão/PDF: `/documentos/:id/imprimir` no admin (fora do layout) e o
   "Imprimir / salvar PDF" do portal (`.q-nao-imprimir` esconde o resto).
