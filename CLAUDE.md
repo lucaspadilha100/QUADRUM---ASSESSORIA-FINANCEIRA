@@ -214,7 +214,8 @@ em 23/10/2026 (anon não executa; a equipe executa, o banco recusa quem não é 
 rascunho virou o contrato real v2 ativo; anon não executa).
 `20261028000000` (TriConecta: nome da empresa, falas do robô, modelos de
 partida com `{{empresa.*}}`, termo de privacidade v-nova em RASCUNHO, senha
-fraca) — PENDENTE de aplicar.
+fraca) — aplicada e conferida em 27/10/2026 (empresa TRICONECTA ASSESSORIA,
+robô sem "Quadrum", nenhum modelo com o nome antigo, termo v2 em rascunho).
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
