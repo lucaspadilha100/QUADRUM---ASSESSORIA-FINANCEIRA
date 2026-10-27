@@ -17,25 +17,22 @@ export interface DadosContratoDocumento {
   ultima_parcela_paga: string | null;
   plano_valor_total: number | null; plano_entrada: number | null; plano_parcelas: number | null;
   plano_valor_parcela: number | null; plano_primeiro_vencimento: string | null; plano_forma: string | null;
+  plano_dia_vencimento?: number | null;
   unidade_id: string | null;
 }
 
-export const COLUNAS_DOCUMENTO = [
-  "titular_outro", "titular_nome", "titular_documento", "titular_rg", "titular_nascimento", "titular_sexo", "titular_endereco",
-  "renavam", "chassi", "veiculo_no_endereco",
-  "saldo_devedor", "valor_parcela", "parcela_balao", "qtd_parcelas", "parcelas_pagas", "parcelas_atrasadas", "ultima_parcela_paga",
-  "plano_valor_total", "plano_entrada", "plano_parcelas", "plano_valor_parcela", "plano_primeiro_vencimento", "plano_forma",
-  "unidade_id",
-] as const;
-
-/** Sem a migração, volta nulo (a tela só não mostra a seção). */
+/**
+ * A linha inteira (`*`): coluna que uma migração acrescenta aparece sozinha, e a
+ * leitura não quebra antes de a migração rodar. ⚠️ Falha SOBE: um formulário
+ * aberto com tudo vazio gravaria vazio por cima do que está no banco.
+ */
 export function useContratoDocumento(id: string | null) {
   return useQuery({
     queryKey: ["contrato", id, "documento"],
     enabled: !!id,
     queryFn: async () => {
-      const { data, error } = await supabase.from("contratos").select(COLUNAS_DOCUMENTO.join(", ")).eq("id", id!).maybeSingle();
-      if (error) return null;
+      const { data, error } = await supabase.from("contratos").select("*").eq("id", id!).maybeSingle();
+      if (error) throw new Error(mensagemDeErro(error));
       return data as unknown as DadosContratoDocumento | null;
     },
   });

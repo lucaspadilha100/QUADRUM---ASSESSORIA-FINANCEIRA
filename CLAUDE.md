@@ -140,6 +140,7 @@ leitura         portal_eu · portal_contratos · portal_avisos · portal_setores
                 portal_chat_ativo · portal_chat
 escrita         portal_abrir_atendimento · portal_enviar_mensagem
                 portal_marcar_historico_lido · portal_marcar_chat_lido
+pagamentos      portal_pagamentos (menu Pagamentos, relê a cada 20 s)
 ```
 
 - ⚠️ **O cliente NÃO tem policy em tabela nenhuma.** Tudo passa pelas funções
@@ -219,6 +220,7 @@ robô sem "Quadrum", nenhum modelo com o nome antigo, termo v2 em rascunho).
 `20261029000000` (o contrato editado pela TriConecta: "sediada na", assinatura
 da empresa com CNPJ; Dados da empresa com CNPJ e sede do contrato) — aplicada e
 conferida em 27/10/2026 (empresa TRICONECTA com CNPJ e sede; contrato v3 ativo).
+`20261030000000` (parcelas e pagamentos; unidade e linha padrão) — PENDENTE.
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
@@ -342,6 +344,7 @@ setores · Usuários. Bancos, Linhas e Unidades usam o MESMO componente
   - **Cliente** = TUDO do cliente (`ClienteForm` com `largo`): Portal do
     Cliente (acesso + LGPD), Identificação, Contato e carteira, Endereço,
     Observações — os "dados para documentos" deixaram de ser um bloco recolhido.
+  - **Pagamentos**: ver "Parcelas e pagamentos".
   - **Documentos** (era "Pendências"): gerar do modelo / assinado fora à
     esquerda, a lista à direita. "Pendências do contrato" continua sendo o
     nome que o CLIENTE vê no portal.
@@ -366,6 +369,42 @@ setores · Usuários. Bancos, Linhas e Unidades usam o MESMO componente
   ações na linha (ficha, redefinir senha, desativar/reativar). A edição é uma
   ficha lateral (`?usuario=`), com atalhos para os clientes e contratos da
   pessoa. Sem a migração `20261026000000` a carteira só não aparece.
+
+## Parcelas e pagamentos (27/10/2026)
+Pedido do dono do processo: o plano escolhido vira as parcelas (as que o banco
+vai emitir como boleto/PIX quando integrado), a equipe marca como pago
+(dinheiro…), e o cliente vê no portal. Migração `20261030000000`.
+
+```
+contrato_parcelas     uma linha por cobrança (numero 0 = entrada); colunas do
+                      banco (cobranca_id, boleto_*, pix_copia_cola) vazias por ora
+parcela_eventos       a trilha: criada, alterada, paga, pagamento_desfeito, cancelada
+q_parcelas_definir    a lista INTEIRA do plano; paga não muda nem sai; o resto
+                      é criado, alterado ou CANCELADO (nada se apaga)
+q_parcela_pagar       a equipe registra (data, forma, obs interna) → aviso ao cliente
+q_parcela_desfazer_pagamento   só gestor, com motivo (vai para a trilha)
+portal_pagamentos     o que o cliente vê (sem a obs interna)
+```
+
+- A regra das datas mora na TELA (`hooks/useParcelas.ts`, `useDadosContrato`):
+  a 1ª no "1º vencimento" (hoje, p. ex.); as demais no dia escolhido (5…30)
+  a partir do mês escolhido; padrão = o 1º mês em que o dia cai a 30+ dias da
+  1ª ("pagou 27/10 → próxima 10/12"). Cada data se troca à mão; mudar a regra
+  refaz as datas. O BANCO só confere e grava a lista (`contratos.plano_dia_vencimento`
+  guarda o dia para a emissão). Salvar do Contrato grava o card e, se mudou, as parcelas.
+- Ninguém grava parcela direto (sem policy de escrita): só pelas funções. Paga
+  não muda (gatilho `trg_parcela_protege`, vale para qualquer caminho);
+  pagamento no futuro é recusado.
+- Admin: aba **Pagamentos** no painel (totais, parcelas, registrar pagamento,
+  desfazer). Portal: menu **Pagamentos** (pago de total, vencida, próxima;
+  "Ver boleto", "Copiar código do boleto", "Copiar PIX" quando o banco preencher).
+- **Unidade e linha de crédito PADRÃO** (`padrao` em `unidades` e
+  `linhas_credito`, uma de cada; hoje Matriz e Veicular): contrato sem elas
+  recebe a padrão (`trg_contrato_padroes`, também se alguém esvaziar). Filial
+  nova não muda isso; trocar a padrão é um UPDATE.
+- `useContratoDocumento` lê `*` e a falha SOBE: com a lista de colunas, coluna
+  nova quebrava a leitura antes de a migração rodar, e o formulário abria
+  VAZIO — salvar gravaria vazio por cima do plano.
 
 ## Escala — a tela pede UMA página, o banco conta (15/10/2026)
 Pedido do dono do processo: "parece um app que vai atender 10 clientes só".

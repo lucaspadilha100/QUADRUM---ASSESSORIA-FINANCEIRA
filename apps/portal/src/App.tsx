@@ -9,6 +9,7 @@ import Chat from "@/pages/Chat";
 import Documento from "@/pages/Documento";
 import Senha from "@/pages/Senha";
 import Privacidade from "@/pages/Privacidade";
+import Pagamentos from "@/pages/Pagamentos";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 10_000, refetchOnWindowFocus: true } },
@@ -34,6 +35,7 @@ export default function App() {
             <Route element={<Layout />}>
               <Route index element={<Navigate to="/contratos" replace />} />
               <Route path="/contratos" element={<Contratos />} />
+              <Route path="/pagamentos" element={<Pagamentos />} />
               <Route path="/chat" element={<Chat />} />
               <Route path="/senha" element={<Senha />} />
               <Route path="/privacidade" element={<Privacidade />} />

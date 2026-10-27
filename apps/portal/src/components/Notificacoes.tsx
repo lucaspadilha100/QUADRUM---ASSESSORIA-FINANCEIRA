@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, CheckCheck, FilePen, FileSignature, FileText, MessageSquare, AlertTriangle, History } from "lucide-react";
+import { Bell, CheckCheck, CircleDollarSign, FilePen, FileSignature, FileText, MessageSquare, AlertTriangle, History } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,7 @@ interface Caixa { nao_lidas: number; itens: Notificacao[] }
 const ICONE: Record<string, typeof Bell> = {
   documento_assinado: FileSignature, documento_novo: FilePen, contrato_aceito: FileText,
   historico: History, historico_urgente: AlertTriangle, mensagem_cliente: MessageSquare, mensagem_equipe: MessageSquare,
+  pagamento_confirmado: CircleDollarSign,
 };
 
 function quando(iso: string) {

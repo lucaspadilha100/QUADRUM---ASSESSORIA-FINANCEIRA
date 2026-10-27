@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface Etapa { id: string; nome: string; ordem: number; cor: string; aceita: boolean; ativo: boolean }
 export interface Banco { id: string; nome: string; codigo: string | null; ativo: boolean }
-export interface LinhaCredito { id: string; nome: string; tem_veiculo: boolean; ativo: boolean }
+export interface LinhaCredito { id: string; nome: string; tem_veiculo: boolean; ativo: boolean; padrao?: boolean }
 export interface Departamento { id: string; nome: string; atende_chat: boolean; urgente: boolean; ativo: boolean; ordem: number }
 export interface PessoaEquipe { id: string; nome: string; avatar_url: string | null; papel: "admin" | "gestor" | "colaborador"; ativo: boolean }
 
@@ -33,7 +33,8 @@ export const useBancos = () =>
   useQuery(lista<Banco>("bancos", "bancos", "id, nome, codigo, ativo", [{ col: "nome" }]));
 
 export const useLinhasCredito = () =>
-  useQuery(lista<LinhaCredito>("linhas", "linhas_credito", "id, nome, tem_veiculo, ativo", [{ col: "nome" }]));
+  // "*": `padrao` (migração 20261030000000) entra sem quebrar a lista antes de a migração rodar.
+  useQuery(lista<LinhaCredito>("linhas", "linhas_credito", "*", [{ col: "nome" }]));
 
 export const useDepartamentos = () =>
   useQuery(lista<Departamento>("departamentos", "departamentos", "id, nome, atende_chat, urgente, ativo, ordem", [{ col: "ordem" }, { col: "nome" }]));
@@ -74,9 +75,9 @@ export function useCriarBanco() {
   });
 }
 
-export interface Unidade { id: string; nome: string; cidade: string | null; uf: string | null; ativo: boolean }
+export interface Unidade { id: string; nome: string; cidade: string | null; uf: string | null; ativo: boolean; padrao?: boolean }
 export const useUnidades = () =>
-  useQuery(lista<Unidade>("unidades", "unidades", "id, nome, cidade, uf, ativo", [{ col: "nome" }]));
+  useQuery(lista<Unidade>("unidades", "unidades", "*", [{ col: "nome" }]));
 
 /** Grava em um cadastro curto (bancos, linhas, unidades). A RLS deixa só o gestor. */
 export function useSalvarCadastro(tabela: "bancos" | "linhas_credito" | "unidades", chave: string) {

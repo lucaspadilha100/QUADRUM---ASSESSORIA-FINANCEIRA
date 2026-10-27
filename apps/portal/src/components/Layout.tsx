@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
-import { FileText, KeyRound, Loader2, LogOut, Menu, MessageCircle, Moon, ShieldCheck, Sun, X } from "lucide-react";
+import { FileText, KeyRound, Loader2, LogOut, Menu, MessageCircle, Moon, ShieldCheck, Sun, Wallet, X } from "lucide-react";
 import { AceitePrivacidade } from "@/components/AceitePrivacidade";
 import { Notificacoes } from "@/components/Notificacoes";
 import { useTema } from "@/hooks/useTema";
@@ -116,6 +116,7 @@ function Menu_({ nome, documento, onSair }: { nome: string; documento: string; o
       </div>
       <nav className="flex-1 space-y-1 p-3">
         <NavLink to="/contratos" className={item}><FileText className="h-5 w-5" /> Meus Contratos</NavLink>
+        <NavLink to="/pagamentos" className={item}><Wallet className="h-5 w-5" /> Pagamentos</NavLink>
         <NavLink to="/chat" className={item}>
           <MessageCircle className="h-5 w-5" /> Atendimento via Chat
           {avisos?.chat_nao_lido && <span className="ml-auto h-2.5 w-2.5 rounded-full bg-q-gold" aria-label="Novas mensagens" />}

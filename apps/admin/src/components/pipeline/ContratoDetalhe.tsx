@@ -21,6 +21,8 @@ import {
   useLancarOcorrencia, type ContratoPipeline,
 } from "@/hooks/usePipeline";
 import { useContratoDocumento, type DadosContratoDocumento } from "@/hooks/useContratoDocumento";
+import { useDefinirParcelas, useParcelas, type Parcela } from "@/hooks/useParcelas";
+import { AbaPagamentos } from "@/components/pipeline/Pagamentos";
 import { DocumentosDoContrato } from "@/components/documento/DocumentosDoContrato";
 import { Conversa } from "@/components/atendimento/Conversa";
 import { SelectBanco } from "@/components/SelectBanco";
@@ -139,6 +141,7 @@ function Conteudo({ c, voltar }: { c: ContratoPipeline; voltar?: ReactNode }) {
           <TabsTrigger value="dados" className={ABA}>Contrato</TabsTrigger>
           {c.cliente && <TabsTrigger value="cliente" className={ABA}>Cliente</TabsTrigger>}
           <TabsTrigger value="documentos" className={ABA}>Documentos</TabsTrigger>
+          <TabsTrigger value="pagamentos" className={ABA}>Pagamentos</TabsTrigger>
           <TabsTrigger value="historico" className={ABA}>Histórico</TabsTrigger>
           <TabsTrigger value="atendimentos" className={ABA}>Chat</TabsTrigger>
         </TabsList>
@@ -154,6 +157,7 @@ function Conteudo({ c, voltar }: { c: ContratoPipeline; voltar?: ReactNode }) {
         <TabsContent value="documentos" className="mt-0 pb-6">
           <DocumentosDoContrato contrato={c} onCompletar={(onde) => setAba(onde === "cliente" ? "cliente" : "dados")} />
         </TabsContent>
+        <TabsContent value="pagamentos" className="mt-0 pb-6"><AbaPagamentos c={c} onPlano={() => setAba("dados")} /></TabsContent>
         <TabsContent value="historico" className="mt-0 pb-6"><AbaHistorico contratoId={c.id} /></TabsContent>
         <TabsContent value="atendimentos" className="mt-0 pb-6"><AbaAtendimentos contratoId={c.id} /></TabsContent>
       </div>
@@ -185,22 +189,26 @@ const SEM_DADOS: DadosContratoDocumento = {
 };
 
 function AbaContrato({ c }: { c: ContratoPipeline }) {
-  const { data, isLoading } = useContratoDocumento(c.id);
-  if (isLoading) return <Carregando />;
+  const { data, isLoading, error } = useContratoDocumento(c.id);
+  // Sem a migração das parcelas a lista falha: o contrato abre igual, sem elas.
+  const { data: parcelas = [], isLoading: carregandoParcelas } = useParcelas(c.id);
+  if (isLoading || carregandoParcelas) return <Carregando />;
+  if (error) return <p className="text-sm text-destructive">Não foi possível abrir o contrato: {(error as Error).message}</p>;
   const d = data ?? SEM_DADOS;
   // ⚠️ Reinicia pelos VALORES gravados, nunca pelo objeto: a tela relê sozinha
   // (ao vivo) e um objeto novo com os mesmos dados apagaria o que está sendo digitado.
-  const chave = JSON.stringify([d, c.etapa_id, c.banco_id, c.linha_credito_id, c.veiculo, c.ano_modelo, c.placa, c.consultor_id, c.observacoes]);
-  return <FormContrato key={chave} c={c} d={d} />;
+  const chave = JSON.stringify([d, parcelas, c.etapa_id, c.banco_id, c.linha_credito_id, c.veiculo, c.ano_modelo, c.placa, c.consultor_id, c.observacoes]);
+  return <FormContrato key={chave} c={c} d={d} parcelas={parcelas} />;
 }
 
-function FormContrato({ c, d }: { c: ContratoPipeline; d: DadosContratoDocumento }) {
+function FormContrato({ c, d, parcelas }: { c: ContratoPipeline; d: DadosContratoDocumento; parcelas: Parcela[] }) {
   const { isGestor, perfil } = useAuth();
   const { data: etapas = [] } = useEtapas();
   const { data: linhas = [] } = useLinhasCredito();
   const { data: equipe = [] } = useEquipe();
   const { data: unidades = [] } = useUnidades();
   const atualizar = useAtualizarContrato();
+  const definirParcelas = useDefinirParcelas();
 
   const [etapaId, setEtapaId] = useState(c.etapa_id);
   const [bancoId, setBancoId] = useState(c.banco_id ?? NENHUM);
@@ -214,7 +222,7 @@ function FormContrato({ c, d }: { c: ContratoPipeline; d: DadosContratoDocumento
 
   const linha = linhas.find((l) => l.id === linhaId);
   const comVeiculo = !!(linha?.tem_veiculo || veiculo.trim() || placa.trim());
-  const dc = useDadosContrato(d, { comVeiculo, nomeCliente: c.cliente?.nome });
+  const dc = useDadosContrato(d, { comVeiculo, nomeCliente: c.cliente?.nome, parcelas });
   const faltam = dc.faltam.titular + dc.faltam.veiculo + dc.faltam.financiamento + dc.faltam.plano;
   const vazio = (s: string) => s.trim() || null;
   const opc = (v: string) => (v === NENHUM ? null : v);
@@ -235,12 +243,20 @@ function FormContrato({ c, d }: { c: ContratoPipeline; d: DadosContratoDocumento
     };
     // Transferir de consultor é do gestor (a RLS recusaria o colaborador).
     if (isGestor) campos.consultor_id = opc(consultorId);
+    const novas = c.cancelado_em ? null : dc.parcelasParaGravar();
     try {
       await atualizar.mutateAsync({ id: c.id, campos });
-      toast.success("Contrato salvo.");
     } catch (e) {
-      toast.error("Não foi possível salvar.", { description: (e as Error).message });
+      return toast.error("Não foi possível salvar.", { description: (e as Error).message });
     }
+    if (novas) {
+      try {
+        await definirParcelas.mutateAsync({ contratoId: c.id, itens: novas });
+      } catch (e) {
+        return toast.error("Contrato salvo, mas as parcelas não.", { description: (e as Error).message });
+      }
+    }
+    toast.success("Contrato salvo.");
   };
 
   const perder = async () => {
@@ -316,7 +332,6 @@ function FormContrato({ c, d }: { c: ContratoPipeline; d: DadosContratoDocumento
               <Select value={unidadeId} onValueChange={setUnidadeId}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NENHUM}>Sem unidade</SelectItem>
                   {unidades.filter((u) => u.ativo || u.id === d.unidade_id).map((u) => (
                     <SelectItem key={u.id} value={u.id}>{u.nome}{u.cidade ? ` — ${u.cidade}${u.uf ? `/${u.uf}` : ""}` : ""}</SelectItem>
                   ))}
@@ -333,7 +348,6 @@ function FormContrato({ c, d }: { c: ContratoPipeline; d: DadosContratoDocumento
               <Select value={linhaId} onValueChange={setLinhaId}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NENHUM}>Não informada</SelectItem>
                   {linhas.filter((l) => l.ativo || l.id === c.linha_credito_id).map((l) => (
                     <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
                   ))}
@@ -385,8 +399,8 @@ function FormContrato({ c, d }: { c: ContratoPipeline; d: DadosContratoDocumento
         <span className={`ml-auto text-xs ${faltam ? "text-warning" : "text-success"}`}>
           {faltam ? `faltam ${faltam} para o contrato` : "contrato completo"}
         </span>
-        <Button type="button" onClick={salvar} disabled={atualizar.isPending}>
-          {atualizar.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        <Button type="button" onClick={salvar} disabled={atualizar.isPending || definirParcelas.isPending}>
+          {(atualizar.isPending || definirParcelas.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Salvar
         </Button>
       </div>

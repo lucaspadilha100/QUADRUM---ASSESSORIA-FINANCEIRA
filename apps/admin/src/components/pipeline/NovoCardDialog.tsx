@@ -41,11 +41,16 @@ export function NovoCardDialog({ aberto, etapaInicial, onFechar }: {
   const [anoModelo, setAnoModelo] = useState("");
   const [placa, setPlaca] = useState("");
   const [consultorId, setConsultorId] = useState("");
+  // Linha de crédito já vem com a PADRÃO do cadastro (hoje, Veicular).
+  const linhaPadrao = linhas.find((l) => l.padrao && l.ativo)?.id;
+  useEffect(() => {
+    if (aberto && linhaPadrao && linhaId === NENHUM) setLinhaId(linhaPadrao);
+  }, [aberto, linhaPadrao]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!aberto) return;
     setDocumento(""); setAchado(null); setNome(""); setTelefone(""); setEmail("");
-    setBancoId(NENHUM); setLinhaId(NENHUM); setVeiculo(""); setAnoModelo(""); setPlaca("");
+    setBancoId(NENHUM); setLinhaId(linhaPadrao ?? NENHUM); setVeiculo(""); setAnoModelo(""); setPlaca("");
     setEtapaId(etapaInicial ?? etapas.find((e) => e.ativo)?.id ?? "");
     setConsultorId(perfil?.id ?? "");
   }, [aberto]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -174,7 +179,7 @@ export function NovoCardDialog({ aberto, etapaInicial, onFechar }: {
                 <Select value={linhaId} onValueChange={setLinhaId}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NENHUM}>Não informada</SelectItem>
+                    {!linhaPadrao && <SelectItem value={NENHUM}>Não informada</SelectItem>}
                     {ativos(linhas).map((l) => <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>)}
                   </SelectContent>
                 </Select>

@@ -185,3 +185,24 @@ export function useAceitarPrivacidade() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["portal", "privacidade"] }),
   });
 }
+
+// ── Pagamentos (migração 20261030000000) ────────────────────────────────────
+
+export interface ParcelaPortal {
+  id: string;
+  numero: number; // 0 = entrada
+  valor: number;
+  vencimento: string;
+  pago_em: string | null;
+  pago_forma: string | null;
+  // Quando o banco for integrado: o boleto e o PIX de cada parcela.
+  boleto_url: string | null;
+  boleto_linha_digitavel: string | null;
+  pix_copia_cola: string | null;
+}
+
+export interface PagamentosContrato { contrato_id: string; numero: number; cancelado: boolean; forma: string | null; parcelas: ParcelaPortal[] }
+
+// Pagamento registrado pela equipe aparece em até 20 s, como os contratos.
+export const usePagamentos = () =>
+  useQuery({ queryKey: ["portal", "pagamentos"], queryFn: () => rpc<PagamentosContrato[]>("portal_pagamentos"), refetchInterval: 20_000 });

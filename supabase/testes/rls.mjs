@@ -390,7 +390,7 @@ await espera("anon não chama o painel", () => como("anon", null, "select q_pain
 await espera("cliente do portal não gera documento", () => como("authenticated", P, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
 
 // ── ao vivo: as tabelas que o admin escuta estão na publicação do Realtime
-const AO_VIVO = ["atendimento_mensagens", "atendimentos", "clientes", "contrato_documentos", "contrato_historico", "contrato_movimentos", "contratos", "documento_assinaturas", "documento_eventos"];
+const AO_VIVO = ["atendimento_mensagens", "atendimentos", "clientes", "contrato_documentos", "contrato_historico", "contrato_movimentos", "contrato_parcelas", "contratos", "documento_assinaturas", "documento_eventos"];
 await espera("as tabelas do ao vivo estão na publicação supabase_realtime", () => db.query("select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1"), false, (r) => JSON.stringify(r.rows.map((x) => x.tablename)) === JSON.stringify(AO_VIVO));
 await espera("a migração do ao vivo roda de novo sem erro (idempotente)", () => sql(readFileSync(join(pasta, "20261018000000_ao_vivo.sql"), "utf8")), false);
 await espera("as tabelas do useAoVivo são as da publicação", async () => {
@@ -697,6 +697,78 @@ await espera("rodar a migração do contrato de novo não muda nada", async () =
   await db.exec(readFileSync(pasta + "20261029000000_contrato_triconecta.sql", "utf8"));
   return db.query("select versao from documento_modelos where tipo = 'contrato' and ativo");
 }, false, (r) => r.rows[0].versao === 3);
+
+
+// ── parcelas e pagamentos; unidade e linha padrão (20261030000000)
+await espera("uma unidade e uma linha de crédito PADRÃO", () => db.query("select (select count(*) from unidades where padrao) as u, (select count(*) from linhas_credito where padrao) as l"), false,
+  (r) => Number(r.rows[0].u) === 1 && Number(r.rows[0].l) === 1);
+let ctPag;
+await espera("contrato novo nasce com a unidade e a linha padrão", async () => {
+  const r = await como("authenticated", M, `insert into contratos (cliente_id) values ('${clienteDoA}') returning id, unidade_id, linha_credito_id`);
+  ctPag = r.rows[0].id;
+  return db.query(`select k.unidade_id = (select id from unidades where padrao) as u, k.linha_credito_id = (select id from linhas_credito where padrao) as l from contratos k where k.id = '${ctPag}'`);
+}, false, (r) => r.rows[0].u && r.rows[0].l);
+await espera("esvaziar a unidade volta à padrão", async () => {
+  await como("authenticated", M, `update contratos set unidade_id = null where id = '${ctPag}'`);
+  return db.query(`select unidade_id is not null as ok from contratos where id = '${ctPag}'`);
+}, false, (r) => r.rows[0].ok);
+await espera("nenhum contrato sem unidade nem linha", () => db.query("select count(*) as n from contratos where unidade_id is null or linha_credito_id is null"), false, (r) => Number(r.rows[0].n) === 0);
+await sql(`update contratos set etapa_id = (select id from pipeline_etapas where aceita limit 1) where id = '${ctPag}'`);
+const plano = (itens) => `select q_parcelas_definir('${ctPag}', '${JSON.stringify(itens)}'::jsonb) as n`;
+const hoje = (await db.query("select (now() at time zone 'America/Sao_Paulo')::date::text as d")).rows[0].d;
+await espera("o consultor define o plano: entrada + 3 parcelas", () => como("authenticated", M, plano([
+  { numero: 0, valor: 100, vencimento: hoje }, { numero: 1, valor: 200, vencimento: "2026-12-10" },
+  { numero: 2, valor: 200, vencimento: "2027-01-10" }, { numero: 3, valor: 200, vencimento: "2027-02-10" }])), false, (r) => r.rows[0].n === 4);
+await espera("o colaborador de OUTRA carteira não define o plano", () => como("authenticated", B, plano([{ numero: 1, valor: 1, vencimento: hoje }])), true);
+await espera("o cliente do portal não define o plano", () => comoCliente(plano([{ numero: 1, valor: 1, vencimento: hoje }])), true);
+await espera("ninguém grava parcela direto na tabela", () => como("authenticated", G, `insert into contrato_parcelas (contrato_id, numero, valor, vencimento) values ('${ctPag}', 9, 1, '${hoje}')`), true);
+await espera("parcela repetida ou sem valor é recusada", () => como("authenticated", M, plano([{ numero: 1, valor: 200, vencimento: hoje }, { numero: 1, valor: 200, vencimento: hoje }])), true);
+await espera("refazer o plano: a 3 sai (cancelada, não apagada) e a 1 muda de data", async () => {
+  await como("authenticated", M, plano([{ numero: 0, valor: 100, vencimento: hoje }, { numero: 1, valor: 200, vencimento: "2026-12-15" }, { numero: 2, valor: 200, vencimento: "2027-01-10" }]));
+  return db.query(`select (select count(*) from contrato_parcelas where contrato_id = '${ctPag}' and cancelada_em is null) as ativas,
+    (select count(*) from contrato_parcelas where contrato_id = '${ctPag}') as todas,
+    (select vencimento::text from contrato_parcelas where contrato_id = '${ctPag}' and numero = 1 and cancelada_em is null) as venc,
+    (select string_agg(tipo, ',' order by tipo) from parcela_eventos where contrato_id = '${ctPag}' and tipo <> 'criada') as ev`);
+}, false, (r) => Number(r.rows[0].ativas) === 3 && Number(r.rows[0].todas) === 4 && r.rows[0].venc === "2026-12-15" && r.rows[0].ev === "alterada,cancelada");
+const parc = async (num) => (await db.query(`select id from contrato_parcelas where contrato_id = '${ctPag}' and numero = ${num} and cancelada_em is null`)).rows[0].id;
+await espera("a equipe marca a entrada como paga (dinheiro)", async () => como("authenticated", M, `select q_parcela_pagar('${await parc(0)}', '${hoje}', 'Dinheiro', 'recebido na loja')`), false);
+await espera("o cliente é avisado do pagamento", async () => ({ rows: (await notif(P)).itens }), false, (r) => r.rows.some((i) => i.tipo === "pagamento_confirmado" && i.link === "/pagamentos"));
+await espera("pagar de novo é recusado", async () => como("authenticated", M, `select q_parcela_pagar('${await parc(0)}', '${hoje}', 'PIX')`), true);
+await espera("pagamento no futuro é recusado", async () => como("authenticated", M, `select q_parcela_pagar('${await parc(1)}', '2099-01-01', 'PIX')`), true);
+await espera("sem forma de pagamento é recusado", async () => como("authenticated", M, `select q_parcela_pagar('${await parc(1)}', '${hoje}', '  ')`), true);
+await espera("o plano não muda a parcela PAGA", () => como("authenticated", M, plano([{ numero: 0, valor: 150, vencimento: hoje }, { numero: 1, valor: 200, vencimento: "2026-12-15" }, { numero: 2, valor: 200, vencimento: "2027-01-10" }])), true);
+await espera("nem tira a parcela paga do plano", () => como("authenticated", M, plano([{ numero: 1, valor: 200, vencimento: "2026-12-15" }])), true);
+await espera("o colaborador não desfaz pagamento", async () => como("authenticated", M, `select q_parcela_desfazer_pagamento('${await parc(0)}', 'engano')`), true);
+await espera("o gestor desfaz, com motivo, e fica na trilha", async () => {
+  await como("authenticated", G, `select q_parcela_desfazer_pagamento('${await parc(0)}', 'lançado no contrato errado')`);
+  return db.query(`select p.pago_em, (select dados->>'motivo' from parcela_eventos e where e.parcela_id = p.id and e.tipo = 'pagamento_desfeito') as motivo from contrato_parcelas p where p.id = '${await parc(0)}'`);
+}, false, (r) => r.rows[0].pago_em === null && r.rows[0].motivo === "lançado no contrato errado");
+await como("authenticated", M, `select q_parcela_pagar('${await parc(0)}', '${hoje}', 'PIX', 'interno')`);
+await espera("o portal mostra as parcelas, sem a observação interna", () => comoCliente("select portal_pagamentos() as p"), false, (r) => {
+  const k = r.rows[0].p.find((x) => x.contrato_id === ctPag);
+  return k && k.parcelas.length === 3 && k.parcelas[0].pago_forma === "PIX" && !JSON.stringify(k).includes("interno") && !("pago_obs" in k.parcelas[0]);
+});
+await espera("o colaborador A vê as parcelas; o B não", async () => {
+  const a = await como("authenticated", M, `select count(*) as n from contrato_parcelas where contrato_id = '${ctPag}'`);
+  const b = await como("authenticated", B, `select count(*) as n from contrato_parcelas where contrato_id = '${ctPag}'`);
+  return { rows: [Number(a.rows[0].n), Number(b.rows[0].n)] };
+}, false, (r) => r.rows[0] === 4 && r.rows[1] === 0);
+await espera("o cliente não lê a tabela de parcelas", () => comoCliente("select count(*) as n from contrato_parcelas"), false, (r) => Number(r.rows[0].n) === 0);
+await espera("anon não chama portal_pagamentos nem q_parcela_pagar", async () => {
+  const a = await como("anon", null, "select portal_pagamentos()").then(() => "ok", () => "erro");
+  const b = await como("anon", null, `select q_parcela_pagar('${await parc(1)}', '${hoje}', 'PIX')`).then(() => "ok", () => "erro");
+  return { rows: [a, b] };
+}, false, (r) => r.rows[0] === "erro" && r.rows[1] === "erro");
+await espera("exportar os dados do cliente (LGPD) leva as parcelas", () => como("authenticated", G, `select q_cliente_exportar('${clienteDoA}') as j`), false,
+  (r) => r.rows[0].j.contratos.some((k) => (k.parcelas ?? []).length === 4));
+await espera("contrato perdido não recebe plano", async () => {
+  await sql(`update contratos set cancelado_em = now(), motivo_cancelamento = 'teste' where id = '${ctPag}'`);
+  return como("authenticated", M, plano([]));
+}, true);
+await espera("rodar a migração das parcelas de novo não muda nada", async () => {
+  await db.exec(readFileSync(pasta + "20261030000000_parcelas_e_pagamentos.sql", "utf8"));
+  return db.query("select (select count(*) from unidades where padrao) as u, (select count(*) from contrato_parcelas) as p");
+}, false, (r) => Number(r.rows[0].u) === 1 && Number(r.rows[0].p) === 4);
 
 console.log(`\n${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);
