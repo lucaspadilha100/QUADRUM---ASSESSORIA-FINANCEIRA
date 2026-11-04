@@ -1,7 +1,9 @@
-import { AlertTriangle, CheckCircle2, Copy, CreditCard, ExternalLink, Loader2, Paperclip } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, CheckCircle2, Copy, CreditCard, ExternalLink, FileDown, Loader2, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { abrirComprovante, usePagamentos, type PagamentosContrato, type ParcelaPortal } from "@/lib/portal";
 import { dataBR } from "@/lib/formato";
+import { entregarArquivo, gerarCarne, podeCompartilhar } from "@/lib/carne";
 
 // Pagamentos: as parcelas de cada contrato, o que já foi pago e o que vence.
 // Boleto, PIX e link de cartão aparecem na parcela quando a equipe emite no
@@ -43,6 +45,14 @@ function Contrato({ k }: { k: PagamentosContrato }) {
   const proxima = k.parcelas.find((p) => !p.pago_em && p.vencimento >= h);
   const nParcelas = k.parcelas.filter((p) => p.numero > 0).length;
   const pct = total ? Math.round((pago / total) * 100) : 0;
+  const boletos = k.parcelas.filter((p) => !p.pago_em && p.boleto_url).length;
+  const [gerando, setGerando] = useState(false);
+  const carne = async () => {
+    setGerando(true);
+    try { await entregarArquivo(await gerarCarne(k.contrato_id), podeCompartilhar()); }
+    catch (e) { toast.error((e as Error).message); }
+    finally { setGerando(false); }
+  };
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       <header className="space-y-3 border-b border-border p-4 sm:p-5">
@@ -66,6 +76,12 @@ function Contrato({ k }: { k: PagamentosContrato }) {
         ) : proxima ? (
           <p className="text-sm text-muted-foreground">Próximo pagamento: <strong className="font-semibold text-foreground">{dataBR(proxima.vencimento)}</strong> · {reais(proxima.valor)}</p>
         ) : null}
+        {boletos > 1 && (
+          <button type="button" onClick={carne} disabled={gerando}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-md bg-q-gold px-4 text-sm font-semibold text-q-onix hover:bg-q-gold/90 disabled:opacity-60 sm:min-h-9">
+            {gerando ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />} Baixar carnê ({boletos} boletos)
+          </button>
+        )}
       </header>
       <ul className="divide-y divide-border">
         {k.parcelas.map((p) => <Linha key={p.id} p={p} total={nParcelas} hoje={h} />)}

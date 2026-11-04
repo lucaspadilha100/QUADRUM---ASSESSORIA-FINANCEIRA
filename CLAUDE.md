@@ -163,7 +163,7 @@ pagamentos      portal_pagamentos (menu Pagamentos, relê a cada 20 s)
 dois): `src/components/documento/DocumentoImpresso.tsx` (o documento e o
 manifesto de assinatura), `src/index.css` (tokens da marca), `src/lib/formato.ts`,
 `src/lib/utils.ts`, `src/integrations/supabase/client.ts`, `.env`,
-`tailwind.config.ts`, `src/components/TrocarSenha.tsx`, os `components/ui/*` em comum e os PNG da marca. Copiar
+`tailwind.config.ts`, `src/components/TrocarSenha.tsx`, `src/lib/carne.ts`, os `components/ui/*` em comum e os PNG da marca. Copiar
 foi escolha (cada app builda sozinho no Vercel); o custo é esta lista.
 
 ## Supabase
@@ -505,6 +505,13 @@ q_cobranca_registrar · q_pagbank_evento   escrita: SÓ service_role
   responder "assinatura inválida", não "Missing authorization header".
   Sandbox aprovado de ponta a ponta em 04/11/2026 (link pago → "Automático").
 - `parcela_cobrancas` está no Realtime e no `AFETA`.
+- **Carnê** (Edge Function `carne-pdf`, COM JWT, sem segredo): os boletos em
+  aberto do contrato num PDF só, um por folha, na ordem — os PDFs do PagBank
+  juntados no servidor (o PagBank não libera CORS: o navegador não os lê).
+  Equipe lê `parcela_cobrancas` (RLS da carteira); o CLIENTE, `portal_pagamentos`
+  (pela sessão). Só baixa de `*.pagseguro.com.br`/`*.pagbank.com.br`. Admin:
+  "Carnê em PDF" na aba Pagamentos; portal: "Baixar carnê" no contrato (2+
+  boletos). No celular o arquivo vai pelo compartilhar (WhatsApp).
 - PIX precisa de **chave PIX ativa** na conta. O token de produção é o da conta
   da TriConecta (Vendas → Integrações → Gerar Token, no computador).
 

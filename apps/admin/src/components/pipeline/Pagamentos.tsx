@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Barcode, CheckCircle2, ChevronDown, CircleDollarSign, Copy, CreditCard, ExternalLink, Loader2, MessageCircle, Paperclip, QrCode, Receipt, RefreshCw, Send, Undo2 } from "lucide-react";
+import { Barcode, CheckCircle2, ChevronDown, CircleDollarSign, Copy, CreditCard, ExternalLink, FileDown, Loader2, MessageCircle, Paperclip, QrCode, Receipt, RefreshCw, Send, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ import { CampoData } from "@/components/CampoData";
 import { Carregando } from "@/components/Estados";
 import { dataBR, dataHoraBR, soDigitos } from "@/lib/formato";
 import { Textarea } from "@/components/ui/textarea";
+import { entregarArquivo, gerarCarne, podeCompartilhar } from "@/lib/carne";
 import { formaCurta } from "@/lib/planos";
 
 // A aba Pagamentos do card: as parcelas do plano, o que entrou e o que está em
@@ -92,6 +93,14 @@ function AcoesDoPlano({ c, parcelas, cobrancas, total }: { c: ContratoPipeline; 
     return !p.pago_em && t && !cobrancas.some((x) => x.parcela_id === p.id && x.tipo === t);
   });
   const abertas = parcelas.filter((p) => !p.pago_em && cobrancas.some((x) => x.parcela_id === p.id));
+  const comBoleto = parcelas.filter((p) => !p.pago_em && cobrancas.some((x) => x.parcela_id === p.id && x.tipo === "boleto" && x.boleto_url));
+  const [gerandoCarne, setGerandoCarne] = useState(false);
+  const carne = async () => {
+    setGerandoCarne(true);
+    try { await entregarArquivo(await gerarCarne(c.id), podeCompartilhar()); }
+    catch (e) { toast.error("Não foi possível gerar o carnê.", { description: (e as Error).message }); }
+    finally { setGerandoCarne(false); }
+  };
 
   const emitirTodas = async () => {
     const porTipo = new Map<TipoCobranca, number>();
@@ -124,6 +133,12 @@ function AcoesDoPlano({ c, parcelas, cobrancas, total }: { c: ContratoPipeline; 
           Emitir cobranças do plano ({faltam.length})
         </Button>
       )}
+      {comBoleto.length > 0 && (
+        <Button type="button" variant="outline" onClick={carne} disabled={gerandoCarne}>
+          {gerandoCarne ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+          Carnê em PDF ({comBoleto.length} boleto{comBoleto.length === 1 ? "" : "s"})
+        </Button>
+      )}
       {abertas.length > 0 && (
         <Button type="button" variant="outline" onClick={() => setEnviar(true)}>
           <Send className="mr-2 h-4 w-4" /> Enviar ao cliente
@@ -151,8 +166,11 @@ function EnviarAoCliente({ aberto, onFechar, c, parcelas, cobrancas, total }: {
       }
       return linhas.join("\n");
     });
+    const boletos = cobrancas.filter((x) => x.tipo === "boleto" && parcelas.some((p) => p.id === x.parcela_id)).length;
     return [`Olá${primeiro ? `, ${primeiro}` : ""}! Seguem as cobranças do seu contrato #${c.numero}:`, ...blocos,
-      `Você também acompanha tudo no portal: ${portal}`].join("\n\n");
+      boletos > 1
+        ? `No portal, em Pagamentos, você também baixa o carnê com todos os boletos: ${portal}`
+        : `Você também acompanha tudo no portal: ${portal}`].join("\n\n");
   };
   const [texto, setTexto] = useState(montar);
   const [chave, setChave] = useState(aberto);
