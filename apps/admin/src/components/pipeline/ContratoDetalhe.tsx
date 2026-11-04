@@ -91,7 +91,7 @@ export function ContratoPainel({ contratoId, voltar }: { contratoId: string; vol
   );
 }
 
-const ABA = "shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-3 pb-2.5 pt-2 text-sm data-[state=active]:border-q-gold data-[state=active]:bg-transparent data-[state=active]:shadow-none sm:px-4";
+const ABA = "shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-3 pb-2.5 pt-2 text-sm data-[state=active]:border-q-gold data-[state=active]:bg-transparent data-[state=active]:shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-muted/70 sm:px-4";
 
 function Conteudo({ c, voltar }: { c: ContratoPipeline; voltar?: ReactNode }) {
   const { data: etapas = [] } = useEtapas();
