@@ -471,6 +471,12 @@ q_cobranca_registrar · q_pagbank_evento   escrita: SÓ service_role
   função diz o quê, antes de chamar o PagBank.
 - Portal: "Ver boleto", "Copiar código do boleto", "Copiar PIX" e "Pagar com
   cartão" saem da cobrança ABERTA mais nova de cada tipo (`portal_pagamentos`).
+- ⚠️ **`pagbank-webhook` com "Verify JWT" LIGADO = baixa automática morta,
+  calada**: o Supabase devolve `401 UNAUTHORIZED_NO_AUTH_HEADER` antes do nosso
+  código, e `pagbank_eventos` fica vazio (aconteceu no 1º teste, 04/11/2026; o
+  ⟳ dava baixa e o automático não). Conferir: POST sem assinatura tem de
+  responder "assinatura inválida", não "Missing authorization header".
+  Sandbox aprovado de ponta a ponta em 04/11/2026 (link pago → "Automático").
 - `parcela_cobrancas` está no Realtime e no `AFETA`.
 - PIX precisa de **chave PIX ativa** na conta. O token de produção é o da conta
   da TriConecta (Vendas → Integrações → Gerar Token, no computador).
