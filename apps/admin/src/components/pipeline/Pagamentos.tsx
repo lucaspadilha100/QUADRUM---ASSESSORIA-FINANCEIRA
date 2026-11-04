@@ -229,7 +229,7 @@ function CobrancaAberta({ x }: { x: Cobranca }) {
         <Icone className="h-3.5 w-3.5 text-q-petrol" /> {tipo.rotulo}
       </span>
       <span className="text-muted-foreground">
-        {[ROTULO_STATUS[x.status] ?? x.status, x.expira_em ? `vale até ${dataBR(x.expira_em.slice(0, 10))}` : x.vencimento ? `vence ${dataBR(x.vencimento)}` : null]
+        {[ROTULO_STATUS[x.status] ?? x.status, x.expira_em ? `vale até ${new Date(x.expira_em).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : x.vencimento ? `vence ${dataBR(x.vencimento)}` : null]
           .filter(Boolean).join(" · ")}
       </span>
       {x.ambiente === "sandbox" && <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">teste</span>}
