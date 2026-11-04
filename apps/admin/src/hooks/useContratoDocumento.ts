@@ -18,6 +18,7 @@ export interface DadosContratoDocumento {
   plano_valor_total: number | null; plano_entrada: number | null; plano_parcelas: number | null;
   plano_valor_parcela: number | null; plano_primeiro_vencimento: string | null; plano_forma: string | null;
   plano_dia_vencimento?: number | null;
+  plano_id?: string | null; plano_opcao?: "avista" | "boleto" | "cartao" | "personalizado" | null;
   unidade_id: string | null;
 }
 

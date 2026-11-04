@@ -18,6 +18,7 @@ import { Bloco, Campo } from "@/components/Bloco";
 import { CampoData } from "@/components/CampoData";
 import { Carregando } from "@/components/Estados";
 import { dataBR, dataHoraBR } from "@/lib/formato";
+import { formaCurta } from "@/lib/planos";
 
 // A aba Pagamentos do card: as parcelas do plano, o que entrou e o que está em
 // atraso. A equipe registra o pagamento (dinheiro, PIX…) com o comprovante
@@ -121,7 +122,10 @@ function Linha({ p, total, hoje, onPagar, cancelado, cobrancas }: {
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
       <div className="min-w-0 flex-1 basis-48">
         <p className="text-sm font-medium text-foreground">{rotuloParcela(p.numero, total)}</p>
-        <p className="text-xs text-muted-foreground">Vence {dataBR(p.vencimento)}</p>
+        <p className="text-xs text-muted-foreground">
+          Vence {dataBR(p.vencimento)}
+          {p.forma && <> · {p.forma === "Cartão de crédito" && (p.cartao_parcelas ?? 1) > 1 ? `cartão em até ${p.cartao_parcelas}x` : formaCurta(p.forma)}</>}
+        </p>
       </div>
       <p className="w-28 text-sm font-semibold tabular-nums text-foreground">{reais(Number(p.valor))}</p>
       <div className="min-w-0 flex-1 basis-56 text-xs">
@@ -162,9 +166,15 @@ const TIPOS: { tipo: TipoCobranca; rotulo: string; icone: typeof Barcode }[] = [
   { tipo: "link", rotulo: "Link de cartão", icone: CreditCard },
 ];
 
-/** Emitir no PagBank. Reemitir um tipo que já está em aberto substitui o anterior. */
+const TIPO_DA_FORMA: Record<string, TipoCobranca> = { "Boleto bancário": "boleto", PIX: "pix", "Cartão de crédito": "link" };
+
+/** Emitir no PagBank. A forma do plano vem primeiro. Reemitir um tipo que já está em aberto substitui o anterior. */
 function Cobrar({ p, total, abertas }: { p: Parcela; total: number; abertas: Cobranca[] }) {
   const emitir = useEmitirCobranca();
+  const doPlano = p.forma ? TIPO_DA_FORMA[p.forma] : undefined;
+  const vezes = p.cartao_parcelas ?? 1;
+  const tipos = [...TIPOS].sort((a, b) => Number(b.tipo === doPlano) - Number(a.tipo === doPlano))
+    .map((t) => ({ ...t, nome: t.rotulo, rotulo: t.tipo === "link" && vezes > 1 ? `Link de cartão (até ${vezes}x)` : t.rotulo }));
   const aoEmitir = async (tipo: TipoCobranca, rotulo: string) => {
     if (abertas.some((x) => x.tipo === tipo)) {
       const ok = await confirmar({
@@ -192,8 +202,8 @@ function Cobrar({ p, total, abertas }: { p: Parcela; total: number; abertas: Cob
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {TIPOS.map(({ tipo, rotulo, icone: Icone }) => (
-          <DropdownMenuItem key={tipo} onSelect={() => aoEmitir(tipo, rotulo)}>
+        {tipos.map(({ tipo, rotulo, nome, icone: Icone }) => (
+          <DropdownMenuItem key={tipo} onSelect={() => aoEmitir(tipo, nome)} className={tipo === doPlano ? "font-semibold" : undefined}>
             <Icone className="mr-2 h-4 w-4" /> {rotulo}
           </DropdownMenuItem>
         ))}

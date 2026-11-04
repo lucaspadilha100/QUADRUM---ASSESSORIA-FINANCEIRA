@@ -21,9 +21,16 @@ export interface Parcela {
   boleto_linha_digitavel: string | null;
   pix_copia_cola: string | null;
   comprovante_path?: string | null;
+  // Migração 20261103000000: a forma da cobrança e, no cartão, em até quantas vezes.
+  forma?: string | null;
+  cartao_parcelas?: number | null;
+  cartao_sem_juros?: number | null;
 }
 
-export interface ItemParcela { numero: number; valor: number; vencimento: string }
+export interface ItemParcela {
+  numero: number; valor: number; vencimento: string;
+  forma?: string | null; cartao_parcelas?: number | null; cartao_sem_juros?: number | null;
+}
 
 /** Dinheiro, PIX… — o que a equipe registra ao marcar como pago. */
 export const FORMAS_RECEBIMENTO = ["Dinheiro", "PIX", "Boleto bancário", "Cartão de crédito", "Cartão de débito", "Transferência bancária"];

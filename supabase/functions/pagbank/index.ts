@@ -27,7 +27,6 @@ const WEBHOOK = Deno.env.get("PAGBANK_WEBHOOK_URL") ?? `${SUPABASE_URL}/function
 const MULTA = 1000;
 const JUROS = 100;
 const DIAS_BOLETO_PAGAVEL = 30; // depois do vencimento, com multa e juros
-const PARCELAS_CARTAO = "12";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -146,6 +145,13 @@ async function emitir(usuario: any, servico: any, autor: string, parcelaId: stri
   const fone = celular(c.telefone);
   const customer: any = { name: c.nome.trim().slice(0, 120), email: c.email.trim(), tax_id: doc };
   const item = { reference_id: id, name: descricao, quantity: 1, unit_amount: valor };
+  // Cartão: em até N vezes, como o plano definiu na parcela (sem plano = à
+  // vista). Sem juros para o cliente até `cartao_sem_juros` (nulo = todas):
+  // o preço do plano já é o do cartão.
+  const vezes = Math.min(Math.max(Number(p.cartao_parcelas) || 1, 1), 18);
+  const semJuros = Math.min(Number(p.cartao_sem_juros) || vezes, vezes);
+  const opcoesCartao = [{ option: "INSTALLMENTS_LIMIT", value: String(vezes) }];
+  if (semJuros > 1) opcoesCartao.push({ option: "INTEREST_FREE_INSTALLMENTS", value: String(semJuros) });
 
   let r;
   if (tipo === "link") {
@@ -155,7 +161,7 @@ async function emitir(usuario: any, servico: any, autor: string, parcelaId: stri
       ...(fone ? { customer: { ...customer, phone: fone }, customer_modifiable: false } : {}),
       items: [item],
       payment_methods: [{ type: "CREDIT_CARD" }],
-      payment_methods_configs: [{ type: "CREDIT_CARD", config_options: [{ option: "INSTALLMENTS_LIMIT", value: PARCELAS_CARTAO }] }],
+      payment_methods_configs: [{ type: "CREDIT_CARD", config_options: opcoesCartao }],
       soft_descriptor: "TRICONECTA",
       notification_urls: [WEBHOOK],
       payment_notification_urls: [WEBHOOK],

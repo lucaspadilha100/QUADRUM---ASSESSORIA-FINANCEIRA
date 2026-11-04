@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mensagemDeErro } from "@/lib/formato";
 import { supabase } from "@/integrations/supabase/client";
+import type { PlanoPagamento } from "@/lib/planos";
 
 // Leituras dos cadastros de apoio. São listas curtas (dezenas de linhas), por
 // isso sem paginação — se alguma passar de centenas, ela vai para `lerTudo`.
@@ -95,5 +96,43 @@ export function useSalvarCadastro(tabela: "bancos" | "linhas_credito" | "unidade
       qc.invalidateQueries({ queryKey: ["contratos"] });
       qc.invalidateQueries({ queryKey: ["contrato"] });
     },
+  });
+}
+
+// ── Planos de pagamento (migração 20261103000000) ──────────────────────────
+// Sem a migração a tabela não existe: a lista volta vazia e o contrato segue
+// montando o plano à mão.
+export function usePlanosPagamento() {
+  return useQuery({
+    queryKey: ["cadastro", "planos"],
+    queryFn: async (): Promise<PlanoPagamento[]> => {
+      const { data, error } = await supabase.from("planos_pagamento").select("*").order("ordem").order("nome");
+      if (error) {
+        if (/planos_pagamento/.test(error.message) && /exist|schema cache/i.test(error.message)) return [];
+        throw new Error(error.message);
+      }
+      return (data ?? []) as PlanoPagamento[];
+    },
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Grava um plano (gestor). Virar o padrão tira o padrão do anterior antes (um só, o banco garante). */
+export function useSalvarPlano() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, campos }: { id?: string; campos: Partial<Omit<PlanoPagamento, "id">> }) => {
+      if (campos.padrao) {
+        let q = supabase.from("planos_pagamento").update({ padrao: false }).eq("padrao", true);
+        if (id) q = q.neq("id", id);
+        const { error } = await q;
+        if (error) throw new Error(mensagemDeErro(error));
+      }
+      const { error } = id
+        ? await supabase.from("planos_pagamento").update(campos).eq("id", id)
+        : await supabase.from("planos_pagamento").insert(campos);
+      if (error) throw new Error(/duplicate|unique/i.test(error.message) && /nome/.test(error.message) ? "Já existe um plano com esse nome." : mensagemDeErro(error));
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["cadastro", "planos"] }),
   });
 }

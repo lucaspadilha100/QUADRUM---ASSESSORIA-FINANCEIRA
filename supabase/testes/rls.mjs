@@ -917,6 +917,61 @@ await espera("o colaborador A vê as cobranças do contrato dele; o B não", asy
   const b = await como("authenticated", B, `select count(*) as n from parcela_cobrancas where parcela_id = '${p2}'`);
   return { rows: [Number(a.rows[0].n), Number(b.rows[0].n)] };
 }, false, (r) => r.rows[0] === 3 && r.rows[1] === 0);
+// ── planos de pagamento; forma e cartão por parcela (20261103000000)
+await espera("a tabela de honorários: 6 planos, o Nível Base é o padrão", () => db.query("select count(*) as n, string_agg(nome, ',') filter (where padrao) as p from planos_pagamento"), false,
+  (r) => Number(r.rows[0].n) === 6 && r.rows[0].p === "Nível Base (Referência)");
+await espera("o gestor cria um plano", () => como("authenticated", G, "insert into planos_pagamento (nome, cartao_parcelas, cartao_valor, cartao_sem_juros) values ('Cartão 10x', 10, 100, 3) returning id"), false, n(1));
+await espera("o colaborador lê os planos, mas não cria nem altera", async () => {
+  const l = await como("authenticated", M, "select count(*) as n from planos_pagamento");
+  const c = await como("authenticated", M, "insert into planos_pagamento (nome, avista_valor) values ('X', 10)").then(() => "ok", () => "erro");
+  const u = await como("authenticated", M, "update planos_pagamento set avista_valor = 2 returning id");
+  return { rows: [Number(l.rows[0].n), c, u.rows.length] };
+}, false, (r) => r.rows[0] === 7 && r.rows[1] === "erro" && r.rows[2] === 0);
+await espera("o cliente do portal e o anon não leem planos", async () => {
+  const c = await comoCliente("select count(*) as n from planos_pagamento");
+  const a = await como("anon", null, "select count(*) as n from planos_pagamento").then((r) => Number(r.rows[0].n), () => 0);
+  return { rows: [Number(c.rows[0].n), a] };
+}, false, (r) => r.rows[0] === 0 && r.rows[1] === 0);
+await espera("só um plano padrão", () => como("authenticated", G, "update planos_pagamento set padrao = true where nome = 'Cartão 10x'"), true);
+await espera("sem juros acima das vezes é recusado", () => como("authenticated", G, "insert into planos_pagamento (nome, cartao_parcelas, cartao_valor, cartao_sem_juros) values ('Y', 3, 10, 5)"), true);
+await espera("cartão acima de 18x é recusado", () => como("authenticated", G, "insert into planos_pagamento (nome, cartao_parcelas, cartao_valor) values ('Z', 24, 10)"), true);
+await espera("plano sem nenhuma opção, ou vezes sem valor, é recusado", async () => {
+  const a = await como("authenticated", G, "insert into planos_pagamento (nome) values ('W')").then(() => "ok", () => "erro");
+  const b = await como("authenticated", G, "insert into planos_pagamento (nome, boleto_parcelas) values ('W2', 6)").then(() => "ok", () => "erro");
+  return { rows: [a, b] };
+}, false, (r) => r.rows[0] === "erro" && r.rows[1] === "erro");
+await espera("forma de cobrança desconhecida é recusada na parcela", () => db.query(`update contrato_parcelas set forma = 'Cheque' where contrato_id = '${ctPag}'`), true);
+const ativasPag = async () => (await db.query(`select numero, valor::float as valor, vencimento::text as vencimento, forma, cartao_parcelas, cartao_sem_juros, pago_em, id from contrato_parcelas where contrato_id = '${ctPag}' and cancelada_em is null order by numero`)).rows;
+let pCartao;
+await espera("o plano grava a forma e o cartão em até 5x (3 sem juros) da parcela; o link aberto com o limite antigo sai", async () => {
+  const antes = await ativasPag();
+  const nova = Math.max(...antes.map((x) => x.numero)) + 1;
+  await como("authenticated", M, plano([...antes.map((x) => ({ numero: x.numero, valor: x.valor, vencimento: x.vencimento })),
+    { numero: nova, valor: 600, vencimento: "2027-03-10", forma: "Cartão de crédito", cartao_parcelas: 4 }]));
+  const atuais = await ativasPag();
+  pCartao = atuais.find((x) => x.numero === nova).id;
+  await como("service_role", null, `select q_cobranca_registrar('33333333-3333-3333-3333-3333333333cc', '${pCartao}', 'link', 'sandbox', null, '{"checkout_id":"CHEC_1","link_url":"https://x"}'::jsonb)`);
+  const itens = atuais.map((x) => ({ numero: x.numero, valor: x.valor, vencimento: x.vencimento, forma: x.forma,
+    ...(x.id === pCartao ? { forma: "Cartão de crédito", cartao_parcelas: 5, cartao_sem_juros: 3 } : {}) }));
+  await como("authenticated", M, plano(itens));
+  return db.query(`select p.forma, p.cartao_parcelas, p.cartao_sem_juros, c.motivo_encerramento
+    from contrato_parcelas p join parcela_cobrancas c on c.id = '33333333-3333-3333-3333-3333333333cc' where p.id = '${pCartao}'`);
+}, false, (r) => r.rows[0].forma === "Cartão de crédito" && r.rows[0].cartao_parcelas === 5 && r.rows[0].cartao_sem_juros === 3 && r.rows[0].motivo_encerramento === "cartao_alterado");
+await espera("sem juros acima das vezes na parcela é recusado", async () => {
+  const itens = (await ativasPag()).map((x) => ({ numero: x.numero, valor: x.valor, vencimento: x.vencimento, forma: x.forma, cartao_parcelas: x.cartao_parcelas, cartao_sem_juros: x.id === pCartao ? 9 : x.cartao_sem_juros }));
+  return como("authenticated", M, plano(itens));
+}, true);
+await espera("a cobrança lê as vezes e o sem juros da parcela", () => como("authenticated", M, `select q_parcela_dados_cobranca('${pCartao}') as d`), false,
+  (r) => r.rows[0].d.parcela.cartao_parcelas === 5 && r.rows[0].d.parcela.cartao_sem_juros === 3 && r.rows[0].d.parcela.forma === "Cartão de crédito");
+await espera("o portal mostra a forma e as vezes no cartão", async () => {
+  const pg = await comoCliente("select portal_pagamentos() as p");
+  const x = pg.rows[0].p.find((k) => k.contrato_id === ctPag).parcelas.find((y) => y.id === pCartao);
+  return { rows: [x.forma, x.cartao_parcelas] };
+}, false, (r) => r.rows[0] === "Cartão de crédito" && r.rows[1] === 5);
+await espera("o contrato guarda qual plano foi aplicado", async () => {
+  await como("authenticated", M, `update contratos set plano_id = (select id from planos_pagamento where padrao), plano_opcao = 'cartao' where id = '${ctPag}'`);
+  return db.query(`select plano_id is not null and plano_opcao = 'cartao' as ok from contratos where id = '${ctPag}'`);
+}, false, (r) => r.rows[0].ok);
 await espera("contrato perdido não recebe plano", async () => {
   await sql(`update contratos set cancelado_em = now(), motivo_cancelamento = 'teste' where id = '${ctPag}'`);
   return como("authenticated", M, plano([]));
@@ -926,8 +981,9 @@ await espera("rodar a migração das parcelas de novo não muda nada", async () 
   await db.exec(readFileSync(pasta + "20261031000000_comprovantes.sql", "utf8"));
   await db.exec(readFileSync(pasta + "20261101000000_anexos.sql", "utf8"));
   await db.exec(readFileSync(pasta + "20261102000000_pagbank.sql", "utf8"));
+  await db.exec(readFileSync(pasta + "20261103000000_planos_de_pagamento.sql", "utf8"));
   return db.query("select (select count(*) from unidades where padrao) as u, (select count(*) from contrato_parcelas) as p");
-}, false, (r) => Number(r.rows[0].u) === 1 && Number(r.rows[0].p) === 4);
+}, false, (r) => Number(r.rows[0].u) === 1 && Number(r.rows[0].p) === 5); // 4 do plano + a do cartão (20261103)
 
 console.log(`\n${ok} ok, ${falhas} falha(s)`);
 process.exit(falhas ? 1 : 0);

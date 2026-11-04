@@ -232,6 +232,9 @@ com arquivo/anexos, anon não executa nada).
 04/11/2026 (RLS nas 2 tabelas, 6 funções, 2 gatilhos, no Realtime, anon não
 executa nada, equipe não marca "pago pelo PagBank"). Edge Functions `pagbank` e
 `pagbank-webhook` + segredos: publicar pelo painel do Supabase.
+`20261103000000` (planos de pagamento: a tabela de honorários; forma e cartão por
+parcela) — ⏳ PENDENTE (04/11/2026). Sem ela, "Plano" fica sem opções e o
+contrato monta as cobranças em "Personalizado".
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
@@ -323,8 +326,8 @@ lista; o valor é o mesmo "AAAA-MM-DD".
 
 ## Telas do admin (15/10/2026)
 Painel · Pipeline · Atendimentos · Clientes · Contratos · Documentos p/ assinar ·
-Modelos de documento · Bancos · Linhas de crédito · Unidades · Departamentos e
-setores · Usuários. Bancos, Linhas e Unidades usam o MESMO componente
+Modelos de documento · Bancos · Linhas de crédito · Unidades · Planos de
+pagamento · Departamentos e setores · Usuários. Bancos, Linhas e Unidades usam o MESMO componente
 (`components/CadastroSimples.tsx`): lista, busca, novo/editar e ativar na linha.
 - Quando falta banco para gerar documento, o banco se escolhe NO PRÓPRIO
   AVISO (`BancoAqui` no `GerarDocumento`), com "+ Cadastrar banco…" para o
@@ -480,6 +483,34 @@ q_cobranca_registrar · q_pagbank_evento   escrita: SÓ service_role
 - `parcela_cobrancas` está no Realtime e no `AFETA`.
 - PIX precisa de **chave PIX ativa** na conta. O token de produção é o da conta
   da TriConecta (Vendas → Integrações → Gerar Token, no computador).
+
+## Planos de pagamento — a tabela de honorários (04/11/2026)
+Pedido do dono do processo ("Tabela de Precificação TriConecta"): cada PLANO
+(nível) tem até três preços — à vista, N boletos de R$ X, N vezes de R$ Y no
+cartão (o preço muda com a forma). Migração `20261103000000`; tela
+`/cadastros/planos` (gestor); no contrato, `pipeline/PlanoContrato.tsx`.
+
+- ⚠️ **Cartão parcelado é UMA cobrança**: "8x de R$ 137" = um link de R$ 1.096
+  em até 8x (`contrato_parcelas.cartao_parcelas`) SEM JUROS para o cliente
+  (`cartao_sem_juros`, nulo = todas; vai como `INTEREST_FREE_INSTALLMENTS`).
+  Nunca 8 links. Parcela sem cartão no plano sai no link à vista (1x).
+- Boleto/PIX/transferência: uma cobrança por parcela; a 1ª no "1º
+  vencimento", as demais no dia do plano. Cada cobrança troca valor, data e
+  forma à mão; "Acrescentar cobrança" e o X tiram/põem. Paga não muda.
+- No contrato: Plano → as opções em cartões (o BOLETO vem marcado: é a
+  âncora de vendas da tabela) → as cobranças prontas. "Personalizado" parte do
+  que está na tela (entrada, forma, vezes) para exceções.
+- `contrato_parcelas.forma` diz a forma da cobrança: o "Cobrar" põe ela
+  primeiro, a aba Pagamentos e o portal mostram ("cartão em até 8x").
+- Os campos do CONTRATO (`plano_valor_total`, `plano_parcelas`,
+  `plano_valor_parcela`, `plano_forma`…) são DERIVADOS das cobranças: no
+  cartão, parcelas = as vezes e valor = total ÷ vezes (o texto diz "8 parcelas
+  de R$ 137,00"). `contratos.plano_id` + `plano_opcao` reabrem a tela como
+  estava.
+- `planos_pagamento` é CADASTRO (nível novo = INSERT); um só padrão (índice
+  único). A FORMA é CHECK de propósito: cada uma muda o que o sistema faz.
+- Mudar as vezes ou o sem juros de uma parcela ENCERRA o link aberto dela
+  (feito com o limite antigo; `cartao_alterado`).
 
 ## Escala — a tela pede UMA página, o banco conta (15/10/2026)
 Pedido do dono do processo: "parece um app que vai atender 10 clientes só".

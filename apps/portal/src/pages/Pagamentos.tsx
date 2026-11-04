@@ -86,7 +86,10 @@ function Linha({ p, total, hoje: h }: { p: ParcelaPortal; total: number; hoje: s
       <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium text-foreground">{rotulo}</p>
-          <p className="text-xs text-muted-foreground">Vencimento {dataBR(p.vencimento)}</p>
+          <p className="text-xs text-muted-foreground">
+            Vencimento {dataBR(p.vencimento)}
+            {p.forma === "Cartão de crédito" && (p.cartao_parcelas ?? 1) > 1 ? ` · cartão em até ${p.cartao_parcelas}x de ${reais(Number(p.valor) / p.cartao_parcelas!)}` : ""}
+          </p>
         </div>
         <div className="text-right">
           <p className="text-sm font-semibold tabular-nums text-foreground">{reais(p.valor)}</p>
@@ -112,7 +115,7 @@ function Linha({ p, total, hoje: h }: { p: ParcelaPortal; total: number; hoje: s
           {p.boleto_url && <a href={p.boleto_url} target="_blank" rel="noreferrer" className={`${botao} no-underline`}><ExternalLink className="h-4 w-4" /> Ver boleto</a>}
           {p.boleto_linha_digitavel && <button type="button" className={botao} onClick={() => copiar(p.boleto_linha_digitavel!, "Código do boleto")}><Copy className="h-4 w-4" /> Copiar código do boleto</button>}
           {p.pix_copia_cola && <button type="button" className={botao} onClick={() => copiar(p.pix_copia_cola!, "PIX")}><Copy className="h-4 w-4" /> Copiar PIX</button>}
-          {p.link_cartao && <a href={p.link_cartao} target="_blank" rel="noreferrer" className={`${botao} no-underline`}><CreditCard className="h-4 w-4" /> Pagar com cartão</a>}
+          {p.link_cartao && <a href={p.link_cartao} target="_blank" rel="noreferrer" className={`${botao} no-underline`}><CreditCard className="h-4 w-4" /> Pagar com cartão{(p.cartao_parcelas ?? 1) > 1 ? ` em até ${p.cartao_parcelas}x` : ""}</a>}
         </div>
       )}
     </li>

@@ -201,6 +201,8 @@ export interface ParcelaPortal {
   boleto_linha_digitavel: string | null;
   pix_copia_cola: string | null;
   link_cartao?: string | null;
+  forma?: string | null; // do plano (migração 20261103000000)
+  cartao_parcelas?: number | null;
   comprovante?: string | null; // caminho no bucket privado `comprovantes`
 }
 

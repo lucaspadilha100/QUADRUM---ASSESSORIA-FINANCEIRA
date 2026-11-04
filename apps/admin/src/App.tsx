@@ -21,6 +21,7 @@ const Modelos = lazy(() => import("@/pages/cadastros/Modelos"));
 const Bancos = lazy(() => import("@/pages/cadastros/Bancos"));
 const LinhasCredito = lazy(() => import("@/pages/cadastros/LinhasCredito"));
 const Unidades = lazy(() => import("@/pages/cadastros/Unidades"));
+const Planos = lazy(() => import("@/pages/cadastros/Planos"));
 const Acessos = lazy(() => import("@/pages/admin/Acessos"));
 const DocumentoVer = lazy(() => import("@/pages/DocumentoVer"));
 const DocumentoImprimir = lazy(() => import("@/pages/DocumentoImprimir"));
@@ -60,6 +61,7 @@ export default function App() {
                 <Route path="/cadastros/bancos" element={<Bancos />} />
                 <Route path="/cadastros/linhas-de-credito" element={<LinhasCredito />} />
                 <Route path="/cadastros/unidades" element={<Unidades />} />
+                <Route path="/cadastros/planos" element={<Planos />} />
                 <Route path="/cadastros/privacidade" element={<Navigate to="/cadastros/modelos?modelo=privacidade" replace />} />
                 <Route path="/admin/acessos" element={<Acessos />} />
                 <Route path="*" element={<PaginaNaoEncontrada />} />
