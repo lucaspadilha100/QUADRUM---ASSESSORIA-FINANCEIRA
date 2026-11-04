@@ -91,7 +91,7 @@ export function ContratoPainel({ contratoId, voltar }: { contratoId: string; vol
   );
 }
 
-const ABA = "shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-3 pb-2.5 pt-2 text-sm data-[state=active]:border-q-gold data-[state=active]:bg-transparent data-[state=active]:shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-muted/70 sm:px-4";
+const ABA = "shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-3 pb-2.5 pt-2 text-sm data-[state=active]:border-q-gold data-[state=active]:bg-transparent data-[state=active]:shadow-none transition-colors outline-none ring-0 ring-offset-0 focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-muted/70 sm:px-4";
 
 function Conteudo({ c, voltar }: { c: ContratoPipeline; voltar?: ReactNode }) {
   const { data: etapas = [] } = useEtapas();
@@ -150,9 +150,11 @@ function Conteudo({ c, voltar }: { c: ContratoPipeline; voltar?: ReactNode }) {
       </div>
 
       <div className="flex-1 px-4 pt-5 sm:px-6">
-        <TabsContent value="dados" className="mt-0"><AbaContrato c={c} /></TabsContent>
+        {/* Contrato e Cliente ficam MONTADOS (só escondidos): trocar de aba não
+            pode jogar fora o que foi digitado e ainda não salvo. */}
+        <TabsContent value="dados" forceMount className="mt-0 data-[state=inactive]:hidden"><AbaContrato c={c} /></TabsContent>
         {c.cliente && (
-          <TabsContent value="cliente" className="mt-0">
+          <TabsContent value="cliente" forceMount className="mt-0 data-[state=inactive]:hidden">
             <EdicaoCliente clienteId={c.cliente.id} largo />
           </TabsContent>
         )}
