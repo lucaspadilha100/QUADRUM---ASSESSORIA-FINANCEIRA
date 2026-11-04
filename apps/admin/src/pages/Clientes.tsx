@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ClienteForm } from "@/components/clientes/ClienteForm";
 import { ClientePainel } from "@/components/clientes/ClientePainel";
 import { ContratoPainel, PAINEL_LARGO } from "@/components/pipeline/ContratoDetalhe";
+import { liberarSaida } from "@/components/NaoSalvo";
 import { Chips } from "@/components/Chips";
 import { Carregando, Falha, Vazio } from "@/components/Estados";
 import { Paginacao, usePaginacaoUrl } from "@/components/Paginacao";
@@ -200,13 +201,13 @@ function ClienteDetalhe({ clienteId, onFechar }: { clienteId: string | null; onF
   const [contratoId, setContratoId] = useState<string | null>(null);
   useEffect(() => setContratoId(null), [clienteId]);
   return (
-    <Sheet open={!!clienteId} onOpenChange={(o) => !o && onFechar()}>
+    <Sheet open={!!clienteId} onOpenChange={async (o) => { if (!o && (await liberarSaida())) onFechar(); }}>
       <SheetContent side="right" className={PAINEL_LARGO}>
         {clienteId && (contratoId ? (
           <ContratoPainel contratoId={contratoId}
             voltar={{ rotulo: "Voltar para o cliente", onClick: () => setContratoId(null) }} />
         ) : (
-          <ClientePainel clienteId={clienteId} onAbrirContrato={(id) => setContratoId(id)} />
+          <ClientePainel clienteId={clienteId} onAbrirContrato={async (id) => { if (await liberarSaida()) setContratoId(id); }} />
         ))}
       </SheetContent>
     </Sheet>

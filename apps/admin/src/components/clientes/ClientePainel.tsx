@@ -23,7 +23,7 @@ import { exportarCliente, useAceiteDoCliente } from "@/hooks/useLgpd";
 //     havia como voltar ao contrato.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function EdicaoCliente({ clienteId, comPortal = true, largo = false }: { clienteId: string; comPortal?: boolean; largo?: boolean }) {
+export function EdicaoCliente({ clienteId, comPortal = true, largo = false, onFaltam }: { clienteId: string; comPortal?: boolean; largo?: boolean; onFaltam?: (n: number) => void }) {
   const { data: cliente, isLoading, error } = useCliente(clienteId);
   const atualizar = useAtualizarCliente();
   // CPF/CNPJ: opcional até a etapa do portal. Depois do acesso ao portal ele é
@@ -54,18 +54,22 @@ export function EdicaoCliente({ clienteId, comPortal = true, largo = false }: { 
         }
         consultorInicial={cliente.consultor_id}
         rotuloSalvar="Salvar cliente"
+        naoSalvo={{ rotulo: `os dados de ${cliente.nome}`, extraSujo: !cliente.user_id && soDigitos(doc) !== (cliente.documento ?? "") }}
+        onFaltam={onFaltam}
         largo={largo}
         clienteId={cliente.id}
         salvando={atualizar.isPending}
         onSalvar={async (d) => {
           const novo = soDigitos(doc);
-          if (novo && !documentoValido(novo)) return toast.error("CPF tem 11 dígitos e CNPJ, 14.");
+          if (novo && !documentoValido(novo)) { toast.error("CPF tem 11 dígitos e CNPJ, 14."); return false; }
           const mudouDoc = !cliente.user_id && novo !== (cliente.documento ?? "");
           try {
             await atualizar.mutateAsync({ id: cliente.id, ...d, ...(mudouDoc ? { documento: novo } : {}) });
             toast.success("Cliente salvo.");
+            return true;
           } catch (e) {
             toast.error("Não foi possível salvar.", { description: (e as Error).message });
+            return false;
           }
         }}
       />

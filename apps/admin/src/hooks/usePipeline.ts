@@ -297,6 +297,22 @@ export function useAtendimentosDoContrato(contratoId: string | null) {
   });
 }
 
+/** Mensagens do CLIENTE ainda não lidas nos atendimentos do contrato (o número da aba Chat). */
+export function useNaoLidasDoContrato(contratoId: string | null) {
+  const { data: lista = [] } = useAtendimentosDoContrato(contratoId);
+  const ids = lista.map((a) => a.id);
+  return useQuery({
+    queryKey: ["pipeline", "atendimentos", contratoId, "naoLidas", ids.join(",")],
+    enabled: !!contratoId && ids.length > 0,
+    queryFn: async () => {
+      const { count, error } = await supabase.from("atendimento_mensagens").select("id", { count: "exact", head: true })
+        .in("atendimento_id", ids).eq("autor_tipo", "cliente").is("lida_em", null);
+      if (error) throw new Error(error.message);
+      return count ?? 0;
+    },
+  });
+}
+
 // ── Pendências de assinatura ("Pendências contrato #123" no portal) ─────────
 
 export interface DocumentoPendente {

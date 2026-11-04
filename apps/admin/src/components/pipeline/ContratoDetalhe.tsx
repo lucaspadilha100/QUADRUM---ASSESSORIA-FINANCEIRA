@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  Archive, ArrowLeft, Bell, Car, Eye, FileSignature, Globe, Landmark, Loader2, MessageSquare, NotebookPen,
-  RotateCcw, UserRound, Wallet, Workflow, XCircle,
+  Archive, ArrowLeft, Bell, Car, CircleDollarSign, Eye, FileSignature, FileText, Globe, History, Landmark, Loader2,
+  MessageSquare, NotebookPen, RotateCcw, UserRound, Wallet, Workflow, XCircle, type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -17,19 +17,20 @@ import {
   useDepartamentos, useEquipe, useEtapas, useLinhasCredito, useUnidades,
 } from "@/hooks/useCadastros";
 import {
-  LIMITE_HISTORICO, useAtendimentosDoContrato, useAtualizarContrato, useContrato, useHistorico,
-  useLancarOcorrencia, type ContratoPipeline,
+  LIMITE_HISTORICO, useAtendimentosDoContrato, useAtualizarContrato, useContrato, useDocumentos, useHistorico,
+  useLancarOcorrencia, useNaoLidasDoContrato, type ContratoPipeline,
 } from "@/hooks/usePipeline";
 import { useContratoDocumento, type DadosContratoDocumento } from "@/hooks/useContratoDocumento";
-import { useDefinirParcelas, useParcelas, type Parcela } from "@/hooks/useParcelas";
+import { hojeISO, useDefinirParcelas, useParcelas, type Parcela } from "@/hooks/useParcelas";
 import { AbaPagamentos } from "@/components/pipeline/Pagamentos";
 import { DocumentosDoContrato } from "@/components/documento/DocumentosDoContrato";
 import { Conversa } from "@/components/atendimento/Conversa";
 import { SelectBanco } from "@/components/SelectBanco";
-import { LinhaDoTempo } from "@/components/pipeline/LinhaDoTempo";
+import { LinhaCompleta } from "@/components/pipeline/LinhaDoTempo";
 import { useDadosContrato } from "@/components/pipeline/DadosParaContrato";
 import { EdicaoCliente } from "@/components/clientes/ClientePainel";
-import { Bloco, Campo } from "@/components/Bloco";
+import { liberarSaida, useNaoSalvo } from "@/components/NaoSalvo";
+import { Bloco, Campo, irParaPrimeiraFalta } from "@/components/Bloco";
 import { Anexos } from "@/components/Anexos";
 import { Carregando } from "@/components/Estados";
 import { dataBR, dataHoraBR, formatarDocumento } from "@/lib/formato";
@@ -59,7 +60,7 @@ export const PAINEL_LARGO = "q-painel w-full overflow-y-auto p-0 sm:max-w-3xl lg
 export function ContratoDetalhe({ contratoId, onFechar }: { contratoId: string | null; onFechar: () => void }) {
   const [, setPainel] = useParamUrl("painel", "dados");
   return (
-    <Sheet open={!!contratoId} onOpenChange={(o) => { if (!o) { setPainel(null); onFechar(); } }}>
+    <Sheet open={!!contratoId} onOpenChange={async (o) => { if (!o && (await liberarSaida())) { setPainel(null); onFechar(); } }}>
       <SheetContent side="right" className={PAINEL_LARGO}>
         {contratoId && <ContratoPainel contratoId={contratoId} />}
       </SheetContent>
@@ -71,7 +72,7 @@ export function ContratoDetalhe({ contratoId, onFechar }: { contratoId: string |
 export function ContratoPainel({ contratoId, voltar }: { contratoId: string; voltar?: { rotulo: string; onClick: () => void } }) {
   const { data: contrato, isLoading, error } = useContrato(contratoId);
   const botaoVoltar = voltar && (
-    <button type="button" onClick={voltar.onClick}
+    <button type="button" onClick={async () => { if (await liberarSaida()) voltar.onClick(); }}
       className="mb-3 inline-flex min-h-9 items-center gap-1 text-sm font-medium text-q-petrol hover:underline">
       <ArrowLeft className="h-4 w-4" /> {voltar.rotulo}
     </button>
@@ -91,7 +92,7 @@ export function ContratoPainel({ contratoId, voltar }: { contratoId: string; vol
   );
 }
 
-const ABA = "shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-3 pb-2.5 pt-2 text-sm data-[state=active]:border-q-gold data-[state=active]:bg-transparent data-[state=active]:shadow-none transition-colors outline-none ring-0 ring-offset-0 focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-muted/70 sm:px-4";
+const ABA = "min-w-0 shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-0.5 pb-2 pt-2 text-sm sm:px-3 sm:pb-2.5 data-[state=active]:border-q-gold data-[state=active]:bg-transparent data-[state=active]:shadow-none transition-colors outline-none ring-0 ring-offset-0 focus:outline-none focus:ring-0 focus:ring-offset-0 focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:bg-muted/70 sm:px-4";
 
 function Conteudo({ c, voltar }: { c: ContratoPipeline; voltar?: ReactNode }) {
   const { data: etapas = [] } = useEtapas();
@@ -101,6 +102,21 @@ function Conteudo({ c, voltar }: { c: ContratoPipeline; voltar?: ReactNode }) {
   const abaVisivel = aba === "cliente" && !c.cliente ? "dados" : aba;
   const etapa = etapas.find((e) => e.id === c.etapa_id);
   const dias = Math.max(0, Math.floor((Date.now() - new Date(c.etapa_desde).getTime()) / 86_400_000));
+  // Os números das abas: onde agir sem abrir cada uma.
+  const [faltamContrato, setFaltamContrato] = useState(0);
+  const [faltamCliente, setFaltamCliente] = useState(0);
+  const { data: docs = [] } = useDocumentos(c.id);
+  const { data: parcelas = [] } = useParcelas(c.id);
+  const { data: naoLidas = 0 } = useNaoLidasDoContrato(c.id);
+  const hoje = hojeISO();
+  const abas: { v: string; nome: string; curto: string; icone: LucideIcon; n: number; tom?: "aviso" | "erro" | "info" }[] = [
+    { v: "dados", nome: "Contrato", curto: "Contrato", icone: FileText, n: faltamContrato, tom: "aviso" },
+    ...(c.cliente ? [{ v: "cliente", nome: "Cliente", curto: "Cliente", icone: UserRound, n: faltamCliente, tom: "aviso" as const }] : []),
+    { v: "documentos", nome: "Documentos", curto: "Docs", icone: FileSignature, n: docs.filter((x) => !x.assinado_em && !x.cancelado_em).length, tom: "aviso" },
+    { v: "pagamentos", nome: "Pagamentos", curto: "Pagtos", icone: CircleDollarSign, n: c.cancelado_em ? 0 : parcelas.filter((p) => !p.pago_em && p.vencimento < hoje).length, tom: "erro" },
+    { v: "historico", nome: "Histórico", curto: "Histórico", icone: History, n: 0 },
+    { v: "atendimentos", nome: "Chat", curto: "Chat", icone: MessageSquare, n: naoLidas, tom: "info" },
+  ];
   return (
     <Tabs value={abaVisivel} onValueChange={(v) => setAba(v)} className="flex min-h-full flex-col">
       <div className="px-4 pt-4 sm:px-6 sm:pt-5">
@@ -139,33 +155,47 @@ function Conteudo({ c, voltar }: { c: ContratoPipeline; voltar?: ReactNode }) {
       </div>
       {/* Só as abas ficam fixas no topo: no celular o cabeçalho inteiro tomaria metade da tela. */}
       <div className="sticky top-0 z-10 mt-2 border-b border-border bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:px-5">
-        <TabsList className="flex h-auto w-full justify-start gap-1 rounded-none bg-transparent p-0">
-          <TabsTrigger value="dados" className={ABA}>Contrato</TabsTrigger>
-          {c.cliente && <TabsTrigger value="cliente" className={ABA}>Cliente</TabsTrigger>}
-          <TabsTrigger value="documentos" className={ABA}>Documentos</TabsTrigger>
-          <TabsTrigger value="pagamentos" className={ABA}>Pagamentos</TabsTrigger>
-          <TabsTrigger value="historico" className={ABA}>Histórico</TabsTrigger>
-          <TabsTrigger value="atendimentos" className={ABA}>Chat</TabsTrigger>
+        {/* No celular as 6 cabem à vista (ícone + nome curto); do sm em diante, a linha de abas. */}
+        <TabsList className={`grid h-auto w-full gap-0 rounded-none bg-transparent p-0 sm:flex sm:justify-start sm:gap-1 ${abas.length === 6 ? "grid-cols-6" : "grid-cols-5"}`}>
+          {abas.map(({ v, nome, curto, icone: Icone, n, tom }) => (
+            <TabsTrigger key={v} value={v} className={ABA} aria-label={n ? `${nome} (${n})` : nome}>
+              <span className="relative flex flex-col items-center gap-0.5 sm:flex-row sm:gap-1.5">
+                <Icone className="h-4 w-4 sm:hidden" />
+                <span className="max-w-full truncate text-[10.5px] leading-tight sm:hidden">{curto}</span>
+                <span className="hidden sm:inline">{nome}</span>
+                {n > 0 && <Contador n={n} tom={tom} />}
+              </span>
+            </TabsTrigger>
+          ))}
         </TabsList>
       </div>
 
       <div className="flex-1 px-4 pt-5 sm:px-6">
         {/* Contrato e Cliente ficam MONTADOS (só escondidos): trocar de aba não
             pode jogar fora o que foi digitado e ainda não salvo. */}
-        <TabsContent value="dados" forceMount className="mt-0 data-[state=inactive]:hidden"><AbaContrato c={c} /></TabsContent>
+        <TabsContent value="dados" forceMount className="mt-0 data-[state=inactive]:hidden"><AbaContrato c={c} onFaltam={setFaltamContrato} /></TabsContent>
         {c.cliente && (
           <TabsContent value="cliente" forceMount className="mt-0 data-[state=inactive]:hidden">
-            <EdicaoCliente clienteId={c.cliente.id} largo />
+            <EdicaoCliente clienteId={c.cliente.id} largo onFaltam={setFaltamCliente} />
           </TabsContent>
         )}
         <TabsContent value="documentos" className="mt-0 pb-6">
           <DocumentosDoContrato contrato={c} onCompletar={(onde) => setAba(onde === "cliente" ? "cliente" : "dados")} />
         </TabsContent>
         <TabsContent value="pagamentos" className="mt-0 pb-6"><AbaPagamentos c={c} onPlano={() => setAba("dados")} /></TabsContent>
-        <TabsContent value="historico" className="mt-0 pb-6"><AbaHistorico contratoId={c.id} /></TabsContent>
+        <TabsContent value="historico" className="mt-0 pb-6"><AbaHistorico c={c} /></TabsContent>
         <TabsContent value="atendimentos" className="mt-0 pb-6"><AbaAtendimentos contratoId={c.id} /></TabsContent>
       </div>
     </Tabs>
+  );
+}
+
+function Contador({ n, tom }: { n: number; tom?: "aviso" | "erro" | "info" }) {
+  const cor = tom === "erro" ? "bg-destructive text-white" : tom === "info" ? "bg-q-petrol text-white" : "bg-warning/20 text-warning";
+  return (
+    <span aria-hidden className={`absolute -right-2.5 -top-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold leading-none tabular-nums sm:static sm:h-5 sm:min-w-5 sm:text-[11px] ${cor}`}>
+      {n > 99 ? "99+" : n}
+    </span>
   );
 }
 
@@ -192,7 +222,7 @@ const SEM_DADOS: DadosContratoDocumento = {
   plano_parcelas: null, plano_valor_parcela: null, plano_primeiro_vencimento: null, plano_forma: null, unidade_id: null,
 };
 
-function AbaContrato({ c }: { c: ContratoPipeline }) {
+function AbaContrato({ c, onFaltam }: { c: ContratoPipeline; onFaltam?: (n: number) => void }) {
   const { data, isLoading, error } = useContratoDocumento(c.id);
   // Sem a migração das parcelas a lista falha: o contrato abre igual, sem elas.
   const { data: parcelas = [], isLoading: carregandoParcelas } = useParcelas(c.id);
@@ -202,10 +232,10 @@ function AbaContrato({ c }: { c: ContratoPipeline }) {
   // ⚠️ Reinicia pelos VALORES gravados, nunca pelo objeto: a tela relê sozinha
   // (ao vivo) e um objeto novo com os mesmos dados apagaria o que está sendo digitado.
   const chave = JSON.stringify([d, parcelas, c.etapa_id, c.banco_id, c.linha_credito_id, c.veiculo, c.ano_modelo, c.placa, c.consultor_id, c.observacoes]);
-  return <FormContrato key={chave} c={c} d={d} parcelas={parcelas} />;
+  return <FormContrato key={chave} c={c} d={d} parcelas={parcelas} onFaltam={onFaltam} />;
 }
 
-function FormContrato({ c, d, parcelas }: { c: ContratoPipeline; d: DadosContratoDocumento; parcelas: Parcela[] }) {
+function FormContrato({ c, d, parcelas, onFaltam }: { c: ContratoPipeline; d: DadosContratoDocumento; parcelas: Parcela[]; onFaltam?: (n: number) => void }) {
   const { isGestor, perfil } = useAuth();
   const { data: etapas = [] } = useEtapas();
   const { data: linhas = [] } = useLinhasCredito();
@@ -228,12 +258,19 @@ function FormContrato({ c, d, parcelas }: { c: ContratoPipeline; d: DadosContrat
   const comVeiculo = !!(linha?.tem_veiculo || veiculo.trim() || placa.trim());
   const dc = useDadosContrato(d, { comVeiculo, nomeCliente: c.cliente?.nome, parcelas });
   const faltam = dc.faltam.titular + dc.faltam.veiculo + dc.faltam.financiamento + dc.faltam.plano;
+  useEffect(() => { onFaltam?.(c.cancelado_em ? 0 : faltam); }, [faltam]); // eslint-disable-line react-hooks/exhaustive-deps
+  const raiz = useRef<HTMLDivElement>(null);
   const vazio = (s: string) => s.trim() || null;
   const opc = (v: string) => (v === NENHUM ? null : v);
 
-  const salvar = async () => {
+  // O que está na tela, para saber se mudou desde que abriu (aviso ao fechar).
+  const assinatura = JSON.stringify([dc.campos(), dc.parcelasParaGravar(), etapaId, bancoId, linhaId, veiculo, anoModelo, placa, consultorId, unidadeId, observacoes]);
+  const gravado = useRef<string | null>(null);
+  if (gravado.current === null) gravado.current = assinatura;
+
+  const salvar = async (): Promise<boolean> => {
     const extra = dc.campos();
-    if (typeof extra === "string") return toast.error(extra);
+    if (typeof extra === "string") { toast.error(extra); return false; }
     const campos: Record<string, unknown> = {
       ...extra,
       etapa_id: etapaId,
@@ -251,17 +288,22 @@ function FormContrato({ c, d, parcelas }: { c: ContratoPipeline; d: DadosContrat
     try {
       await atualizar.mutateAsync({ id: c.id, campos });
     } catch (e) {
-      return toast.error("Não foi possível salvar.", { description: (e as Error).message });
+      toast.error("Não foi possível salvar.", { description: (e as Error).message });
+      return false;
     }
     if (novas) {
       try {
         await definirParcelas.mutateAsync({ contratoId: c.id, itens: novas });
       } catch (e) {
-        return toast.error("Contrato salvo, mas as parcelas não.", { description: (e as Error).message });
+        toast.error("Contrato salvo, mas as parcelas não.", { description: (e as Error).message });
+        return false;
       }
     }
+    gravado.current = assinatura;
     toast.success("Contrato salvo.");
+    return true;
   };
+  useNaoSalvo(assinatura !== gravado.current, `o contrato #${c.numero}`, salvar);
 
   const perder = async () => {
     const motivo = await pedirTexto({
@@ -298,7 +340,7 @@ function FormContrato({ c, d, parcelas }: { c: ContratoPipeline; d: DadosContrat
   const icone = (I: typeof Car) => <I className="h-4 w-4 text-q-petrol" />;
 
   return (
-    <div>
+    <div ref={raiz}>
       {c.cancelado_em && c.motivo_cancelamento && (
         <p className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-foreground">
           <span className="font-medium">Motivo da perda:</span> {c.motivo_cancelamento}
@@ -390,7 +432,6 @@ function FormContrato({ c, d, parcelas }: { c: ContratoPipeline; d: DadosContrat
           <Textarea rows={4} aria-label="Observações internas" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} />
         </Bloco>
 
-        <LinhaDoTempo contratoId={c.id} className="lg:col-span-2" />
       </div>
 
       {/* Fixo no rodapé do painel: salvar não exige rolar até o fim. */}
@@ -402,10 +443,15 @@ function FormContrato({ c, d, parcelas }: { c: ContratoPipeline; d: DadosContrat
             <XCircle className="mr-2 h-4 w-4" /> Marcar como perdido
           </Button>
         )}
-        <span className={`ml-auto text-xs ${faltam ? "text-warning" : "text-success"}`}>
-          {faltam ? `faltam ${faltam} para o contrato` : "contrato completo"}
-        </span>
-        <Button type="button" onClick={salvar} disabled={atualizar.isPending || definirParcelas.isPending}>
+        {faltam ? (
+          <button type="button" onClick={() => irParaPrimeiraFalta(raiz.current)}
+            className="ml-auto min-h-9 rounded px-2 text-xs font-medium text-warning hover:bg-warning/10 hover:underline">
+            faltam {faltam} para o contrato
+          </button>
+        ) : (
+          <span className="ml-auto text-xs text-success">contrato completo</span>
+        )}
+        <Button type="button" onClick={() => { void salvar(); }} disabled={atualizar.isPending || definirParcelas.isPending}>
           {(atualizar.isPending || definirParcelas.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Salvar
         </Button>
@@ -416,7 +462,8 @@ function FormContrato({ c, d, parcelas }: { c: ContratoPipeline; d: DadosContrat
 
 // ── Histórico: o que o cliente lê na aba Histórico do portal ─────────────────
 
-function AbaHistorico({ contratoId }: { contratoId: string }) {
+function AbaHistorico({ c }: { c: ContratoPipeline }) {
+  const contratoId = c.id;
   const { data: ocorrencias = [], isLoading, error } = useHistorico(contratoId);
   const { data: departamentos = [] } = useDepartamentos();
   const lancar = useLancarOcorrencia();
@@ -437,8 +484,8 @@ function AbaHistorico({ contratoId }: { contratoId: string }) {
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,380px)_1fr]">
-      <div className="space-y-2 rounded-xl border border-border bg-card p-4">
-        <Label htmlFor="ocorrencia">Nova ocorrência</Label>
+      <div className="q-secao space-y-2 rounded-xl p-4">
+        <Label htmlFor="ocorrencia">Nova ocorrência para o cliente</Label>
         <Textarea id="ocorrencia" rows={3} value={texto} onChange={(e) => setTexto(e.target.value)}
           placeholder="Ex.: Proposta enviada ao banco. Aguardando retorno em até 5 dias úteis." />
         <div className="flex flex-wrap items-center gap-2">
@@ -459,34 +506,16 @@ function AbaHistorico({ contratoId }: { contratoId: string }) {
       </div>
 
       <div className="min-w-0 space-y-2">
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Carregando…</p>
-      ) : error ? (
-        <p className="text-sm text-destructive">Não foi possível carregar o histórico: {(error as Error).message}</p>
-      ) : ocorrencias.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">Nenhuma ocorrência lançada.</p>
-      ) : (
-        <ul className="space-y-2">
-          {ocorrencias.map((o) => (
-            <li key={o.id} className={`rounded-lg border p-3 ${o.departamento?.urgente ? "border-warning/50 bg-warning/5" : "border-border bg-accent/40"}`}>
-              {o.departamento?.urgente && (
-                <p className="mb-1 inline-flex items-center gap-1 text-[11px] font-semibold text-warning">
-                  <Bell className="h-3 w-3" /> Urgente
-                </p>
-              )}
-              <p className="whitespace-pre-wrap text-sm text-foreground">{o.texto}</p>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                {o.autor?.nome ?? "—"} em {dataHoraBR(o.created_at)}
-                {o.departamento ? ` · ${o.departamento.nome}` : ""}
-                {o.lido_pelo_cliente_em ? ` · lido pelo cliente em ${dataHoraBR(o.lido_pelo_cliente_em)}` : ""}
-              </p>
-            </li>
-          ))}
-        </ul>
-      )}
-      {ocorrencias.length >= LIMITE_HISTORICO && (
-        <p className="text-center text-[11px] text-muted-foreground">Mostrando as {LIMITE_HISTORICO} ocorrências mais recentes.</p>
-      )}
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : error ? (
+          <p className="text-sm text-destructive">Não foi possível carregar o histórico: {(error as Error).message}</p>
+        ) : (
+          <LinhaCompleta c={c} ocorrencias={ocorrencias} />
+        )}
+        {ocorrencias.length >= LIMITE_HISTORICO && (
+          <p className="text-center text-[11px] text-muted-foreground">Mostrando as {LIMITE_HISTORICO} ocorrências mais recentes.</p>
+        )}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Barcode, CheckCircle2, ChevronDown, CircleDollarSign, Copy, CreditCard, ExternalLink, Loader2, Paperclip, QrCode, RefreshCw, Undo2 } from "lucide-react";
+import { Barcode, CheckCircle2, ChevronDown, CircleDollarSign, Copy, CreditCard, ExternalLink, Loader2, MessageCircle, Paperclip, QrCode, Receipt, RefreshCw, Send, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,8 @@ import type { ContratoPipeline } from "@/hooks/usePipeline";
 import { Bloco, Campo } from "@/components/Bloco";
 import { CampoData } from "@/components/CampoData";
 import { Carregando } from "@/components/Estados";
-import { dataBR, dataHoraBR } from "@/lib/formato";
+import { dataBR, dataHoraBR, soDigitos } from "@/lib/formato";
+import { Textarea } from "@/components/ui/textarea";
 import { formaCurta } from "@/lib/planos";
 
 // A aba Pagamentos do card: as parcelas do plano, o que entrou e o que está em
@@ -61,6 +62,8 @@ export function AbaPagamentos({ c, onPlano }: { c: ContratoPipeline; onPlano: ()
         <Numero rotulo="Em atraso" valor={reais(atrasadas.reduce((t, p) => t + Number(p.valor), 0))} extra={`${atrasadas.length} cobrança${atrasadas.length === 1 ? "" : "s"}`} cor={atrasadas.length ? "text-destructive" : undefined} />
       </div>
 
+      {!c.cancelado_em && <AcoesDoPlano c={c} parcelas={parcelas} cobrancas={cobrancas} total={nParcelas} />}
+
       <Bloco titulo="Parcelas" icone={<CircleDollarSign className="h-4 w-4 text-q-petrol" />}>
         <ul className="-mx-4 -my-4 divide-y divide-border">
           {parcelas.map((p) => (
@@ -72,6 +75,113 @@ export function AbaPagamentos({ c, onPlano }: { c: ContratoPipeline; onPlano: ()
 
       <RegistrarPagamento parcela={pagando} total={nParcelas} onFechar={() => setPagando(null)} />
     </div>
+  );
+}
+
+/** A cobrança que o plano pede para a parcela (pela forma dela), ou nada (transferência, sem forma). */
+const tipoDoPlano = (p: Parcela) => (p.forma ? TIPO_DA_FORMA[p.forma] : undefined);
+const NOME_TIPO: Record<TipoCobranca, [string, string]> = { boleto: ["boleto", "boletos"], pix: ["PIX", "PIX"], link: ["link de cartão", "links de cartão"] };
+
+function AcoesDoPlano({ c, parcelas, cobrancas, total }: { c: ContratoPipeline; parcelas: Parcela[]; cobrancas: Cobranca[]; total: number }) {
+  const emitir = useEmitirCobranca();
+  const [emitindo, setEmitindo] = useState(false);
+  const [enviar, setEnviar] = useState(false);
+  // Em aberto, com forma que o PagBank cobra, e sem a cobrança dessa forma já aberta.
+  const faltam = parcelas.filter((p) => {
+    const t = tipoDoPlano(p);
+    return !p.pago_em && t && !cobrancas.some((x) => x.parcela_id === p.id && x.tipo === t);
+  });
+  const abertas = parcelas.filter((p) => !p.pago_em && cobrancas.some((x) => x.parcela_id === p.id));
+
+  const emitirTodas = async () => {
+    const porTipo = new Map<TipoCobranca, number>();
+    for (const p of faltam) porTipo.set(tipoDoPlano(p)!, (porTipo.get(tipoDoPlano(p)!) ?? 0) + 1);
+    const resumo = [...porTipo].map(([t, n]) => `${n} ${NOME_TIPO[t][n === 1 ? 0 : 1]}`).join(" e ");
+    if (!(await confirmar({ titulo: `Emitir ${resumo}?`, mensagem: faltam.map((p) => `${rotuloParcela(p.numero, total)} · ${reais(Number(p.valor))} · vence ${dataBR(p.vencimento)}`).join("\n"), confirmar: "Emitir" }))) return;
+    setEmitindo(true);
+    const aviso = toast.loading(`Emitindo 1 de ${faltam.length}…`);
+    const erros: string[] = [];
+    for (const [i, p] of faltam.entries()) {
+      toast.loading(`Emitindo ${i + 1} de ${faltam.length}…`, { id: aviso });
+      try { await emitir.mutateAsync({ parcelaId: p.id, tipo: tipoDoPlano(p)! }); }
+      catch (e) {
+        erros.push(`${rotuloParcela(p.numero, total)}: ${(e as Error).message}`);
+        // Falta no cadastro vale para todas: não adianta tentar as outras.
+        if (/Falta no cadastro|publicada/.test((e as Error).message)) break;
+      }
+    }
+    setEmitindo(false);
+    const ok = faltam.length - erros.length;
+    if (erros.length === 0) toast.success(`${ok} cobrança${ok === 1 ? "" : "s"} emitida${ok === 1 ? "" : "s"}.`, { id: aviso });
+    else toast.error(ok ? `${ok} emitida${ok === 1 ? "" : "s"}; ${erros.length} com erro.` : "Nenhuma cobrança emitida.", { id: aviso, description: erros.join("\n"), duration: 12000 });
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {faltam.length > 0 && (
+        <Button type="button" onClick={emitirTodas} disabled={emitindo}>
+          {emitindo ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Receipt className="mr-2 h-4 w-4" />}
+          Emitir cobranças do plano ({faltam.length})
+        </Button>
+      )}
+      {abertas.length > 0 && (
+        <Button type="button" variant="outline" onClick={() => setEnviar(true)}>
+          <Send className="mr-2 h-4 w-4" /> Enviar ao cliente
+        </Button>
+      )}
+      <EnviarAoCliente aberto={enviar} onFechar={() => setEnviar(false)} c={c} parcelas={abertas} cobrancas={cobrancas} total={total} />
+    </div>
+  );
+}
+
+/** A mensagem pronta com o que o cliente precisa para pagar (copiar ou abrir no WhatsApp). */
+function EnviarAoCliente({ aberto, onFechar, c, parcelas, cobrancas, total }: {
+  aberto: boolean; onFechar: () => void; c: ContratoPipeline; parcelas: Parcela[]; cobrancas: Cobranca[]; total: number;
+}) {
+  const portal = (import.meta.env.VITE_PORTAL_URL as string | undefined) || `${window.location.origin}/portal`;
+  const primeiro = (c.cliente?.nome ?? "").trim().split(/\s+/)[0] ?? "";
+  const montar = () => {
+    const blocos = parcelas.map((p) => {
+      const linhas = [`*${rotuloParcela(p.numero, total)}* — ${reais(Number(p.valor))} — vence ${dataBR(p.vencimento)}`];
+      for (const x of cobrancas.filter((y) => y.parcela_id === p.id)) {
+        if (x.boleto_url) linhas.push(`Boleto: ${x.boleto_url}`);
+        if (x.boleto_linha_digitavel) linhas.push(`Código do boleto: ${x.boleto_linha_digitavel}`);
+        if (x.pix_copia_cola) linhas.push(`PIX copia e cola: ${x.pix_copia_cola}`);
+        if (x.link_url) linhas.push(`Cartão${(p.cartao_parcelas ?? 1) > 1 ? ` em até ${p.cartao_parcelas}x` : ""}: ${x.link_url}`);
+      }
+      return linhas.join("\n");
+    });
+    return [`Olá${primeiro ? `, ${primeiro}` : ""}! Seguem as cobranças do seu contrato #${c.numero}:`, ...blocos,
+      `Você também acompanha tudo no portal: ${portal}`].join("\n\n");
+  };
+  const [texto, setTexto] = useState(montar);
+  const [chave, setChave] = useState(aberto);
+  if (aberto !== chave) { setChave(aberto); if (aberto) setTexto(montar()); }
+  const fone = soDigitos(c.cliente?.telefone ?? "");
+  const wa = fone.length >= 10 ? `https://wa.me/${fone.length <= 11 ? `55${fone}` : fone}?text=${encodeURIComponent(texto)}` : null;
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(texto); toast.success("Mensagem copiada."); }
+    catch { toast.error("Não foi possível copiar."); }
+  };
+  return (
+    <Dialog open={aberto} onOpenChange={(o) => { if (!o) onFechar(); }}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Enviar ao cliente</DialogTitle>
+          <DialogDescription className="sr-only">Mensagem com as cobranças em aberto.</DialogDescription>
+        </DialogHeader>
+        <Textarea value={texto} onChange={(e) => setTexto(e.target.value)} rows={12} className="font-mono text-xs" />
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" onClick={copiar}><Copy className="mr-2 h-4 w-4" /> Copiar</Button>
+          {wa && (
+            <a href={wa} target="_blank" rel="noreferrer"
+              className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground no-underline hover:bg-primary/90">
+              <MessageCircle className="mr-2 h-4 w-4" /> Abrir no WhatsApp
+            </a>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

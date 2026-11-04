@@ -318,7 +318,7 @@ Referência 360 px (conferido também em 320 e 390): nada rola de lado, alvo de
 toque ≥ 36 px no celular (`min-h-9`/`h-10` com `sm:` voltando ao compacto),
 campo de digitação com 16 px no celular (o iPhone dá zoom em campo menor),
 texto de documento justificado só a partir de `sm`, 4+ abas viram grade 2×2
-(portal) ou rolagem (painel do contrato), tabela larga rola dentro do cartão,
+(portal) ou, no painel do contrato, as 6 numa grade com ícone + nome curto, tabela larga rola dentro do cartão,
 e lista não corta nome no celular (empilha; `truncate` só a partir de `sm`).
 ⚠️ **Data é `components/CampoData.tsx`, nunca `<input type="date">`**: o
 calendário do navegador muda de ano clicando mês a mês (pedido do dono do
@@ -367,6 +367,25 @@ pagamento · Departamentos e setores · Usuários. Bancos, Linhas e Unidades usa
   - **Documentos** (era "Pendências"): gerar do modelo / assinado fora à
     esquerda, a lista à direita. "Pendências do contrato" continua sendo o
     nome que o CLIENTE vê no portal.
+- **As abas do painel** (04/11/2026): cada uma mostra o NÚMERO do que pede
+  ação — Contrato/Cliente: campos faltando; Documentos: para assinar;
+  Pagamentos: vencidas (vermelho); Chat: mensagens do cliente não lidas
+  (`useNaoLidasDoContrato`). "faltam N" (rodapé e cabeçalho do `Bloco`) é
+  botão: rola e põe o cursor no primeiro campo vazio (`irParaPrimeiraFalta`).
+- ⚠️ **Contrato e Cliente ficam MONTADOS** (`forceMount`, só escondidos):
+  trocar de aba não perde o que foi digitado. ⚠️ **Fechar com alteração não
+  salva PERGUNTA** (`components/NaoSalvo.tsx`: Salvar · Descartar · Continuar
+  editando) — X, Esc, clique fora, Voltar, "← Voltar para o cliente" e abrir
+  contrato pela ficha. O formulário registra `useNaoSalvo(sujo, rótulo,
+  salvar)` comparando o que está na tela com o gravado; recarregar a página
+  também avisa. Formulário novo de painel entra nisso.
+- **Histórico** = a linha do tempo COMPLETA (`pipeline/LinhaDoTempo.tsx`):
+  etapas, documentos, parcelas/cobranças e as ocorrências para o cliente, com
+  filtros. A "Linha do tempo" saiu da aba Contrato.
+- **Pagamentos**: "Emitir cobranças do plano (N)" emite, pela forma de cada
+  parcela, o que ainda não tem cobrança aberta (para no 1º "falta no
+  cadastro"); "Enviar ao cliente" monta a mensagem com boleto/PIX/cartão e o
+  portal (copiar ou WhatsApp pelo telefone do cliente).
 - Banco no contrato: `SelectBanco`, com "+ Cadastrar banco…" para o gestor. O aviso de geração separa o que falta no
   CLIENTE do que falta no CONTRATO. A conversa (`components/atendimento/Conversa.tsx`) é a mesma no
   card e na caixa de Atendimentos; o acesso ao portal (`AcessoPortal.tsx`), o

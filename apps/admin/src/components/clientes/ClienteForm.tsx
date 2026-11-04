@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useNaoSalvo } from "@/components/NaoSalvo";
 import { Contact, IdCard, Loader2, MapPin, NotebookPen } from "lucide-react";
 import { Bloco } from "@/components/Bloco";
 import { Anexos } from "@/components/Anexos";
@@ -35,18 +36,23 @@ const PEDIDOS_ENDERECO: (keyof DadosDocumento)[] = ["logradouro", "cidade", "uf"
  * o que falta para os modelos (procuração, contrato…). `largo`: duas colunas
  * no computador e o Salvar fixo no rodapé (o painel do contrato e a ficha).
  */
-export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorInicial, onSalvar, salvando, rotuloSalvar, antes, largo = false, clienteId }: {
+export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorInicial, onSalvar, salvando, rotuloSalvar, antes, largo = false, clienteId, naoSalvo, onFaltam }: {
   inicial?: Partial<DadosCliente>;
   inicialDocumento?: Partial<DadosDocumento> | null;
   tipoPessoa: "PF" | "PJ" | null;
   consultorInicial?: string | null;
-  onSalvar: (d: DadosCliente) => void;
+  /** Pode devolver se deu certo (false = falhou): o aviso de "não salvo" usa. */
+  onSalvar: (d: DadosCliente) => unknown;
   salvando: boolean;
   rotuloSalvar: string;
   antes?: React.ReactNode;
   largo?: boolean;
   /** Com o cliente já gravado: os anexos (RG, comprovante de residência…) aparecem nas seções. */
   clienteId?: string;
+  /** Edição: avisa ao fechar o painel com alteração não salva. `extraSujo` = algo fora do formulário mudou (o CPF). */
+  naoSalvo?: { rotulo: string; extraSujo?: boolean };
+  /** Quantos campos pedidos para os documentos faltam (contador da aba). */
+  onFaltam?: (n: number) => void;
 }) {
   const { isGestor, perfil } = useAuth();
   const { data: equipe = [] } = useEquipe();
@@ -94,14 +100,23 @@ export function ClienteForm({ inicial, inicialDocumento, tipoPessoa, consultorIn
   const faltamIdent = conta(tipoPessoa === "PJ" ? PEDIDOS_PJ : PEDIDOS_PF);
   const faltamEnd = conta(PEDIDOS_ENDERECO);
 
+  const dados = (): DadosCliente => ({
+    nome, telefone, email, observacoes,
+    dadosDocumento: doc,
+    ...(isGestor ? { consultorId: consultor === NENHUM ? null : consultor } : {}),
+  });
   const enviar = (e: FormEvent) => {
     e.preventDefault();
-    onSalvar({
-      nome, telefone, email, observacoes,
-      dadosDocumento: doc,
-      ...(isGestor ? { consultorId: consultor === NENHUM ? null : consultor } : {}),
-    });
+    void onSalvar(dados());
   };
+
+  // Mudou desde o que está gravado? (o aviso ao fechar o painel)
+  const atual = JSON.stringify([nome, telefone, email, observacoes, consultor, doc]);
+  const gravado = JSON.stringify([inicial?.nome ?? "", inicial?.telefone ?? "", inicial?.email ?? "", inicial?.observacoes ?? "",
+    consultorInicial ?? perfil?.id ?? NENHUM, inicialDocumento ? docDe(inicialDocumento) : docVazio()]);
+  useNaoSalvo(!!naoSalvo && (atual !== gravado || !!naoSalvo.extraSujo), naoSalvo?.rotulo ?? "", async () => (await onSalvar(dados())) !== false);
+  const totalFaltam = (faltamIdent ?? 0) + (faltamEnd ?? 0);
+  useEffect(() => { onFaltam?.(totalFaltam); }, [totalFaltam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const campo = (k: keyof DadosDocumento, rotulo: string, extra: Partial<React.ComponentProps<typeof Input>> = {}) => (
     <div className="space-y-1.5">
