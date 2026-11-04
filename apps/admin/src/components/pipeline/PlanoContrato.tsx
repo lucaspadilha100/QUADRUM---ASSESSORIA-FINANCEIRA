@@ -182,7 +182,9 @@ export function usePlanoContrato(d: DadosContratoDocumento, parcelas: Parcela[])
   const opcoes = plano ? opcoesDoPlano(plano) : [];
   const personalizado = r.opcao === PERSONALIZADO;
   const vezesN = Math.max(1, Number.parseInt(r.vezes, 10) || 1);
-  const temDemaisMensais = demais.filter((l) => l.forma !== CARTAO).length > 1 || (!!entradaLinha && demais.some((l) => l.forma !== CARTAO));
+  // "Demais vencem todo dia" só quando a regra gera mais de uma cobrança mensal (boleto em N, entrada + parcelas).
+  const regraAtual = regraDe(r);
+  const usaDia = !!regraAtual && regraAtual.forma !== CARTAO && (regraAtual.vezes > 1 || regraAtual.entrada > 0);
   const mes0 = r.primeiro ? (r.inicio && r.inicio > r.primeiro.slice(0, 7) ? r.inicio : mesPadrao(r.primeiro, Number(r.dia) || 10)) : "";
 
   const jsx = (
@@ -255,9 +257,9 @@ export function usePlanoContrato(d: DadosContratoDocumento, parcelas: Parcela[])
       )}
 
       {todas.length > 0 && (
-        <div className="min-w-0 rounded-lg border border-border">
-          <div className="grid grid-cols-1 gap-3 border-b border-border p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
-            {temDemaisMensais && r.primeiro ? (
+        <div className="min-w-0 overflow-hidden rounded-lg border border-foreground/15">
+          <div className="grid grid-cols-1 gap-3 border-b border-foreground/10 bg-muted/50 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+            {usaDia && r.primeiro ? (
               <>
                 <Campo rotulo="Demais vencem todo dia">
                   <Select value={r.dia} onValueChange={(v) => mudar({ dia: v })}>

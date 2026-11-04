@@ -45,7 +45,8 @@ import { dataBR, dataHoraBR, formatarDocumento } from "@/lib/formato";
 const NENHUM = "nenhum";
 
 // Largura do painel: a mesma em Pipeline, Contratos, Documentos e Clientes.
-export const PAINEL_LARGO = "w-full overflow-y-auto p-0 sm:max-w-3xl lg:max-w-5xl xl:max-w-6xl";
+// Fundo um tom abaixo do branco: as seções (brancas, com borda e sombra) se destacam dele.
+export const PAINEL_LARGO = "w-full overflow-y-auto bg-[hsl(0_0%_93%)] p-0 dark:bg-background sm:max-w-3xl lg:max-w-5xl xl:max-w-6xl";
 
 // O painel lê o contrato pelo ID, direto do banco: a lista ao lado é uma
 // PÁGINA, e o link direto (?contrato=…) tem de abrir mesmo fora dela.
@@ -301,7 +302,7 @@ function FormContrato({ c, d, parcelas }: { c: ContratoPipeline; d: DadosContrat
           <span className="font-medium">Motivo da perda:</span> {c.motivo_cancelamento}
         </p>
       )}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Bloco titulo="Andamento" icone={icone(Workflow)}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Campo rotulo="Etapa">
