@@ -228,9 +228,10 @@ e conferida em 27/10/2026 (bucket privado, 3 regras, 3 colunas, anon não execut
 `20261101000000` (anexos do cliente e do contrato; arquivo do documento assinado fora) —
 aplicada e conferida em 27/10/2026 (bucket privado, 8 tipos, 3 regras, portal e LGPD
 com arquivo/anexos, anon não executa nada).
-`20261102000000` (PagBank: cobranças e avisos) — ⏳ PENDENTE (04/11/2026), junto
-com as Edge Functions `pagbank` e `pagbank-webhook`. Sem ela o botão "Cobrar"
-dá erro e a aba Pagamentos segue como antes.
+`20261102000000` (PagBank: cobranças e avisos) — aplicada e conferida em
+04/11/2026 (RLS nas 2 tabelas, 6 funções, 2 gatilhos, no Realtime, anon não
+executa nada, equipe não marca "pago pelo PagBank"). Edge Functions `pagbank` e
+`pagbank-webhook` + segredos: publicar pelo painel do Supabase.
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
