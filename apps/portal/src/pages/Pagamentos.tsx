@@ -1,11 +1,12 @@
-import { AlertTriangle, CheckCircle2, Copy, ExternalLink, Loader2, Paperclip } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Copy, CreditCard, ExternalLink, Loader2, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { abrirComprovante, usePagamentos, type PagamentosContrato, type ParcelaPortal } from "@/lib/portal";
 import { dataBR } from "@/lib/formato";
 
 // Pagamentos: as parcelas de cada contrato, o que já foi pago e o que vence.
-// Boleto e PIX aparecem na parcela quando o banco for integrado; o
-// comprovante, quando a equipe anexar.
+// Boleto, PIX e link de cartão aparecem na parcela quando a equipe emite no
+// PagBank; o pagamento volta sozinho (aviso do PagBank) e a tela relê a cada
+// 20 s. O comprovante aparece quando a equipe anexar.
 
 const reais = (v: number) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const hoje = () => {
@@ -106,11 +107,12 @@ function Linha({ p, total, hoje: h }: { p: ParcelaPortal; total: number; hoje: s
           <Paperclip className="h-4 w-4" /> Ver comprovante
         </button>
       )}
-      {!p.pago_em && (p.boleto_url || p.boleto_linha_digitavel || p.pix_copia_cola) && (
+      {!p.pago_em && (p.boleto_url || p.boleto_linha_digitavel || p.pix_copia_cola || p.link_cartao) && (
         <div className="flex flex-wrap gap-2">
           {p.boleto_url && <a href={p.boleto_url} target="_blank" rel="noreferrer" className={`${botao} no-underline`}><ExternalLink className="h-4 w-4" /> Ver boleto</a>}
           {p.boleto_linha_digitavel && <button type="button" className={botao} onClick={() => copiar(p.boleto_linha_digitavel!, "Código do boleto")}><Copy className="h-4 w-4" /> Copiar código do boleto</button>}
           {p.pix_copia_cola && <button type="button" className={botao} onClick={() => copiar(p.pix_copia_cola!, "PIX")}><Copy className="h-4 w-4" /> Copiar PIX</button>}
+          {p.link_cartao && <a href={p.link_cartao} target="_blank" rel="noreferrer" className={`${botao} no-underline`}><CreditCard className="h-4 w-4" /> Pagar com cartão</a>}
         </div>
       )}
     </li>

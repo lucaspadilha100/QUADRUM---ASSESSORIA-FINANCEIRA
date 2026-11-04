@@ -390,7 +390,7 @@ await espera("anon não chama o painel", () => como("anon", null, "select q_pain
 await espera("cliente do portal não gera documento", () => como("authenticated", P, `select q_documento_gerar('${contrato1}', '${modProc}')`), true);
 
 // ── ao vivo: as tabelas que o admin escuta estão na publicação do Realtime
-const AO_VIVO = ["atendimento_mensagens", "atendimentos", "clientes", "contrato_documentos", "contrato_historico", "contrato_movimentos", "contrato_parcelas", "contratos", "documento_assinaturas", "documento_eventos"];
+const AO_VIVO = ["atendimento_mensagens", "atendimentos", "clientes", "contrato_documentos", "contrato_historico", "contrato_movimentos", "contrato_parcelas", "contratos", "documento_assinaturas", "documento_eventos", "parcela_cobrancas"];
 await espera("as tabelas do ao vivo estão na publicação supabase_realtime", () => db.query("select tablename from pg_publication_tables where pubname = 'supabase_realtime' order by 1"), false, (r) => JSON.stringify(r.rows.map((x) => x.tablename)) === JSON.stringify(AO_VIVO));
 await espera("a migração do ao vivo roda de novo sem erro (idempotente)", () => sql(readFileSync(join(pasta, "20261018000000_ao_vivo.sql"), "utf8")), false);
 await espera("as tabelas do useAoVivo são as da publicação", async () => {
@@ -860,6 +860,63 @@ await espera("anon não lê anexos nem registra", async () => {
   const b = await como("anon", null, `select q_anexo_registrar('rg_cnh', '${clienteDoA}', null, '${pastaCli}/rg.webp', 'x', 'image/webp', 1)`).then(() => "ok", () => "erro");
   return { rows: [a, b] };
 }, false, (r) => r.rows[0] === 0 && r.rows[1] === "erro");
+// ── PagBank: cobranças e avisos (20261102000000)
+const p2 = await parc(2);
+await espera("a equipe lê os dados para cobrar a parcela", () => como("authenticated", M, `select q_parcela_dados_cobranca('${p2}') as d`), false,
+  (r) => r.rows[0].d.cliente.nome === "Cliente do A" && r.rows[0].d.parcela.numero === 2);
+await espera("o colaborador B e o cliente do portal não leem", async () => {
+  const b = await como("authenticated", B, `select q_parcela_dados_cobranca('${p2}')`).then(() => "ok", () => "erro");
+  const c = await comoCliente(`select q_parcela_dados_cobranca('${p2}')`).then(() => "ok", () => "erro");
+  return { rows: [b, c] };
+}, false, (r) => r.rows[0] === "erro" && r.rows[1] === "erro");
+await espera("NINGUÉM logado registra cobrança (nem o gestor): só a Edge Function", () => como("authenticated", G, `select q_cobranca_registrar(gen_random_uuid(), '${p2}', 'boleto', 'sandbox', null, '{}')`), true);
+await espera("ninguém logado marca 'pago pelo PagBank'", () => como("authenticated", G, `select q_pagbank_evento(gen_random_uuid(), 'PAID', now(), 'PIX', null, null)`), true);
+const cobB = "11111111-1111-1111-1111-111111111111", cobX = "22222222-2222-2222-2222-222222222222";
+await espera("a Edge Function registra boleto e PIX da parcela", async () => {
+  await como("service_role", null, `select q_cobranca_registrar('${cobB}', '${p2}', 'boleto', 'sandbox', null, '{"order_id":"ORDE_1","charge_id":"CHAR_1","boleto_url":"https://b/1.pdf","boleto_linha_digitavel":"0339 1"}')`);
+  await como("service_role", null, `select q_cobranca_registrar('${cobX}', '${p2}', 'pix', 'sandbox', null, '{"order_id":"ORDE_2","charge_id":"CHAR_2","pix_copia_cola":"000201PIX"}')`);
+  return db.query(`select count(*) as n from parcela_cobrancas where parcela_id = '${p2}' and encerrada_em is null`);
+}, false, (r) => Number(r.rows[0].n) === 2);
+await espera("o portal mostra o boleto e o PIX abertos da parcela", () => comoCliente("select portal_pagamentos() as p"), false, (r) => {
+  const x = r.rows[0].p.find((k) => k.contrato_id === ctPag).parcelas.find((y) => y.numero === 2);
+  return x.boleto_url === "https://b/1.pdf" && x.pix_copia_cola === "000201PIX";
+});
+await espera("um 2º boleto substitui o 1º (o 1º fica, encerrado)", async () => {
+  await como("service_role", null, `select q_cobranca_registrar('33333333-3333-3333-3333-333333333333', '${p2}', 'boleto', 'sandbox', null, '{"boleto_url":"https://b/2.pdf"}')`);
+  return db.query(`select motivo_encerramento from parcela_cobrancas where id = '${cobB}'`);
+}, false, (r) => r.rows[0].motivo_encerramento === "substituida");
+await espera("aviso PAID do PIX marca a parcela PAGA (PIX, sem autor) e avisa o cliente", async () => {
+  const antes = (await notif(P)).itens.filter((i) => i.tipo === "pagamento_confirmado").length;
+  const r = await como("service_role", null, `select q_pagbank_evento('${cobX}', 'PAID', now(), 'PIX', 'CHAR_2', 'ORDE_2') as r`);
+  const p = await db.query(`select pago_em is not null as pago, pago_forma, pago_registrado_por, pago_obs from contrato_parcelas where id = '${p2}'`);
+  const depois = (await notif(P)).itens.filter((i) => i.tipo === "pagamento_confirmado").length;
+  return { rows: [r.rows[0].r, p.rows[0], depois - antes] };
+}, false, (r) => r.rows[0] === "parcela_paga" && r.rows[1].pago && r.rows[1].pago_forma === "PIX" && r.rows[1].pago_registrado_por === null && r.rows[1].pago_obs === "PagBank CHAR_2" && r.rows[2] === 1);
+await espera("paga a parcela, o boleto aberto sai do portal", async () => {
+  const r = await db.query(`select count(*) as n from parcela_cobrancas where parcela_id = '${p2}' and encerrada_em is null`);
+  const pg = await comoCliente("select portal_pagamentos() as p");
+  const x = pg.rows[0].p.find((k) => k.contrato_id === ctPag).parcelas.find((y) => y.numero === 2);
+  return { rows: [Number(r.rows[0].n), x.boleto_url ?? null] };
+}, false, (r) => r.rows[0] === 0 && r.rows[1] === null);
+await espera("aviso repetido não paga de novo", () => como("service_role", null, `select q_pagbank_evento('${cobX}', 'PAID', now(), 'PIX', 'CHAR_2', 'ORDE_2') as r`), false, (r) => r.rows[0].r === "pago_parcela_ja_paga");
+await espera("paga não volta: o link que expira depois de pago continua pago", async () => {
+  const r = await como("service_role", null, `select q_pagbank_evento('${cobX}', 'EXPIRED', null, null, null, null) as r`);
+  const w = await como("service_role", null, `select q_pagbank_evento('${cobX}', 'WAITING', null, null, null, null) as r`);
+  const c = await db.query(`select status from parcela_cobrancas where id = '${cobX}'`);
+  return { rows: [r.rows[0].r, w.rows[0].r, c.rows[0].status] };
+}, false, (r) => r.rows[0] === "ignorado:ja_paga" && r.rows[1] === "ignorado:ja_paga" && r.rows[2] === "PAID");
+await espera("aviso de cobrança desconhecida não faz nada", () => como("service_role", null, `select q_pagbank_evento(gen_random_uuid(), 'PAID', now(), 'PIX', null, null) as r`), false, (r) => r.rows[0].r === "cobranca_desconhecida");
+await espera("o aviso cru fica guardado; só o gestor lê", async () => {
+  await como("service_role", null, `select q_pagbank_evento_log(true, 'ORDER', '{"x":1}')`);
+  const g = await como("authenticated", G, "select count(*) as n from pagbank_eventos");
+  const m = await como("authenticated", M, "select count(*) as n from pagbank_eventos");
+  return { rows: [Number(g.rows[0].n), Number(m.rows[0].n)] };
+}, false, (r) => r.rows[0] === 1 && r.rows[1] === 0);
+await espera("o colaborador A vê as cobranças do contrato dele; o B não", async () => {
+  const a = await como("authenticated", M, `select count(*) as n from parcela_cobrancas where parcela_id = '${p2}'`);
+  const b = await como("authenticated", B, `select count(*) as n from parcela_cobrancas where parcela_id = '${p2}'`);
+  return { rows: [Number(a.rows[0].n), Number(b.rows[0].n)] };
+}, false, (r) => r.rows[0] === 3 && r.rows[1] === 0);
 await espera("contrato perdido não recebe plano", async () => {
   await sql(`update contratos set cancelado_em = now(), motivo_cancelamento = 'teste' where id = '${ctPag}'`);
   return como("authenticated", M, plano([]));
@@ -868,6 +925,7 @@ await espera("rodar a migração das parcelas de novo não muda nada", async () 
   await db.exec(readFileSync(pasta + "20261030000000_parcelas_e_pagamentos.sql", "utf8"));
   await db.exec(readFileSync(pasta + "20261031000000_comprovantes.sql", "utf8"));
   await db.exec(readFileSync(pasta + "20261101000000_anexos.sql", "utf8"));
+  await db.exec(readFileSync(pasta + "20261102000000_pagbank.sql", "utf8"));
   return db.query("select (select count(*) from unidades where padrao) as u, (select count(*) from contrato_parcelas) as p");
 }, false, (r) => Number(r.rows[0].u) === 1 && Number(r.rows[0].p) === 4);
 

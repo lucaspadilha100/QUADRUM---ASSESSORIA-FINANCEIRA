@@ -87,12 +87,10 @@ Valores sempre em **centavos** (`R$ 1.500,99` = `150099`).
 contrato. O portal já mostra "Ver boleto", "Copiar código do boleto" e
 "Copiar PIX" quando esses campos estão preenchidos.
 
-## Desenho previsto (a fazer)
+## O que foi feito (04/11/2026)
 
-1. Edge Function `pagbank-cobrar` (chamada pela equipe): monta o pedido da
-   parcela, chama `/orders`, grava ids, linha digitável, link e PIX.
-2. Edge Function `pagbank-webhook` (pública, sem JWT): confere o
-   `x-authenticity-token`, acha a parcela pelo `reference_id`, marca paga
-   (`PAID` → `q_parcela_pagar` com forma da cobrança) ou cancelada.
-3. Cron de conciliação: reconsulta cobranças `WAITING` vencidas há N dias.
-4. Tela: "Emitir boleto/PIX/link" na aba Pagamentos; portal sem mudança.
+Ver a seção "PagBank" do `CLAUDE.md`. Medido no sandbox com o código real
+das funções: boleto, PIX e link emitidos; consulta; aviso assinado (válido,
+inválido = 401, formulário, link expirado). Duas descobertas do sandbox:
+boleto não aceita vencimento no próprio dia, e `GET /checkouts/{id}` não traz
+o pagamento (só o aviso traz).

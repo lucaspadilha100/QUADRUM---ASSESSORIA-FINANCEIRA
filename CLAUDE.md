@@ -228,6 +228,9 @@ e conferida em 27/10/2026 (bucket privado, 3 regras, 3 colunas, anon não execut
 `20261101000000` (anexos do cliente e do contrato; arquivo do documento assinado fora) —
 aplicada e conferida em 27/10/2026 (bucket privado, 8 tipos, 3 regras, portal e LGPD
 com arquivo/anexos, anon não executa nada).
+`20261102000000` (PagBank: cobranças e avisos) — ⏳ PENDENTE (04/11/2026), junto
+com as Edge Functions `pagbank` e `pagbank-webhook`. Sem ela o botão "Cobrar"
+dá erro e a aba Pagamentos segue como antes.
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
@@ -423,6 +426,54 @@ portal_pagamentos     o que o cliente vê (sem a obs interna)
   nova quebrava a leitura antes de a migração rodar, e o formulário abria
   VAZIO — salvar gravaria vazio por cima do plano.
 
+## PagBank — boleto, PIX e link de cartão de verdade (04/11/2026)
+Pedido do dono do processo: cada parcela vira cobrança real no PagBank, e o
+pagamento volta SOZINHO. Migração `20261102000000`; documentação decifrada em
+`docs/integracao-pagbank.md` (API de Pedidos v4.1).
+
+```
+supabase/functions/pagbank          a equipe EMITE e CONSULTA (com JWT)
+supabase/functions/pagbank-webhook  o PagBank AVISA (SEM JWT; a porta é a assinatura)
+parcela_cobrancas                   uma linha por cobrança emitida; id = reference_id
+pagbank_eventos                     todo aviso CRU, válido ou não (só gestor lê)
+q_parcela_dados_cobranca            o que a função lê, COM o login de quem pediu
+q_cobranca_registrar · q_pagbank_evento   escrita: SÓ service_role
+```
+
+- ⚠️ **O token mora só nos segredos das Edge Functions** (`PAGBANK_TOKEN`), e
+  `PAGBANK_AMBIENTE` = `sandbox` | `producao` troca a URL — o código é o MESMO.
+  Cobrança de sandbox aparece com o selo TESTE. Token novo de produção
+  invalida o anterior.
+- ⚠️ **Ninguém marca "pago pelo PagBank" pela API**: só a service_role escreve
+  (as funções). Baixa automática = `pago_registrado_por` nulo e `pago_obs`
+  "PagBank <id>"; a tela mostra "Automático".
+- ⚠️ **O aviso só vale com `x-authenticity-token` = sha256("{token}-{corpo
+  CRU}")**: corpo lido como texto, nunca reformatado. Errado → 401, e fica em
+  `pagbank_eventos`. Evento pós-transação vem como FORMULÁRIO: guardado, não
+  mexe em parcela.
+- ⚠️ **O status só ANDA** (`q_pagbank_evento`): paga não volta, encerrada não
+  reabre. O link expira DEPOIS de pago e o PagBank reentrega fora de ordem.
+- ⚠️ **Boleto não aceita vencimento HOJE** (medido no sandbox: `due_date` de
+  hoje = `invalid_parameter`): parcela vencida ou do dia sai para amanhã. PIX e
+  link valem até 23h59 do vencimento (ou de hoje). Multa 10% e juros 1% a.m.
+  a partir do dia seguinte (cláusula 9.3); nome do pagador ≤ 30 letras.
+- ⚠️ **Boleto em aberto não se cancela pela API** (sandbox:
+  `refund_temporarily_unavailable`). Reemitir, pagar por fora, mudar valor ou
+  data: a cobrança sai do sistema e do portal (`trg_parcela_encerra_cobrancas`),
+  mas o boleto antigo segue PAGÁVEL até expirar — se pago, o aviso registra
+  `pago_parcela_ja_paga` e alguém devolve. A confirmação de reemitir diz isso.
+- O link de cartão é `/checkouts`: `GET` dele NÃO traz pagamento. Quem baixa é
+  o aviso do pedido que ele gera, casado por `items[].reference_id` = id da
+  cobrança. O botão de atualizar (consultar) é a rede para aviso perdido.
+- Exige no cadastro: nome, CPF/CNPJ e **e-mail** (toda cobrança); o boleto,
+  também rua, bairro, cidade, UF e CEP (número vazio vai "S/N"). Falta → a
+  função diz o quê, antes de chamar o PagBank.
+- Portal: "Ver boleto", "Copiar código do boleto", "Copiar PIX" e "Pagar com
+  cartão" saem da cobrança ABERTA mais nova de cada tipo (`portal_pagamentos`).
+- `parcela_cobrancas` está no Realtime e no `AFETA`.
+- PIX precisa de **chave PIX ativa** na conta. O token de produção é o da conta
+  da TriConecta (Vendas → Integrações → Gerar Token, no computador).
+
 ## Escala — a tela pede UMA página, o banco conta (15/10/2026)
 Pedido do dono do processo: "parece um app que vai atender 10 clientes só".
 Migração `20261017000000_escala.sql`.
@@ -554,10 +605,7 @@ Migração `20261020000000_linha_do_tempo_e_lgpd.sql`.
   é decisão do jurídico (anonimizar campos pessoais, não apagar a linha).
 
 ## Radar — decidido para depois (16/10/2026)
-- **Boleto pelo banco da Quadrum**: emitir e saber quando compensou. Possível
-  por API do banco (registro de boleto/PIX + webhook de liquidação) ou por um
-  intermediador; roda em Edge Function do Supabase (não precisa de VPS). Antes:
-  escolher o banco, o certificado/credencial dele e onde ficam as parcelas.
+- ~~Boleto pelo banco~~: feito pelo PagBank (04/11/2026, ver "PagBank").
 - **Esperando domínio, VPS e número de WhatsApp**: cliente enviar documentos
   pelo portal, aviso por e-mail/WhatsApp, "esqueci minha senha" (precisa de
   envio de e-mail), segundo fator na assinatura.

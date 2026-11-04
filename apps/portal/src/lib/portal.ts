@@ -196,10 +196,11 @@ export interface ParcelaPortal {
   vencimento: string;
   pago_em: string | null;
   pago_forma: string | null;
-  // Quando o banco for integrado: o boleto e o PIX de cada parcela.
+  // O boleto, o PIX e o link de cartão emitidos no PagBank (o mais novo em aberto).
   boleto_url: string | null;
   boleto_linha_digitavel: string | null;
   pix_copia_cola: string | null;
+  link_cartao?: string | null;
   comprovante?: string | null; // caminho no bucket privado `comprovantes`
 }
 

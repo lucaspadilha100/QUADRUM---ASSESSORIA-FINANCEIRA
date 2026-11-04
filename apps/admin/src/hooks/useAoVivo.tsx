@@ -36,6 +36,7 @@ const AFETA: Record<string, QueryKey[]> = {
   contrato_historico: [["pipeline", "historico"], ["painel"]],
   contrato_movimentos: [["contrato"], ["painel"]],
   contrato_parcelas: [["contrato"], ["painel"]],
+  parcela_cobrancas: [["contrato"]],
   atendimentos: [["caixa"], ["painel"], ["pipeline", "atendimentos"], ["pipeline", "quadro"]],
   atendimento_mensagens: [["caixa"], ["painel"], ["pipeline", "mensagens"], ["pipeline", "atendimentos"]],
 };

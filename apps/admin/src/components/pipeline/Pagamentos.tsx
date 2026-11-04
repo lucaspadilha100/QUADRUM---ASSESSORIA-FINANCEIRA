@@ -1,16 +1,17 @@
 import { useRef, useState } from "react";
-import { CheckCircle2, CircleDollarSign, ExternalLink, Loader2, Paperclip, Undo2 } from "lucide-react";
+import { Barcode, CheckCircle2, ChevronDown, CircleDollarSign, Copy, CreditCard, ExternalLink, Loader2, Paperclip, QrCode, RefreshCw, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { pedirTexto } from "@/shell";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { confirmar, pedirTexto } from "@/shell";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEquipe } from "@/hooks/useCadastros";
 import {
-  FORMAS_RECEBIMENTO, abrirComprovante, hojeISO, rotuloParcela, useAnexarComprovante, useDesfazerPagamento, useParcelas,
-  usePagarParcela, type Parcela,
+  FORMAS_RECEBIMENTO, abrirComprovante, hojeISO, rotuloParcela, useAnexarComprovante, useCobrancas, useConsultarCobranca,
+  useDesfazerPagamento, useEmitirCobranca, useParcelas, usePagarParcela, type Cobranca, type Parcela, type TipoCobranca,
 } from "@/hooks/useParcelas";
 import type { ContratoPipeline } from "@/hooks/usePipeline";
 import { Bloco, Campo } from "@/components/Bloco";
@@ -22,11 +23,15 @@ import { dataBR, dataHoraBR } from "@/lib/formato";
 // atraso. A equipe registra o pagamento (dinheiro, PIX…) com o comprovante
 // (foto reduzida no navegador, ou PDF), e o cliente vê os dois no portal;
 // desfazer é do gestor, com motivo (fica na trilha do banco).
+// "Cobrar" emite boleto, PIX ou link de cartão no PagBank (Edge Function
+// `pagbank`); o pagamento volta pelo aviso do PagBank (`pagbank-webhook`) e
+// baixa a parcela sozinho. O botão de atualizar consulta, se o aviso não vier.
 
 const reais = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function AbaPagamentos({ c, onPlano }: { c: ContratoPipeline; onPlano: () => void }) {
   const { data: parcelas = [], isLoading, error } = useParcelas(c.id);
+  const { data: cobrancas = [] } = useCobrancas(c.id);
   const [pagando, setPagando] = useState<Parcela | null>(null);
   if (isLoading) return <Carregando />;
   if (error) return <p className="text-sm text-destructive">Não foi possível carregar as parcelas: {(error as Error).message}</p>;
@@ -58,7 +63,8 @@ export function AbaPagamentos({ c, onPlano }: { c: ContratoPipeline; onPlano: ()
       <Bloco titulo="Parcelas" icone={<CircleDollarSign className="h-4 w-4 text-q-petrol" />}>
         <ul className="-mx-4 -my-4 divide-y divide-border">
           {parcelas.map((p) => (
-            <Linha key={p.id} p={p} total={nParcelas} hoje={hoje} onPagar={() => setPagando(p)} cancelado={!!c.cancelado_em} />
+            <Linha key={p.id} p={p} total={nParcelas} hoje={hoje} onPagar={() => setPagando(p)} cancelado={!!c.cancelado_em}
+              cobrancas={p.pago_em ? [] : cobrancas.filter((x) => x.parcela_id === p.id)} />
           ))}
         </ul>
       </Bloco>
@@ -78,11 +84,15 @@ function Numero({ rotulo, valor, extra, cor }: { rotulo: string; valor: string; 
   );
 }
 
-function Linha({ p, total, hoje, onPagar, cancelado }: { p: Parcela; total: number; hoje: string; onPagar: () => void; cancelado: boolean }) {
+function Linha({ p, total, hoje, onPagar, cancelado, cobrancas }: {
+  p: Parcela; total: number; hoje: string; onPagar: () => void; cancelado: boolean; cobrancas: Cobranca[];
+}) {
   const { isGestor } = useAuth();
   const { data: equipe = [] } = useEquipe();
   const desfazer = useDesfazerPagamento();
-  const quem = equipe.find((x) => x.id === p.pago_registrado_por)?.nome;
+  // Sem quem registrou e com a marca do PagBank = baixa automática (o aviso do banco).
+  const quem = equipe.find((x) => x.id === p.pago_registrado_por)?.nome
+    ?? (!p.pago_registrado_por && p.pago_obs?.startsWith("PagBank") ? "Automático" : undefined);
 
   const aoDesfazer = async () => {
     const motivo = await pedirTexto({
@@ -127,6 +137,7 @@ function Linha({ p, total, hoje, onPagar, cancelado }: { p: Parcela; total: numb
         {p.boleto_url && (
           <a href={p.boleto_url} target="_blank" rel="noreferrer" className="q-link inline-flex items-center gap-1 text-xs">Boleto <ExternalLink className="h-3 w-3" /></a>
         )}
+        {!p.pago_em && !cancelado && <Cobrar p={p} total={total} abertas={cobrancas} />}
         {!p.pago_em && !cancelado && (
           <Button type="button" size="sm" onClick={onPagar}>Registrar pagamento</Button>
         )}
@@ -136,6 +147,103 @@ function Linha({ p, total, hoje, onPagar, cancelado }: { p: Parcela; total: numb
           </Button>
         )}
       </div>
+      {cobrancas.length > 0 && (
+        <ul className="basis-full space-y-1.5">
+          {cobrancas.map((x) => <CobrancaAberta key={x.id} x={x} />)}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+const TIPOS: { tipo: TipoCobranca; rotulo: string; icone: typeof Barcode }[] = [
+  { tipo: "boleto", rotulo: "Boleto", icone: Barcode },
+  { tipo: "pix", rotulo: "PIX", icone: QrCode },
+  { tipo: "link", rotulo: "Link de cartão", icone: CreditCard },
+];
+
+/** Emitir no PagBank. Reemitir um tipo que já está em aberto substitui o anterior. */
+function Cobrar({ p, total, abertas }: { p: Parcela; total: number; abertas: Cobranca[] }) {
+  const emitir = useEmitirCobranca();
+  const aoEmitir = async (tipo: TipoCobranca, rotulo: string) => {
+    if (abertas.some((x) => x.tipo === tipo)) {
+      const ok = await confirmar({
+        titulo: `Emitir outro ${rotulo.toLowerCase()} — ${rotuloParcela(p.numero, total)}?`,
+        mensagem: tipo === "boleto"
+          ? "O boleto anterior sai do sistema e do portal, mas continua pagável no banco até expirar."
+          : `O ${rotulo.toLowerCase()} anterior sai do sistema e do portal.`,
+        confirmar: "Emitir",
+      });
+      if (!ok) return;
+    }
+    try {
+      await emitir.mutateAsync({ parcelaId: p.id, tipo });
+      toast.success(`${rotulo} emitido.`);
+    } catch (e) {
+      toast.error(`Não foi possível emitir o ${rotulo.toLowerCase()}.`, { description: (e as Error).message });
+    }
+  };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" size="sm" variant="outline" disabled={emitir.isPending}>
+          {emitir.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <CircleDollarSign className="mr-1 h-3.5 w-3.5" />}
+          Cobrar <ChevronDown className="ml-1 h-3.5 w-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {TIPOS.map(({ tipo, rotulo, icone: Icone }) => (
+          <DropdownMenuItem key={tipo} onSelect={() => aoEmitir(tipo, rotulo)}>
+            <Icone className="mr-2 h-4 w-4" /> {rotulo}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+const ROTULO_STATUS: Record<string, string> = {
+  WAITING: "aguardando pagamento", IN_ANALYSIS: "em análise", AUTHORIZED: "autorizado", PAID: "pago",
+};
+
+function CobrancaAberta({ x }: { x: Cobranca }) {
+  const consultar = useConsultarCobranca();
+  const copiar = async (texto: string, o: string) => {
+    try { await navigator.clipboard.writeText(texto); toast.success(`${o} copiado.`); }
+    catch { toast.error("Não foi possível copiar."); }
+  };
+  const atualizar = async () => {
+    try {
+      const r = await consultar.mutateAsync(x.id);
+      toast.success(r.status === "PAID" ? "Pago — parcela baixada." : `PagBank: ${ROTULO_STATUS[r.status] ?? r.status}.`);
+    } catch (e) {
+      toast.error("Não foi possível consultar.", { description: (e as Error).message });
+    }
+  };
+  const tipo = TIPOS.find((t) => t.tipo === x.tipo)!;
+  const Icone = tipo.icone;
+  const acao = "inline-flex min-h-9 items-center gap-1 rounded-md border border-border px-2 text-xs font-medium text-foreground hover:bg-muted sm:min-h-7";
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-muted/50 px-3 py-2 text-xs">
+      <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+        <Icone className="h-3.5 w-3.5 text-q-petrol" /> {tipo.rotulo}
+      </span>
+      <span className="text-muted-foreground">
+        {[ROTULO_STATUS[x.status] ?? x.status, x.expira_em ? `vale até ${dataBR(x.expira_em.slice(0, 10))}` : x.vencimento ? `vence ${dataBR(x.vencimento)}` : null]
+          .filter(Boolean).join(" · ")}
+      </span>
+      {x.ambiente === "sandbox" && <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-warning">teste</span>}
+      <span className="ml-auto flex flex-wrap gap-1.5">
+        {x.boleto_url && <a href={x.boleto_url} target="_blank" rel="noreferrer" className={`${acao} no-underline`}><ExternalLink className="h-3 w-3" /> Boleto</a>}
+        {x.boleto_linha_digitavel && <button type="button" className={acao} onClick={() => copiar(x.boleto_linha_digitavel!, "Código do boleto")}><Copy className="h-3 w-3" /> Código</button>}
+        {x.pix_copia_cola && <button type="button" className={acao} onClick={() => copiar(x.pix_copia_cola!, "PIX copia e cola")}><Copy className="h-3 w-3" /> PIX copia e cola</button>}
+        {x.pix_qr_url && <a href={x.pix_qr_url} target="_blank" rel="noreferrer" className={`${acao} no-underline`}><QrCode className="h-3 w-3" /> QR Code</a>}
+        {x.link_url && <button type="button" className={acao} onClick={() => copiar(x.link_url!, "Link de pagamento")}><Copy className="h-3 w-3" /> Copiar link</button>}
+        {x.link_url && <a href={x.link_url} target="_blank" rel="noreferrer" className={`${acao} no-underline`}><ExternalLink className="h-3 w-3" /> Abrir</a>}
+        <button type="button" className={acao} onClick={atualizar} disabled={consultar.isPending} aria-label="Consultar no PagBank" title="Consultar no PagBank">
+          <RefreshCw className={`h-3 w-3 ${consultar.isPending ? "animate-spin" : ""}`} />
+        </button>
+      </span>
     </li>
   );
 }
