@@ -10,8 +10,8 @@ export function Bloco({ titulo, icone, faltam, className = "", children }: {
   children: ReactNode;
 }) {
   return (
-    <section className={`min-w-0 overflow-hidden rounded-xl border border-foreground/15 bg-card shadow-[0_1px_3px_rgba(0,0,0,0.08)] ${className}`}>
-      <header className="flex min-h-11 items-center gap-2 border-b border-foreground/10 bg-muted/70 px-4 py-2">
+    <section className={`q-secao min-w-0 overflow-hidden rounded-xl ${className}`}>
+      <header className="q-secao-titulo flex min-h-11 items-center gap-2 px-4 py-2">
         {icone}
         <h3 className="q-titulo-marca text-[11px] font-semibold text-foreground">{titulo}</h3>
         {faltam != null && (

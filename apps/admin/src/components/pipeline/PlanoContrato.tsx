@@ -257,8 +257,8 @@ export function usePlanoContrato(d: DadosContratoDocumento, parcelas: Parcela[])
       )}
 
       {todas.length > 0 && (
-        <div className="min-w-0 overflow-hidden rounded-lg border border-foreground/15">
-          <div className="grid grid-cols-1 gap-3 border-b border-foreground/10 bg-muted/50 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+        <div className="q-secao-interna min-w-0 overflow-hidden rounded-lg">
+          <div className="q-secao-interna-topo grid grid-cols-1 gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
             {usaDia && r.primeiro ? (
               <>
                 <Campo rotulo="Demais vencem todo dia">

@@ -135,6 +135,27 @@
 }
 
 /* Impressão / "Salvar como PDF" dos documentos: some o que não é documento. */
+/* Seções de painel (Bloco no admin): o cartão branco se DESTACA do fundo, nos
+   dois temas — "branco no branco parecia tudo uma coisa só" (04/11/2026). */
+.q-painel { background-color: hsl(0 0% 88%); }
+.dark .q-painel { background-color: hsl(0 0% 3%); }
+.q-secao {
+  background-color: hsl(0 0% 100%);
+  border: 1px solid hsl(0 0% 74%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+.dark .q-secao { background-color: hsl(0 0% 11%); border-color: hsl(0 0% 28%); box-shadow: 0 2px 12px rgba(0, 0, 0, 0.7); }
+.q-secao-titulo {
+  background-color: hsl(0 0% 93%);
+  border-bottom: 1px solid hsl(0 0% 80%);
+  box-shadow: inset 4px 0 0 hsl(var(--q-gold));
+}
+.dark .q-secao-titulo { background-color: hsl(0 0% 17%); border-bottom-color: hsl(0 0% 27%); }
+.q-secao-interna { border: 1px solid hsl(0 0% 78%); }
+.dark .q-secao-interna { border-color: hsl(0 0% 28%); }
+.q-secao-interna-topo { background-color: hsl(0 0% 96%); border-bottom: 1px solid hsl(0 0% 82%); }
+.dark .q-secao-interna-topo { background-color: hsl(0 0% 15%); border-bottom-color: hsl(0 0% 27%); }
+
 @media print {
   .q-nao-imprimir { display: none !important; }
   html, body { background: #fff !important; }

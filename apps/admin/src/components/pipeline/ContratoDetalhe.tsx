@@ -46,7 +46,7 @@ const NENHUM = "nenhum";
 
 // Largura do painel: a mesma em Pipeline, Contratos, Documentos e Clientes.
 // Fundo um tom abaixo do branco: as seções (brancas, com borda e sombra) se destacam dele.
-export const PAINEL_LARGO = "w-full overflow-y-auto bg-[hsl(0_0%_93%)] p-0 dark:bg-background sm:max-w-3xl lg:max-w-5xl xl:max-w-6xl";
+export const PAINEL_LARGO = "q-painel w-full overflow-y-auto p-0 sm:max-w-3xl lg:max-w-5xl xl:max-w-6xl";
 
 // O painel lê o contrato pelo ID, direto do banco: a lista ao lado é uma
 // PÁGINA, e o link direto (?contrato=…) tem de abrir mesmo fora dela.

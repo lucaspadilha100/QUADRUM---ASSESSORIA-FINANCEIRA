@@ -350,9 +350,11 @@ pagamento · Departamentos e setores · Usuários. Bancos, Linhas e Unidades usa
   `max-w-6xl`, o mesmo em Pipeline, Contratos, Documentos e Clientes; seções em
   `components/Bloco.tsx` (título, ícone, "faltam N"), duas colunas a partir de
   `lg`, uma no celular (`grid-cols-1`: grade sem coluna cresce com o conteúdo e
-  o campo sai da seção). O fundo do painel é um tom ABAIXO do branco (`PAINEL_LARGO`) e
-  cada `Bloco` tem borda firme, sombra e faixa cinza no título (04/11/2026:
-  "branco no branco, parece tudo uma coisa só"). Só a barra das ABAS é fixa no topo — o cabeçalho
+  o campo sai da seção). O fundo do painel é cinza (`q-painel`) e
+  cada `Bloco` é cartão com borda firme e sombra (`q-secao`) e faixa no
+  título com traço dourado (`q-secao-titulo`), nos dois temas — classes em
+  `index.css` (04/11/2026: "branco no branco, parece tudo uma coisa só";
+  borda translúcida ficou tímida demais, por isso cores fixas). Só a barra das ABAS é fixa no topo — o cabeçalho
   inteiro fixo tomava meia tela no celular. Salvar fica fixo no rodapé.
   - **Contrato** = só o contrato, num Salvar: Andamento, Dívida, Veículo,
     Financiamento, Plano, Titular, Observações e a Linha do tempo. Os campos
