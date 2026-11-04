@@ -233,8 +233,9 @@ com arquivo/anexos, anon não executa nada).
 executa nada, equipe não marca "pago pelo PagBank"). Edge Functions `pagbank` e
 `pagbank-webhook` + segredos: publicar pelo painel do Supabase.
 `20261103000000` (planos de pagamento: a tabela de honorários; forma e cartão por
-parcela) — ⏳ PENDENTE (04/11/2026). Sem ela, "Plano" fica sem opções e o
-contrato monta as cobranças em "Personalizado".
+parcela) — aplicada e conferida em 04/11/2026 (6 planos, Nível Base padrão, 3
+colunas na parcela, 2 no contrato, RLS, anon não executa nada); função `pagbank`
+atualizada (cartão em até Nx sem juros).
 
 ## Deploy (Vercel) — UM projeto, dois apps
 Pedido do dono do processo (15/10/2026): admin e portal no MESMO projeto do
