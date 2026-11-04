@@ -45,7 +45,7 @@ const UF_NOME: Record<string, string> = {
 };
 
 const digitos = (s: unknown) => String(s ?? "").replace(/\D/g, "");
-const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+const semAcento = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 const hojeBR = () => new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
 const maisDias = (iso: string, n: number) => {
   const d = new Date(`${iso}T12:00:00Z`);
